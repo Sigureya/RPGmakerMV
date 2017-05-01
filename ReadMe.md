@@ -17,7 +17,7 @@ RPGツクールMVで動作するプラグイン(JavaScript)を置いています
 
 ## 装備・アイテム
 
-## 利用規約 Terms of use
+## 利用規約
 すべて[MITライセンス](https://github.com/sigureya/RPGMakerMV/blob/master/LICENSE.txt)です。  
 使用方法を問わず、ご自由にお使いください。
 仕様報告があると作者が喜びます。
@@ -25,7 +25,7 @@ RPGツクールMVで動作するプラグイン(JavaScript)を置いています
 ReadMeなどに作者名を描く際はgithubのURLでお願いします。
 [GitHub]  : <https://github.com/sigureya/>  
 
-## 作者連絡先 Contact information
+## 作者連絡先
 しぐれん（siguren）
 [Twitter] : <https://twitter.com/sigureya>  
 [GitHub]  : <https://github.com/sigureya/>  
