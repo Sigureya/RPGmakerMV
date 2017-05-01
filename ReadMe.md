@@ -12,7 +12,7 @@ RPGツクールMVで動作するプラグイン(JavaScript)を置いています
 ## 戦闘
 | プラグイン | マニュアル | ダウンロード | 更新日 |  説明 |
 |:-----------|:-----------:|:-------------|:-------------|:-------------|
-| [Manosayaki_CriticalHook](Manosasayaki_CriticalHook.js) | [作成中] | [v1.1.4](https://raw.githubusercontent.com/sigureya/RPGMaker/master/Manosasayaki_CriticalHook.js) | 2017/04/30 |クリティカルヒット時にステートを発生させ、ダメージ計算を書き換える |
+| [Manosayaki_CriticalHook](Manosasayaki_CriticalHook.js) | [作成中] | [v1.0.0](https://raw.githubusercontent.com/Sigureya/RPGmakerMV/master/Manosasayaki_CriticalHook.js) | 2017/04/13 |クリティカルヒット時にステートを発生させ、ダメージ計算を書き換える |
 
 
 ## 装備・アイテム
