@@ -2,12 +2,12 @@
 
 ツクールMV用のプラグインです。
 
-RPGツクールMVで動作するプラグイン(JavaScript)を置いています。
+RPGツクールMVで動作するプラグイン(JavaScript)を置いています。  
 簡潔な記述・単体で最小限の仕事をモットーにしています。
 
-## 使い方 How to use
+## 使い方
 
-## 目次 index
+## 目次
 
 ## 戦闘
 | プラグイン | マニュアル | ダウンロード | 更新日 |  説明 |
@@ -19,13 +19,13 @@ RPGツクールMVで動作するプラグイン(JavaScript)を置いています
 
 ## 利用規約
 すべて[MITライセンス](https://github.com/sigureya/RPGMakerMV/blob/master/LICENSE.txt)です。  
-使用方法を問わず、ご自由にお使いください。
-仕様報告があると作者が喜びます。
+使用方法を問わず、ご自由にお使いください。  
+仕様報告があると作者が喜びます。  
 
-ReadMeなどに作者名を描く際はgithubのURLでお願いします。
+ReadMeなどに作者名を描く際はgithubのURLでお願いします。  
 [GitHub]  : <https://github.com/sigureya/>  
 
 ## 作者連絡先
-しぐれん（siguren）
+しぐれん（siguren）  
 [Twitter] : <https://twitter.com/sigureya>  
 [GitHub]  : <https://github.com/sigureya/>  
