@@ -26,11 +26,12 @@
  * 
  * パラメータは、デフォルトでは以下の形になっています。
  * <CounterExt:
- *    cond     = act.isPhysical()   #発動条件
- *    rate     = 100                #発動率
- *    priority = 0                  #優先度
- *    skill    = 1                  #使用するスキル
- *    mode     = target             #攻撃対象にならなかった時に判定するか
+ *    cond     = 'true'   #発動条件
+ *    rate     = 100      #発動率
+ *    priority = 0        #優先度
+ *    skill    = 1        #使用するスキル
+ *    mode     = target   #攻撃対象にならなかった時に判定するか
+ *    event    = 0        #判定直前に呼び出すコモンイベント
  * >
  * 
  * 複数の条件を設定したい場合、「CounterExt3」など、
@@ -53,28 +54,37 @@
  * 特徴の「反撃率」とほぼ同様です。
  * デフォルトの反撃率設定はすべて無視します。
  * 
+ * 反撃率の判定は、カウンター条件全てで個別に行われます。
+ * 一つ目のカウンターが反撃率判定で失敗しても、
+ * 残りのカウンターの判定は行われます。
+ * 
  * ■skill
- * Nもしくはv[N]の形式で指定します。
+ * Nもしくはv(N)の形式で指定します。
  * (Nは整数)
- * v[N]の場合、変数からスキル番号を取り出します
+ * v(N)の場合、変数からスキル番号を取り出します
  * 
  * ■priority
  * 優先順位を定義します。
  * 優先順位の高い物から反撃判定を行い、最初に条件を満たしたものから実行されます。
  * なお、priorityが同値の場合、
  * ステート > アクター > 職業 > 装備品の順で判定します。
+ * この並び順はGame_Battler.traitObjects()の戻り値順です。
  * ただし、この順序は実装によって異なるので保証しません。
  * ■mode
  * use,targetの2つを指定できます。
  * useは条件を満たすスキルが使用されたときにカウンターします。
  * targetは、条件を満たすスキルの攻撃対象になったときに発動します。
  *
- * ■opt
- * ※未実装です。
- * オプション項目を設定します。
- * カンマ区切りでopt = a,b,cとしていしてください。
- * count    カウンターの使用回数としてカウントしません。
- * cost    コストの支払いをしません。
+ * ■event
+ * カウンターの判定処理の前にコモンイベントを呼び出します。
+ * タイミングはrateでの乱数判定がtrueになったあとで、
+ * condで指定した条件式の判定前に呼び出します。
+ * 「this.変数」の形式で以下の変数が使用できます。
+ * 指定したコモンイベントが呼び出した別のコモンイベントではこれらを参照できません。
+ * a       :攻撃を受けたBattler。
+ * b       :攻撃を行ったBattler。
+ * counter :Counterクラス。詳細はプラグインを見てください。
+ * act     :相手の行った行動。
  * 
  * ■サンプル
  * 魔法に対して50%で反撃。スキルを指定していないので、通常攻撃で反撃。
@@ -90,7 +100,7 @@
  * 魔法に対して変数1番で定義したIDのスキルで反撃。
  * <CounterExt:
  *    cond  = act.isMagicSkill()
- *    skill = v[1]
+ *    skill = v(1)
  * >
  * 自分のHPが50%を下回ると反撃。
  * <CounterExt:
@@ -109,8 +119,14 @@
  *    cond   = v(1)===100
  * >
  * 
+ *
+ * ■その他
+ * スキルやアイテムに<CanNotCounter>タグを指定することで、
+ * カウンターされないスキルが作れます。
  * 
+ *  
  * ■更新履歴
+ * var 1.0.0(2017/05/21) コモンイベント呼び出し機能を追加。elementIDに統一。
  * var 0.9.1(2017/05/19) バグ修正とヘルプの修正
  * var 0.9.0(2017/05/19) 公開
  */
@@ -233,19 +249,14 @@ function Counter() {
     this.initialize.apply(this,arguments);
 }
 Counter.prototype.initialize=function(){
-    this.setSkillID(1);
 
-    this._itemID = 0;
+    this.setSkillID(1);
     this._priority = 0;
     this._rate = 1;
     this._cond = 'true';
-    this._anime = 0;
     this._mode = 'target';
+    this._commonEvent =0;
 };
-Counter.prototype.setAnimation =function(id){
-    this._anime =id;
-};
- 
 
 Counter.prototype.skillFromNumber=function(){
     return $dataSkills[this._id];
@@ -261,6 +272,10 @@ Counter.prototype.skillFromGameVariables=function(){
 Counter.prototype.setSkillVariable =function(id){
     this._id =id;
     this._getItemFunc = Counter.prototype.skillFromGameVariables;
+};
+
+Counter.prototype.skillCopy=function(opponentAction){
+    return opponentAction.item()
 };
 
 Counter.prototype.setSkill=function(value){
@@ -297,13 +312,17 @@ Counter.prototype.setCondition =function(cond){
     this._cond=cond;
 };
 
+Counter.prototype.setCommonEvent =function(eventId){
+    this._commonEvent = Number( eventId);
+};
+
 Counter.prototype.evalCondition=function(subject,action){
 
     var act       = action;
     var item      = action.item();
     var a         = action.subject();
     var b         = subject;
-    var elementId = item.damage.elementId;
+    var elementID = item.damage.elementId;
     var v         = $gameVariables.value.bind($gameVariables);
     var s         = $gameSwitches.value.bind($gameSwitches);
     
@@ -328,7 +347,7 @@ Counter.prototype.numConvertTo =function(func,value){
 
 };
 Counter.prototype.numOrVariable =function(str,numFunc,variableFunc){
-    var reg = /v\[(\d)\]/i;
+    var reg =/[(\[](\d)?[)\]]/i;
     var match = reg.exec(str);
     if(match){
         console.log(match[1]);
@@ -340,7 +359,6 @@ Counter.prototype.numOrVariable =function(str,numFunc,variableFunc){
 
 Counter.prototype.patternMatch=function(key ,value){
     var k = key[0];
-
 
     switch (k) {
 //        case 'cond':
@@ -363,6 +381,8 @@ Counter.prototype.patternMatch=function(key ,value){
         case 'm':
             this.setMode(value);
             break;
+        case 'e':
+            this.setCommonEvent(value);
         default:
             break;
     };
@@ -370,7 +390,7 @@ Counter.prototype.patternMatch=function(key ,value){
 };
 
 Counter.prototype.setMeta=function(metaStr){
-    var reg = /(skill|cond|rate|priority|mode)\s*=(.*)/g;
+    var reg = /(cond|skill|rate|priority|mode|event)\s*=(.*)/g;
     for(;;){
         var match = reg.exec(metaStr);
         if(!match){break;}
@@ -403,15 +423,29 @@ Counter.prototype.modeMathc=function(subject){
     }
     return true;
 };
-Counter.prototype.userCustomJudge =function(subject,opponentAction){
-    return true;
+
+Counter.prototype.callCommonEvent=function(subject,opponentAction){
+    if(this._commonEvent ===0){return;}
+
+    var inter = new Game_Interpreter();
+    inter.counter = this;
+    inter.a = subject;
+    inter.b = opponentAction.subject();
+    inter.act = opponentAction;
+
+    inter.setup($dataCommonEvents[this._commonEvent].list);
+    inter.update();
 };
 
+Counter.prototype.canUse =function(subject){
+    return subject.canUse(this.item());
+
+};;
 Counter.prototype.Judge =function(subject,opponentAction){
-    return Math.random() < this.rate()
-        && this.userCustomJudge(subject,opponentAction)
-        && this.evalCondition(subject,opponentAction)
-        && subject.canUse(this.item()) ;
+    if(! (Math.random() < this.rate())){return false;}
+    this.callCommonEvent(subject,opponentAction);
+
+    return this.evalCondition(subject,opponentAction) && this.canUse(subject);
 };
 //=============================================================================
 // DefineCounterTrait
@@ -448,7 +482,7 @@ Game_Action.prototype.isCounter=function(){
 };
 
 Game_Action.prototype.canCounter=function(){
-    return !this.isCounter();
+    return (!this.item().meta.CanNotCounter) && !this.isCounter() ;
 };
 Game_Action.prototype.counterSpeed=function(){
 
