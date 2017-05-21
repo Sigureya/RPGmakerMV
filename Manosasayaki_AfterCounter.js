@@ -1,4 +1,4 @@
-//=============================================================================
+ //=============================================================================
 // Manosasayaki_AfterCounter.js
 // ----------------------------------------------------------------------------
 // Copyright (c) 2017-2017 Sigureya
@@ -9,7 +9,7 @@
 //=============================================================================
 
 /*:ja
- * @plugindesc 攻撃を受けた後に、反撃を行います。
+ * @plugindesc 攻撃を受けた後に、スキルを使います。
  * 条件式や反撃時の行動も設定できます。
  * @author しぐれん（魔のささやき）
  * 
@@ -114,6 +114,107 @@
  * var 0.9.1(2017/05/19) バグ修正とヘルプの修正
  * var 0.9.0(2017/05/19) 公開
  */
+/*:
+ * @plugindesc 
+ * 
+ * After receiving the attack, use the skill.
+ * You can also set the trigger condition
+ * @author しぐれん(siguren)
+ * 
+ * @param tagName
+ * @desc Define the name part of <name: data>.
+ * @default CounterExt
+ * 
+ * @param msg_format
+ * @desc At the time of action by counterattack, set the sentences to be displayed.
+ * If it is blank, I do not do anything.
+ * @default CounterAttack!
+ * 
+ * @help
+ * 
+ * By default, the parameters are in the following form.
+ * <CounterExt:
+ *    cond     = true   #Invocation condition
+ *    rate     = 100    #Activation rate
+ *    priority = 0      #Priority when multiple conditions satisfy
+ *    skill    = 1      #use skill
+ *    mode     = target #Do you decide when it did not become an attack target
+ * >
+ * 
+ * If you want to set multiple conditions, 
+ * please attach a number such as "CounterExt3".
+ * It corresponds to 9.
+ * ■cond
+ * Define conditional statements.
+ * Comparison operators other than > are available.
+ * The following variables can be referred to within the condition statement.
+ * act      : Game_action is stored.
+ * elementId: The attribute number is stored.
+ * a        : Counter user.
+ * b        : The opponent who attacked.
+ * skillID  : ID of the skill. 0 if the opponent's action is not a skill.
+ * itemID   : ID of the item. 0 if the opponent's action is not an item.
+ *
+ * ■rate
+ * Define the counterattack rate.
+ * It is almost the same as the characteristic "counter rate".
+ * Ignore all default counter rate settings. * 
+ * ■skill
+ * Specify it in the form of N or v[N].
+ * (N is an integer)
+ * For v[N], retrieve the skill number from the variable.
+ * ■priority
+ * Define the priority.
+ * Counterattack judgment is done from objects with high priority, 
+ * and it will be executed from those that first fulfilled the condition.
+ * If priority is the same,
+ * State judged in the order of actor> occupation> equipment.
+ * However, this order is not guaranteed because 
+ * it varies depending on the implementation.
+ * ■mode
+ * use, target can be specified.
+ * use counts when skills that satisfy the criteria are used.
+ * target is activated when it becomes an attack target of a skill which satisfies the condition.
+ * 
+
+* ■ Sample
+ * Counter Attack with 50% against magic. 
+ * Because they did not designate skills, they attacked with regular attacks.
+ * <CounterExt:
+ * Cond = act.isMagicSkill ()
+ * Rate = 50
+ *>
+ * Counterattack with the skill of ID 9 against magic.
+ * <CounterExt:
+ * Cond = act.isMagicSkill ()
+ * Skill = 9
+ *>
+ * Counterattack with the skill of ID defined with variable 1 against magic.
+ * <CounterExt:
+ * Cond = act.isMagicSkill ()
+ * Skill = v [1]
+ *>
+ * Counterattack if your HP falls below 50%.
+ * <CounterExt:
+ * Cond = a.hpRate () <0.5
+ *>
+ * Counterattack against attribute number 2.
+ * <CounterExt:
+ * Cond = elementId === 2
+ *>
+ * Counterattack when switch [1] is ON.
+ * <CounterExt:
+ * Cond = s (1)
+ *>
+ * Counterattack when variable [1] is 100.
+ * <CounterExt:
+ * Cond = v (1) === 100
+ * > 
+ * 
+
+* ■ Update history
+ * Var 0.9.0 (2017/05/21) Published in English
+ *  */
 
 var Imported = (Imported || {});
 (function (global) {
@@ -183,9 +284,6 @@ Counter.prototype.setMode =function(mode){
         this._mode = match[1];
     }
 };
-Counter.prototype.isEveMode=function(){
-    return this._mode ==='eva';
-};
 
 Counter.prototype.priority =function(){
     return this._priority;
@@ -199,9 +297,7 @@ Counter.prototype.setCondition =function(cond){
     this._cond=cond;
 };
 
-
 Counter.prototype.evalCondition=function(subject,action){
-
 
     var act       = action;
     var item      = action.item();
@@ -243,29 +339,34 @@ Counter.prototype.numOrVariable =function(str,numFunc,variableFunc){
 };
 
 Counter.prototype.patternMatch=function(key ,value){
-    switch (key) {
-        case 'cond':
+    var k = key[0];
+
+
+    switch (k) {
+//        case 'cond':
+        case 'c':
             this.setCondition(value);
             break;
-        case 'skill':
+//        case 'skill':
+        case 's':
             this.setSkill(value);
             break;
-        case 'priority':
+//        case 'priority':
+        case 'p':
             this.numConvertTo(this.setPriority,value);
-            break;
-        case 'rate':
+            break;        
+//        case 'rate':
+        case 'r':
             this.numConvertTo(this.setRate,value);
             break;
-//        case 'anime':
-//            this.numConvertTo(this.setAnimation,value);
-//            break;
-        case 'mode':
+//        case 'mode':
+        case 'm':
             this.setMode(value);
             break;
         default:
             break;
     };
-
+    
 };
 
 Counter.prototype.setMeta=function(metaStr){
@@ -308,7 +409,6 @@ Counter.prototype.userCustomJudge =function(subject,opponentAction){
 
 Counter.prototype.Judge =function(subject,opponentAction){
     return Math.random() < this.rate()
-        && opponentAction.opponentsUnit().members().contains(subject)
         && this.userCustomJudge(subject,opponentAction)
         && this.evalCondition(subject,opponentAction)
         && subject.canUse(this.item()) ;
@@ -343,8 +443,12 @@ counter.defineCounterTrait=function(obj) {
 //=============================================================================
 // GameAction
 //=============================================================================
-Game_Action.prototype.isCounterMA=function(){
+Game_Action.prototype.isCounter=function(){
     return this._counterPriority_Manosasayaki!==undefined;
+};
+
+Game_Action.prototype.canCounter=function(){
+    return !this.isCounter();
 };
 Game_Action.prototype.counterSpeed=function(){
 
@@ -386,14 +490,12 @@ Game_Battler.prototype.findCounterAciton=function(opponentAction){
     },this);
     return result;
 };
-
 //=============================================================================
 // BattleManager
 //=============================================================================
 var zz_MA_AfterCounter_BattleManager_BattleManager_initMembers =BattleManager.initMembers;
 BattleManager.initMembers =function(){
     this._reservedCounter =[];
-
 };
 
 var zz_MA_AfterCounter_BattleManager_updateTurn = BattleManager.updateTurn;
@@ -413,13 +515,11 @@ BattleManager.updateTurn =function(){
     }
     zz_MA_AfterCounter_BattleManager_updateTurn.call(this);
 };
-
 var zz_MA_AfterCounter_BattleManager_invokeNormalAction =BattleManager.invokeNormalAction;
 BattleManager.invokeNormalAction=function(subject,target){
     zz_MA_AfterCounter_BattleManager_invokeNormalAction.apply(this,arguments);
     target._targetedMA =true;
 };
-
 BattleManager.counterActionSort =function(){
     this._reservedCounter.sort(function(a,b){
         return b.counterSpeed()-a.counterSpeed();
@@ -431,8 +531,8 @@ BattleManager.endAction =function(){
 
     zz_MA_AfterCounter_BattleManager_endAction.call(this);
 
-    var counterUser = this.allBattleMembers();
-    if(!this._action.isCounterMA()){
+    if(this._action.canCounter()){
+        var counterUser = this._action.opponentsUnit().members();
 
         for(var i=0;i <counterUser.length;++i){
             var u= counterUser[i];
@@ -448,7 +548,7 @@ BattleManager.endAction =function(){
 if( counter.msg_format ){
     var  zz_MA_AfterCounter_Window_BattleLog_startAction =Window_BattleLog.prototype.startAction;
     Window_BattleLog.prototype.startAction=function(subject,action,targets){
-        if(action.isCounterMA()){
+        if(action.isCounter()){
             this.push('addText',counter.msg_format);
         }
         zz_MA_AfterCounter_Window_BattleLog_startAction.apply(this,arguments);
