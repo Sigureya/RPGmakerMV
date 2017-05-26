@@ -24,11 +24,11 @@
  * 
  * @param WindowX
  * @desc ウィンドウのX座標
- * @default 0
+ * @default 515
  * 
  * @param WindowY
  * @desc ウィンドウのY座標
- * @default 400
+ * @default 295
  * 
  * @param WeekLine
  * @desc 弱点の閾値。
