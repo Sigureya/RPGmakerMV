@@ -56,7 +56,7 @@
  * @param iconList
  * @desc アイコンの一覧を定義します。(半角スペース区切り)
  * 属性の並び順と同じように、並べてください。余計な空白禁止。
- * @default 64 64 66 67 68 69 70 71
+ * @default 64 65 66 67 68 69 70 71
  *
  * @help
  * エネミーを選んでいる時に弱点を表示します。
@@ -121,7 +121,7 @@
 		if( enemyInfo. displayMode ===0){
 			return $dataSystem.elements[elmentID];
 		}
-		return '\\i['+enemyInfo.iconList[  elmentID] +']';	
+		return '\\i['+enemyInfo.iconList[  elmentID-1] +']';	
 	}
 	Window_EnemyInformation.prototype.createText=function(battler){
 		var ei = enemyInfo;
