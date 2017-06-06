@@ -1,5 +1,5 @@
 //=============================================================================
-// Manosasayaki_EnemyInformationWindow.js
+// Mano_weekPointView.js
 // ----------------------------------------------------------------------------
 // Copyright (c) 2017-2017 Sigureya
 // This software is released under the MIT License.
@@ -20,7 +20,6 @@
  * @param axisY
  * @desc 指定数値だけY座標をずらします。
  * @default 0
- * 
  * 
  * @param WeekLine
  * @desc 弱点の閾値。
@@ -61,15 +60,11 @@
  *
  * @help
  * エネミーを選んでいる時に、それが弱点・半減・無効・吸収のどれであるかによって、
- * 表示を切り替えることができます。
+ * 文章や画像をエネミーの上に表示します。
+ * 文章か画像かはパラメータのtextModeで設定します。
  * 
- * openAllWeekPointViewで、開くことで有効化されます。
- * 特定のスキルがないと機能しないようにしたい場合、ここで調整してください。
- * （openしていない状態で処理を呼んでも、エラーにはなりません）
  * 
- * 攻撃を受けたときにも表示できるようにする
- * 
- * var 1.0(2017/5/26) 公開
+ * var 1.0(2017/06/06) 公開
  */
 var Imported = Imported || {};
 Imported.Mano_WeekPointView = true;
