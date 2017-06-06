@@ -175,7 +175,6 @@ WeekPointView_Sprite.prototype.battler =function(){
 WeekPointView_Sprite.prototype.updateMode=function(){
     this;
     var mode= this.battler().getWeekPointView_mode();
-    console.log('udpateMode:'+mode);
     this.setMode(mode);
 }
  
@@ -192,6 +191,9 @@ WeekPointView_Sprite.prototype.setMode=function(value){
             break;
         case 2:
             this.bitmap = mano_weekPointView_Image.resistance;
+            break
+        case 3:
+            this.bitmap = mano_weekPointView_Image.Block;
         default:
             break;
     }
@@ -214,17 +216,16 @@ Game_Battler.prototype.initMembers=function(){
 Game_Battler.prototype.setWeekPointView_mode =function(action){
 
     var rate=action.calcElementRate(this);
-    console.log(this.name() +action.item().name+':rate:'+rate);
     var l =weekPointView.weekLine;
-    if(rate >weekPointView.weekLine){
+    if( rate <=0 ){
+        this._weekPointView.mode =3;
+    }else if(rate >weekPointView.weekLine){
         this._weekPointView.mode =1;
-        return;
-    }
-    if(rate <weekPointView.resistanceLine){
+    }else if(rate <weekPointView.resistanceLine){
         this._weekPointView.mode =2;
-        return;
+    }else{
+        this._weekPointView.mode =0; 
     }
-    this._weekPointView.mode =0;       
 }
 Game_Battler.prototype.getWeekPointView_mode =function(){
     return this._weekPointView.mode;
