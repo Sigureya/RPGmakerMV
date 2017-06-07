@@ -46,7 +46,28 @@
  * @param AbsorbText
  * @desc 吸収の表示名。
  * ※属性吸収のプラグインは別途用意してください。
- * @default
+ * @default 吸収
+ * 
+ * @param WeekTextColor
+ * @desc 弱点の表示色。
+ * @default #FF5050
+ * 
+ * @param ResistanceTextColor
+ * @desc 耐性の表示色。
+ * @default #5050FF
+ * 
+ * @param BlockTextColor
+ * @desc 無効の表示色。
+ * @default #112211
+ * 
+ * @param AbsorbTextColor
+ * @desc 吸収の表示名。
+ * ※属性吸収のプラグインは別途用意してください。
+ * @default #50FF50
+ * 
+ * @param OutlineColor
+ * @desc 弱点などの表示をするときの文字の周りの色。
+ * @default #EEEEEE
  * 
  * @param textMode
  * @desc 設定した文字列の表示方法
@@ -63,6 +84,12 @@
  * 文章や画像をエネミーの上に表示します。
  * 文章か画像かはパラメータのtextModeで設定します。
  * 
+ * ■改造用の情報
+ * 何を表示するかは、Game_Battler._weekPointViewで決まります。
+ * .modeは、弱点・耐性・無効のどれを表示するかを選ぶのに使われます。
+ * .displayは表示するかを決定します。
+ * trueだと即座に表示し、falseだと弱点表示の消滅演出を行います。
+ * 
  * 
  * var 1.0(2017/06/06) 公開
  */
@@ -73,26 +100,36 @@ Imported.Mano_WeekPointView = true;
     'use strict';
 
 	var param = PluginManager.parameters('Mano_WeekPointView');
-	var weekPointView ={};
-	weekPointView.weekLine=Number(param.WeekLine)/100;
-	weekPointView.resistanceLine=Number(param.ResistanceLine)/100;
-    weekPointView.axisX = Number(param.axisX);
-    weekPointView.axisY = Number(param.axisY);
+	var weekPointView ={
+        textMode :Boolean(param.textMode==='true'),
+        WeekText : String(param.WeekText),
+        ResistanceText : String(param.ResistanceText),
+        BlockText : String(param.BlockText),
+        AbsorbText : String(param.AbsorbText),
+        WeekTextColor :  String(param.WeekTextColor),
+        ResistanceTextColor : String(param.ResistanceTextColor),
+        BlockTextColor : String(param.BlockTextColor),
+        AbsorbTextColor : String(param.AbsorbTextColor),
+        OutlineColor : String(param.OutlineColor),
+        weekLine:Number(param.WeekLine)/100,
+        resistanceLine:Number(param.ResistanceLine)/100,
+        axisX : Number(param.axisX),
+        axisY : Number(param.axisY),
+    };
 
-    weekPointView.textMode =Boolean(param.textMode==='true');
-    weekPointView.WeekText = String(param.WeekText);
-    weekPointView.ResistanceText = String(param.ResistanceText);
-    weekPointView.BlockText = String(param.BlockText);
-    weekPointView.AbsorbText = String(param.AbsorbText);
+
 
 
 var mano_weekPointView_Image={};
 
-function createTextBitmap(text){
+function createTextBitmap(text,color){
     var bmp  = new Bitmap(120,32);
+    bmp.textColor = color;
+    bmp.outlineColor =weekPointView.OutlineColor;
     bmp.drawText(text,0,0,120,32,'center');
     return bmp;
 }
+
 
 function createInfoBitmap(str_or_fileName) {
     if( weekPointView.textMode ){
@@ -104,13 +141,23 @@ function createInfoBitmap(str_or_fileName) {
 var zz_MA_WeekPointView_Scene_Boot_loadSystemImages = Scene_Boot.loadSystemImages;
 Scene_Boot.loadSystemImages= function() {
     zz_MA_WeekPointView_Scene_Boot_loadSystemImages.call(this);
-    mano_weekPointView_Image.week =createInfoBitmap(weekPointView.WeekText);
-    mano_weekPointView_Image.resistance =createInfoBitmap(weekPointView.ResistanceText);
-    mano_weekPointView_Image.Block = createInfoBitmap(weekPointView.BlockText);
-    if( weekPointView.AbsorbText ){
-        mano_weekPointView_Image.Avsorb = createInfoBitmap(weekPointView.AbsorbText);
-    }
+    if( weekPointView.textMode ){
+        mano_weekPointView_Image.week =createTextBitmap(weekPointView.WeekText,weekPointView.WeekTextColor);
+        mano_weekPointView_Image.resistance =createTextBitmap(weekPointView.ResistanceText,weekPointView.ResistanceTextColor);
+        mano_weekPointView_Image.Block = createTextBitmap(weekPointView.BlockText,weekPointView.BlockTextColor);
+        if( weekPointView.AbsorbText ){
+            mano_weekPointView_Image.Avsorb = createTextBitmap(weekPointView.AbsorbText,weekPointView.AbsorbTextColor);
+        }
 
+    }else{
+        mano_weekPointView_Image.week = ImageManager.loadSystem(weekPointView.WeekText);
+        mano_weekPointView_Image.resistance = ImageManager.loadSystem(weekPointView.ResistanceText);
+        mano_weekPointView_Image.Block =  ImageManager.loadSystem(weekPointView.BlockText);
+        if( weekPointView.AbsorbText ){
+            mano_weekPointView_Image.Avsorb =  ImageManager.loadSystem(weekPointView.AbsorbText);
+        }
+
+    }
 }
 
 
@@ -132,7 +179,7 @@ WeekPointView_Sprite.prototype.initialize=function(battler){
    this.anchor.x =0.5;
    this.anchor.y =0.5;
    
-   this.setMode(1);
+   this.setMode(0);
 
    this._slideX = 0;
    this.bitmap = this._red;
@@ -173,7 +220,6 @@ WeekPointView_Sprite.prototype.battler =function(){
     return this._battler;
 }
 WeekPointView_Sprite.prototype.updateMode=function(){
-    this;
     var mode= this.battler().getWeekPointView_mode();
     this.setMode(mode);
 }
@@ -194,8 +240,10 @@ WeekPointView_Sprite.prototype.setMode=function(value){
             break
         case 3:
             this.bitmap = mano_weekPointView_Image.Block;
-        default:
-            break;
+            break
+        case 4:
+            this.bitmap = mano_weekPointView_Image.Avsorb;
+            break
     }
 }
 //-----------------------------------------//
@@ -206,7 +254,7 @@ Game_Battler.prototype.initMembers=function(){
     zz_MA_WeekPointView_Game_Battler_initMembers.call(this);
     this._weekPointView ={
         offsetX :0,
-        offsetY :-50,
+        offsetY :0,
         display :false,
         mode :0,
     };
@@ -215,8 +263,15 @@ Game_Battler.prototype.initMembers=function(){
 
 Game_Battler.prototype.setWeekPointView_mode =function(action){
 
+    //吸収の表示サンプル
+    //コメントアウトして処理
+    //isAbsorbという関数は、プラグインに応じて書き換えてください
+    //if(action.isAbsorb(this)){
+    //  this._weekPointView.mode =4;
+    //  return;
+    //}
+
     var rate=action.calcElementRate(this);
-    var l =weekPointView.weekLine;
     if( rate <=0 ){
         this._weekPointView.mode =3;
     }else if(rate >weekPointView.weekLine){
@@ -262,7 +317,6 @@ Spriteset_Battle.prototype.createWeekPointView=function(){
         var e = this._enemySprites[i];
         var ws = new WeekPointView_Sprite(e._battler);
         this._weekPointView[i]=ws;
-//        ws.setMode(i);
         e.addChild(ws);
     }
 }
@@ -318,10 +372,7 @@ Scene_Battle.prototype.commandAttack= function() {
     if(e){
         e.openWeekView();
     }
-    
-
 }
-
 
 var zz_MA_WeekPointView_Scene_Battle_onSelectAction= Scene_Battle.prototype.onSelectAction;
 Scene_Battle.prototype.onSelectAction =function(){
