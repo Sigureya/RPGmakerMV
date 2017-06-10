@@ -26,12 +26,12 @@
  * 
  * パラメータは、デフォルトでは以下の形になっています。
  * <CounterExt:
- *    cond     = 'true'   #発動条件
- *    rate     = 100      #発動率
- *    prio = 0        #優先度
- *    skill    = 1        #使用するスキル
- *    mode     = target   #攻撃対象にならなかった時に判定するか
- *    event    = 0        #判定直前に呼び出すコモンイベント
+ *    cond   = 'true'   #発動条件
+ *    rate   = 100      #発動率
+ *    prio   = 0        #優先度
+ *    skill  = 1        #使用するスキル
+ *    mode   = target   #攻撃対象にならなかった時に判定するか
+ *    event  = 0        #判定直前に呼び出すコモンイベント
  * >
  * 
  * 複数の条件を設定したい場合、「CounterExt3」など、
@@ -43,12 +43,12 @@
  * 比較演算子は >　以外が使用可能です。
  * 条件文内部では以下の変数が参照できます。
  * act      : Game_actionが格納されます。
+ * result   : Game_actionResultが格納されます。
  * elementID: 属性番号が格納されます。
  * a        : カウンター使用者。
  * b        : 攻撃してきた相手。
  * skillID  : スキルのID。敵の行動がスキルでない場合は0。
  * itemID   : アイテムのID。敵の行動がアイテムでない場合は0。
- * 
  * ■rate
  * 反撃率を定義します。
  * 特徴の「反撃率」とほぼ同様です。
@@ -73,10 +73,10 @@
  * ※初期版ではpriolityで指定していましたが、長いので省略。
  * priolityでも動きますが、いずれ削除します。
  * ■mode
- * use,targetの2つを指定できます。
- * useは条件を満たすスキルが使用されたときにカウンターします。
+ * use,target,hitの3つから指定できます。
+ * useは条件を満たすスキルが使用されたときに発動します。
  * targetは、条件を満たすスキルの攻撃対象になったときに発動します。
- *
+ * hitは、条件を満たすスキルが自分にヒットしたときに発動します。
  * ■event
  * カウンターの判定処理の前にコモンイベントを呼び出します。
  * タイミングはrateでの乱数判定がtrueになったあとで、
@@ -108,6 +108,10 @@
  * <CounterExt:
  *    cond   = a.hpRate() < 0.5
  * >
+ * 自分のHPが50%を下回っている時に、魔法を受けると反撃。
+ * <CounterExt:
+ *    cond   = a.hpRate() < 0.5 && act.isMagicSkill()
+ * >
  * 属性番号2に対して反撃。
  * <CounterExt:
  *    cond   = elementId === 2
@@ -120,8 +124,16 @@
  * <CounterExt:
  *    cond   = v(1)===100
  * >
+ * クリティカルヒットを受けたときに反撃
+ * <CounterExt:
+ *    cond = result.critical
+ * >
+ * コモンイベント[1]で処理を行い、スイッチ[5]番がONの時に反撃
+ * <CounterExt:
+ *    cond  = s(5)
+ *    event = 1
+ * >
  * 
- *
  * ■その他
  * スキルやアイテムに<CanNotCounter>タグを指定することで、
  * カウンターされないスキルが作れます。
@@ -134,7 +146,9 @@
  * 
  *  
  * ■更新履歴
- * var 0.9.2(2017/05/21)
+ * ver 0.9.3(2017/05/27)
+ * 優先度が機能していなかったバグを修正
+ * ver 0.9.2(2017/05/21)
  *  コモンイベント呼び出し機能を追加。
  * <CanNotCounter>で、カウンターされないスキルが作れる機能を追加。
  * elementIDに統一。
@@ -142,8 +156,8 @@
  * condのaとbが逆になっていたのを修正。
  * エラー発生時に、どこに原因があるか見つけやすいように修正。
  * mode=targetの処理が正しく機能していなかったのを修正。
- * var 0.9.1(2017/05/19) バグ修正とヘルプの修正
- * var 0.9.0(2017/05/19) 公開
+ * ver 0.9.1(2017/05/19) バグ修正とヘルプの修正
+ * ver 0.9.0(2017/05/19) 公開
  */
 /*:
  * @plugindesc 
@@ -248,14 +262,16 @@
  *  */
 
 var Imported = (Imported || {});
-(function (global) {
+Imported.Mano_AfterCounter =true;
+
+(function () {
 'use strict';
 var counter={};
-var params = PluginManager.parameters('Manosasayaki_AfterCounter');
+var params = PluginManager.parameters('Mano_AfterCounter');
 
 counter.tagName = params['tagName']||'CounterExt';
-counter.modeReg =/(target|use)/;
-counter.msg_format = params['msg_format'];
+counter.modeReg =/(target|use|hit)/;
+counter.msg_format = String( params['msg_format']);
 
 //=============================================================================
 // Counter Class
@@ -263,16 +279,15 @@ counter.msg_format = params['msg_format'];
 function Counter() {
     this.initialize.apply(this,arguments);
 }
-Counter.prototype.initialize=function(){
-
-    this.setSkillID(1);
+Counter.prototype.initialize=function()
+{
     this._priority = 0;
     this._rate = 1;
-    this._cond = 'true';
+    this._cond = null;
     this._mode = 'target';
     this._commonEvent =0;
+    this.setSkillID(1);
 };
-
 Counter.prototype.skillFromNumber=function(){
     return $dataSkills[this._id];
 };
@@ -314,7 +329,6 @@ Counter.prototype.setMode =function(mode){
         this._mode = match[1];
     }
 };
-
 Counter.prototype.priority =function(){
     return this._priority;
 };
@@ -341,19 +355,20 @@ Counter.prototype.evalCondition=function(subject,action,trait){
     var elementID = item.damage.elementId;
     var v         = $gameVariables.value.bind($gameVariables);
     var s         = $gameSwitches.value.bind($gameSwitches);
+    var result    = subject.result();
     
     var skillID = action.isSkill() ? item.id : 0;
     var itemID  = action.isItem()  ? item.id : 0;
 
-    var result = false;
+    var condResult = false;
     try {
-        result =!!eval(this._cond);
+         condResult=!!eval(this._cond);
         
     } catch (e) {
         console.error(e.toString());
         throw new Error('条件式(cond)が不正です。該当データ('+trait.name+')式:' + this._cond);
     }
-    return result;
+    return condResult;
 };
 Counter.prototype.numConvertTo =function(func,value){
     var num = Number(value);
@@ -366,7 +381,7 @@ Counter.prototype.numOrVariable =function(str,numFunc,variableFunc){
     var reg =/[(\[](\d)?[)\]]/i;
     var match = reg.exec(str);
     if(match){
-        console.log(match[1]);
+//        console.log(match[1]);
         variableFunc.call(this,match[1]);
     }else{
         numFunc.call(this,Number( str ));
@@ -428,8 +443,10 @@ Counter.prototype.createAction=function(subject,opponentAction)
     var item = this.item();
     if(item){
         action.setItemObject(item);
-        this.selectTargetIndex(action,opponentAction.subject());
+    }else{
+        action.setAttack();
     }
+    this.selectTargetIndex(action,opponentAction.subject());
     return action;
 };
 Counter.prototype.modeMathc=function(subject){
@@ -438,6 +455,15 @@ Counter.prototype.modeMathc=function(subject){
             return false;
         }
     }
+
+    if(this._mode ==='hit'){
+        var actResult = subject.result();
+        if(!actResult.isHit()){
+            return false;
+        }
+    }
+
+
     return true;
 };
 
@@ -454,15 +480,15 @@ Counter.prototype.callCommonEvent=function(subject,opponentAction){
     inter.update();
 };
 
-Counter.prototype.canUse =function(subject){
-    return subject.canUse(this.item());
-
-};;
 Counter.prototype.Judge =function(subject,opponentAction,trait){
     if(! (Math.random() < this.rate())){return false;}
     this.callCommonEvent(subject,opponentAction);
+    var result = true;
+    if(this._cond){
+        result = this.evalCondition(subject,opponentAction,trait);
+    }
 
-    return this.evalCondition(subject,opponentAction,trait) && this.canUse(subject);
+    return result && subject.canUse(this.item());
 };
 //=============================================================================
 // DefineCounterTrait
@@ -486,7 +512,7 @@ counter.defineCounterTrait=function(obj) {
     obj.counter_Manosasayaki=[];
     var tagName = counter.tagName;
     counter.defineCounterTraitImple(obj,tagName);
-    for(var i=0;i <=9;++i ){
+    for(var i=0;i <=9;i+=1 ){
         counter.defineCounterTraitImple(obj,tagName+i);
     }
 };
@@ -495,12 +521,13 @@ counter.defineCounterTrait=function(obj) {
 // GameAction
 //=============================================================================
 Game_Action.prototype.isCounter=function(){
-    return this._isCounter;
+    return !!this._isCounter;
 };
 
 Game_Action.prototype.canCounter=function(){
     return (!this.item().meta.CanNotCounter) && !this.isCounter() ;
 };
+
 Game_Action.prototype.counterSpeed=function(){
 
     var result = this.speed()
@@ -514,26 +541,25 @@ Game_Action.prototype.counterSpeed=function(){
 // Game_Battler
 //=============================================================================
 Game_Battler.prototype.findCounterAciton=function(opponentAction){
-    var maxPriority = Number.MIN_SAFE_INTEGER;
-
     var traits= this.traitObjects();
     var counterObj =null;
+    var tn = counter.tagName
+    traits.forEach(function(trait){
+        var c_ext = trait.meta[tn];
+        if(!c_ext){return;}
 
-    traits.forEach(function(t){
-        var cm = t.counter_Manosasayaki;
+        var cm = trait.counter_Manosasayaki;
         if(cm ===undefined){
-            counter.defineCounterTrait(t);
-            cm = t.counter_Manosasayaki;
+            counter.defineCounterTrait(trait);
+            cm = trait.counter_Manosasayaki;
         }
-        for(var i=0,len = cm.length ;i < len; ++i ){
+        for(var i=0,len = cm.length ;i < len; i+=1 ){
             var co_i = cm[i];
             if(!co_i.modeMathc(this)){continue;}
-
             if(counterObj){
-                if(  co_i.rate() < counterObj.rate ()){continue;}                    
-            }
-            
-            if(co_i.Judge(this,opponentAction,t) ){
+                if(  co_i.priority() < counterObj.priority ()){continue;}                    
+            }   
+            if(co_i.Judge(this,opponentAction,trait) ){
                 counterObj = co_i;
             }
         }
@@ -570,9 +596,9 @@ BattleManager.updateTurn =function(){
         }
     }
     var battlers = this.allBattleMembers();
-    battlers.forEach(  function(b){b._targetedMA=false;} );
-
-
+    for(var i=0,len =battlers.length; i<len; i +=1){
+        battlers[i]._targetedMA=false;
+    }
     zz_MA_AfterCounter_BattleManager_updateTurn.call(this);
 };
 var zz_MA_AfterCounter_BattleManager_invokeNormalAction =BattleManager.invokeNormalAction;
@@ -592,13 +618,15 @@ BattleManager.endAction =function(){
     zz_MA_AfterCounter_BattleManager_endAction.call(this);
 
     if(this._action.canCounter()){
-        var counterUser = this._action.opponentsUnit().members();
-        counterUser.forEach( function(u)  {
-            var counterAction= u.findCounterAciton(this._action);
+        var counterUser = this._action.opponentsUnit().aliveMembers();
+
+        for(var i=0;i <counterUser.length;i+=1){
+             var u= counterUser[i];
+             var counterAction= u.findCounterAciton(this._action);
             if(counterAction){
                 this._reservedCounter.push(counterAction);
-            }
-        },this);
+            }        
+        }
         this.counterActionSort();
     }
 };
@@ -612,8 +640,5 @@ if( counter.msg_format ){
     };
 }
 
-//-------------------------------------------------------
-global.Manosasayaki = (global.Manosasayaki||{});
-global.Manosasayaki.counter = counter;
 
-})(this);
+})();
