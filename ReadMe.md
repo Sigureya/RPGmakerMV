@@ -13,7 +13,7 @@ RPGツクールMVで動作するプラグイン(JavaScript)を置いています
 | プラグイン | マニュアル | ダウンロード | 更新日 |  説明 |
 |:-----------|:-----------:|:-------------|:-------------|:-------------|
 | [Manosayaki_CriticalHook](Manosasayaki_CriticalHook.js) | [作成中] | [v1.0.0](https://raw.githubusercontent.com/Sigureya/RPGmakerMV/master/Manosasayaki_CriticalHook.js) | 2017/04/13 |クリティカルヒット時にステートを発生させ、ダメージ計算を書き換える |
-| [Manosayaki_AfterCounter](Manosasayaki_AfterCounter.js) | [作成中] | [v0.9.1](https://raw.githubusercontent.com/Sigureya/RPGmakerMV/master/Manosasayaki_AfterCounter.js) | 2017/05/19 |相手の行動後に、条件を満たしたスキルを発動する（カウンター行動） |
+| [Mano_AfterCounter](Mano_AfterCounter.js) | [作成中] | [v0.9.4](https://raw.githubusercontent.com/Sigureya/RPGmakerMV/master/Mano_AfterCounter.js) | 2017/06/11 |相手の行動後に、条件を満たしたスキルを発動する（カウンター行動） |
 
 
 ## 装備・アイテム
