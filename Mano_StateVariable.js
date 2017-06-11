@@ -73,10 +73,19 @@ Game_BattlerBase.prototype.isStateExpired = function(stateId){
 
 Game_BattlerBase.prototype.stateVariableUpdate =function(action){
     var sv_param = item.stateVariableAddSelf_MA;
-    if(this.isStateAffected( sv_param.state  )){
-        this._stateVariable[sv_param.state] += sv_param.value;
-    }
+
+    this.addStateVariable( sv_param.state,sv_param.value );
+//    if(this.isStateAffected( sv_param.state  )){
+//        this._stateVariable[sv_param.state] += sv_param.value;
+//    }
 }
+Game_BattlerBase.prototype.addStateVariable=function(stateId,val){
+    if(this.isStateAffected(stateId)){
+        this._stateVariable[stateId] += val;        
+    }
+
+}
+
 var zz_MA_StateVariable_Game_Battler_Base_addNewState=Game_BattlerBase.prototype.addNewState;
 Game_BattlerBase.prototype.addNewState =function(stateId){
     zz_MA_StateVariable_Game_Battler_Base_addNewState.call(this,stateId);
@@ -180,7 +189,6 @@ Scene_Boot.loadSystemImages= function() {
             s.stateVariableAdd_MA = createSkillAddParam(s.meta.StateVariableAdd);
         }
     }
-
 }
 
 
