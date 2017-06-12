@@ -19,7 +19,7 @@ Manosasayakiだと長くて面倒だったので、Manoに書き換えていま�
 | [Mano_AfterCounter](Mano_AfterCounter.js) | [作成中] | [v0.9.4](https://raw.githubusercontent.com/Sigureya/RPGmakerMV/master/Mano_AfterCounter.js) | 2017/06/11 |相手の行動後に、条件を満たしたスキルを発動し反撃する（カウンター行動） |
 | [Mano_EffectShare.js](Mano_EffectShare.js) | [作成中] | [v1.0.0](https://raw.githubusercontent.com/Sigureya/RPGmakerMV/master/Mano_EffectShare.js) | 2017/06/11 |回復スキルや補助スキルを味方に使ったときに、自分も効果対象に含める|
 | [Mano_WeakPointView.js](Mano_WeakPointView.js) | [作成中] | [v1.0.0](https://raw.githubusercontent.com/Sigureya/RPGmakerMV/master/Mano_WeakPointView.js) | 2017/06/06 |攻撃対象を選ぶときに弱点かどうかが表示できます |
-| [Mano_StateVariable.js](Mano_.StateVariable.js) | [作成中] | [v0.0.0](https://raw.githubusercontent.com/Sigureya/RPGmakerMV/master/Mano_StateVariable.js) | 2017/06/11 |ステートに変数を1つ設定できます。変数が0になるとステートは自動で解除されます。 |
+| [Mano_StateVariable.js](Mano_StateVariable.js) | [作成中] | [v0.0.0](https://raw.githubusercontent.com/Sigureya/RPGmakerMV/master/Mano_StateVariable.js) | 2017/06/11 |ステートに変数を1つ設定できます。変数が0になるとステートは自動で解除されます。 |
 | [Mano_ResistanceDisable.js](Mano_ResistanceDisable.js) | [作成中] | [v0.0.0](https://raw.githubusercontent.com/Sigureya/RPGmakerMV/master/Mano_ResistanceDisable.js) | 2017/00/00 |属性耐性を無効化するステートを作成します。 |
 
 
