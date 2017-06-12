@@ -150,6 +150,7 @@
  * ■更新履歴
  * ver 0.9.4(2017/06/11)
  * ヒットした時のみカウンターするmode = hitを追加。
+ * ※後日バグ修正
  * その他、細かい修正。
  * 
  * ver 0.9.3(2017/05/27)
@@ -457,16 +458,11 @@ Counter.prototype.createAction=function(subject,opponentAction)
 };
 Counter.prototype.modeMathc=function(subject){
     if(this._mode ==='target'){
-        if(!subject._targetedMA){
-            return false;
-        }
+        return !!subject._targetedMA;
     }
 
     if(this._mode ==='hit'){
-        var actResult = subject.result();
-        if(!actResult.isHit()){
-            return false;
-        }
+        return !!subject._hitMA;
     }
 
 
@@ -603,6 +599,7 @@ BattleManager.intersectCounterAction =function(){
     var battlers = this.allBattleMembers();
     for(var i=0,len =battlers.length; i<len; i +=1){
         battlers[i]._targetedMA=false;
+        battlers[i]._hitMA=false;
     }
 };
 
@@ -616,6 +613,8 @@ var zz_MA_AfterCounter_BattleManager_invokeNormalAction =BattleManager.invokeNor
 BattleManager.invokeNormalAction=function(subject,target){
     zz_MA_AfterCounter_BattleManager_invokeNormalAction.apply(this,arguments);
     target._targetedMA =true;
+    target._hitMA = target._hitMA||target.result().isHit();
+
 };
 BattleManager.counterActionSort =function(){
     this._reservedCounter.sort(function(a,b){
@@ -633,6 +632,12 @@ BattleManager.endAction =function(){
 }
 BattleManager.reserveCounterr =function()    {
     var act =this._action;
+    var m= this.allBattleMembers();
+    var hit =[];
+    m.forEach(function(b){
+        hit.push( b.result().isHit());
+
+    });
 
     if(act.canCounter()){
         var counterUser = act.opponentsUnit().aliveMembers();
