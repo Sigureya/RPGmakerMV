@@ -632,13 +632,7 @@ BattleManager.endAction =function(){
 }
 BattleManager.reserveCounterr =function()    {
     var act =this._action;
-    var m= this.allBattleMembers();
-    var hit =[];
-    m.forEach(function(b){
-        hit.push( b.result().isHit());
-
-    });
-
+ 
     if(act.canCounter()){
         var counterUser = act.opponentsUnit().aliveMembers();
 
