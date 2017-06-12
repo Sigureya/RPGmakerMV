@@ -31,7 +31,7 @@ Manosasayakiだと長くて面倒だったので、Manoに書き換えていま�
 ## 装備・アイテム
 
 ## 利用規約
-すべて[MITライセンス](https://github.com/sigureya/RPGMakerMV/blob/master/LICENSE.txt)です。  
+すべて[MITライセンス](https://github.com/sigureya/RPGMakerMV/blob/master/LICENSE.md)です。  
 使用方法を問わず、ご自由にお使いください。  
 仕様報告があると作者が喜びます。  
 プラグイン名も書いてあると、完璧です。
