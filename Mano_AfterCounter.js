@@ -38,9 +38,17 @@
  * 数字を付けて対応してください。
  * 9まで対応しています。
  * 
+ * パラメータごとに改行してください。
  * ■cond
- * 条件文を定義します。
- * 比較演算子は >　以外が使用可能です。
+ * JavaScriptによる条件文を定義します。
+ * 比較演算子は以下のものが使用可能です。
+ * （>は使用できません）
+ * X===Y :XとYが等しい。
+ * X!==Y :XとYが等しくない。
+ * X < Y :XがY未満。 
+ * X <=Y :XがY以下。（X>=Yは使えないので、左右を逆にして対応してください） 
+ * X >=Y → Y<=X この方法で対応可能。 
+ * 
  * 条件文内部では以下の変数が参照できます。
  * act      : Game_actionが格納されます。
  * result   : Game_actionResultが格納されます。
@@ -49,6 +57,7 @@
  * b        : 攻撃してきた相手。
  * skillID  : スキルのID。敵の行動がスキルでない場合は0。
  * itemID   : アイテムのID。敵の行動がアイテムでない場合は0。
+ * 
  * ■rate
  * 反撃率を定義します。
  * 特徴の「反撃率」とほぼ同様です。
@@ -59,17 +68,14 @@
  * 残りのカウンターの判定は行われます。
  * 
  * ■skill
+ * カウンター時に使用するスキルを設定します。
  * Nもしくはv(N)の形式で指定します。
  * (Nは整数)
  * v(N)の場合、変数からスキル番号を取り出します
  * 
  * ■prio
  * 優先順位を定義します。
- * 優先順位の高い物から反撃判定を行い、最初に条件を満たしたものから実行されます。
- * なお、prioが同値の場合、
- * ステート > アクター > 職業 > 装備品の順で判定します。
- * この並び順はGame_Battler.traitObjects()の戻り値順です。
- * ただし、この順序は実装によって異なるので保証しません。
+ * 複数の反撃条件が同時に満たされた場合、最も優先度の高いものが実行されます。
  * ※初期版ではpriolityで指定していましたが、長いので省略。
  * priolityでも動きますが、いずれ削除します。
  * 
@@ -136,6 +142,13 @@
  *    event = 1
  * >
  * 
+ * アイテムを使用したときに反撃。
+ * 「アイテムなぞ使ってんじゃねえ！」byバ〇バトス(TOD,TOD2)
+ * <CounterExt:
+ *    cond = itemID !== 0
+ *    mode = use
+ * >
+ * 
  * ■その他
  * スキルやアイテムに<CanNotCounter>タグを指定することで、
  * カウンターされないスキルが作れます。
@@ -145,8 +158,6 @@
  * 例：カウンター発動時は500、そうでないときは100ダメージを与えるスキル。
  * this.isCounter() ? 500:100
  * 
- * 
- *  
  * ■更新履歴
  * ver 0.9.4(2017/06/11)
  * ヒットした時のみカウンターするmode = hitを追加。
@@ -273,12 +284,67 @@ Imported.Mano_AfterCounter =true;
 
 (function () {
 'use strict';
-var counter={};
+
 var params = PluginManager.parameters('Mano_AfterCounter');
 
-counter.tagName = params['tagName']||'CounterExt';
-counter.modeReg =/(target|use|hit)/;
-counter.msg_format = String( params['msg_format']);
+const after_counter={
+    tagName :String(params['tagName']||'CounterExt'),
+    modeReg:/(target|use|hit)/,
+    msg_format :String( params['msg_format']),
+    defineCounterTraitImple:function(obj,tagName){
+        const counterEX = obj.meta[tagName];
+        if( !counterEX ){
+            return; 
+        }
+
+        var c_base = new Counter();
+        c_base.setMeta(counterEX);
+        obj.counter_Manosasayaki.push(c_base);
+    },
+    defineCounterTrait:function(obj) {
+        var ct = obj.counter_Manosasayaki;
+        if(ct !==undefined){return;}
+
+        obj.counter_Manosasayaki=[];
+        var tagName = after_counter.tagName;
+        after_counter.defineCounterTraitImple(obj,tagName);
+        for(var i=0;i <=9;i+=1 ){
+            after_counter.defineCounterTraitImple(obj,tagName+i);
+        }
+    },
+};
+
+//=============================================================================
+// DefineCounterTrait
+//=============================================================================
+// after_counter.defineCounterTraitImple =function(obj,tagName){
+
+//     const counterEX = obj.meta[tagName];
+//     if( !counterEX ){
+//         return; 
+//     }
+
+//     var c_base = new Counter();
+//     c_base.setMeta(counterEX);
+//     obj.counter_Manosasayaki.push(c_base);
+// };
+
+// after_counter.defineCounterTrait=function(obj) {
+//     var ct = obj.counter_Manosasayaki;
+//     if(ct !==undefined){return;}
+
+//     obj.counter_Manosasayaki=[];
+//     var tagName = after_counter.tagName;
+//     after_counter.defineCounterTraitImple(obj,tagName);
+//     for(var i=0;i <=9;i+=1 ){
+//         after_counter.defineCounterTraitImple(obj,tagName+i);
+//     }
+// };
+
+
+//counter.tagName = params['tagName']||'CounterExt';
+//counter.modeReg =/(target|use|hit)/;
+//counter.msg_format = String( params['msg_format']);
 
 //=============================================================================
 // Counter Class
@@ -293,8 +359,20 @@ Counter.prototype.initialize=function()
     this._cond = null;
     this._mode = 'target';
     this._commonEvent =0;
+    this._msg =null;
+    this._element =[];
     this.setSkillID(1);
 };
+Counter.prototype.skillEmptyItem=function(){
+    console.log("ぬるぽ");
+    return null;
+}
+
+
+Counter.prototype.setEmptyItem=function(){
+    this._getItemFunc = Counter.prototype.skillEmptyItem;
+}
+
 Counter.prototype.skillFromNumber=function(){
     return $dataSkills[this._id];
 };
@@ -331,7 +409,7 @@ Counter.prototype.setRate=function(rate){
 
 };
 Counter.prototype.setMode =function(mode){
-    var match = counter.modeReg.exec(mode);
+    var match = after_counter.modeReg.exec(mode);
     if(match){
         this._mode = match[1];
     }
@@ -354,18 +432,18 @@ Counter.prototype.setCommonEvent =function(eventId){
 
 Counter.prototype.evalCondition=function(subject,action,trait){
 
-    var act       = action;
-    var item      = action.item();
-    var skill     = item;
-    var a         = subject;
-    var b         = action.subject();
-    var elementID = item.damage.elementId;
-    var v         = $gameVariables.value.bind($gameVariables);
-    var s         = $gameSwitches.value.bind($gameSwitches);
-    var result    = subject.result();
+    const act       = action;
+    const item      = action.item();
+    const skill     = item;
+    const a         = subject;
+    const b         = action.subject();
+    const elementID = item.damage.elementId;
+    const v         = $gameVariables.value.bind($gameVariables);
+    const s         = $gameSwitches.value.bind($gameSwitches);
+    const result    = subject.result();
     
-    var skillID = action.isSkill() ? item.id : 0;
-    var itemID  = action.isItem()  ? item.id : 0;
+    const skillID = action.isSkill() ? item.id : 0;
+    const itemID  = action.isItem()  ? item.id : 0;
 
     var condResult = false;
     try {
@@ -396,7 +474,7 @@ Counter.prototype.numOrVariable =function(str,numFunc,variableFunc){
 };
 
 Counter.prototype.patternMatch=function(key ,value){
-    var k = key[0];
+    const k = key[0];
 
     switch (k) {
 //        case 'cond':
@@ -421,7 +499,12 @@ Counter.prototype.patternMatch=function(key ,value){
             this.setMode(value);
             break;
         case 'e':
+        {
+            if(key[1]==='v'){
             this.setCommonEvent(value);
+            }
+        }
+            break;
         default:
             break;
     };
@@ -429,11 +512,11 @@ Counter.prototype.patternMatch=function(key ,value){
 };
 
 Counter.prototype.setMeta=function(metaStr){
-    const reg = /(cond|skill|rate|priority|prio|mode|event)\s*=(.*)/g;
+    const reg = /(|cond|skill|rate|priority|prio|mode|event)\s*=(.+)/g;
     for(;;){
         var match = reg.exec(metaStr);
         if(!match){break;}
-            this.patternMatch(match[1],match[2]);
+        this.patternMatch(match[1],match[2]);
     }
 };
 Counter.prototype.selectTargetIndex=function(action,opponent ){
@@ -446,8 +529,8 @@ Counter.prototype.selectTargetIndex=function(action,opponent ){
 
 Counter.prototype.createAction=function(subject,opponentAction)
 {
-    var action = new Game_Action(subject);
-    var item = this.item();
+    const action = new Game_Action(subject);
+    const item = this.item();
     if(item){
         action.setItemObject(item);
     }else{
@@ -465,14 +548,13 @@ Counter.prototype.modeMathc=function(subject){
         return !!subject._hitMA;
     }
 
-
     return true;
 };
 
 Counter.prototype.callCommonEvent=function(subject,opponentAction){
     if(this._commonEvent ===0){return;}
 
-    var inter = new Game_Interpreter();
+    const inter = new Game_Interpreter();
     inter.counter = this;
     inter.a = subject;
     inter.b = opponentAction.subject();
@@ -492,39 +574,20 @@ Counter.prototype.Judge =function(subject,opponentAction,trait){
 
     return result && subject.canUse(this.item());
 };
-//=============================================================================
-// DefineCounterTrait
-//=============================================================================
-counter.defineCounterTraitImple =function(obj,tagName){
+Counter.prototype.createMessage=function(myAction){
+    return '';
+}
 
-    var counterEX = obj.meta[tagName];
-    if( !counterEX ){
-        return; 
-    }
-
-    var c_base = new Counter();
-    c_base.setMeta(counterEX);
-    obj.counter_Manosasayaki.push(c_base);
-};
-
-counter.defineCounterTrait=function(obj) {
-    var ct = obj.counter_Manosasayaki;
-    if(ct !==undefined){return;}
-
-    obj.counter_Manosasayaki=[];
-    var tagName = counter.tagName;
-    counter.defineCounterTraitImple(obj,tagName);
-    for(var i=0;i <=9;i+=1 ){
-        counter.defineCounterTraitImple(obj,tagName+i);
-    }
-};
 
 //=============================================================================
 // GameAction
 //=============================================================================
 Game_Action.prototype.isCounter=function(){
-    return !!this._isCounter;
+    return !!this._counterObject;
 };
+Game_Action.prototype.createCounterMessage =function(){
+    return this._counterObject.createMessage(this  );
+}
 
 Game_Action.prototype.canCounter=function(){
     return (!this.item().meta.CanNotCounter) && !this.isCounter() ;
@@ -545,14 +608,15 @@ Game_Action.prototype.counterSpeed=function(){
 Game_Battler.prototype.findCounterAciton=function(opponentAction){
     var traits= this.traitObjects();
     var counterObj =null;
-    var tn = counter.tagName
+    var tn = after_counter.tagName
     traits.forEach(function(trait){
         var c_ext = trait.meta[tn];
         if(!c_ext){return;}
 
         var cm = trait.counter_Manosasayaki;
         if(cm ===undefined){
-            counter.defineCounterTrait(trait);
+            const afc =after_counter;
+            after_counter.defineCounterTrait(trait);
             cm = trait.counter_Manosasayaki;
         }
         for(var i=0,len = cm.length ;i < len; i+=1 ){
@@ -568,7 +632,7 @@ Game_Battler.prototype.findCounterAciton=function(opponentAction){
     },this);
     if(counterObj){
         var act = counterObj.createAction(this,opponentAction);
-        act._isCounter =true;
+        act._counterObject = counterObj;
         return act;
     }
 
@@ -632,7 +696,7 @@ BattleManager.endAction =function(){
 }
 BattleManager.reserveCounterr =function()    {
     var act =this._action;
- 
+
     if(act.canCounter()){
         var counterUser = act.opponentsUnit().aliveMembers();
 
@@ -645,15 +709,15 @@ BattleManager.reserveCounterr =function()    {
         this.counterActionSort();
     }
 };
-if( counter.msg_format ){
-    var  zz_MA_AfterCounter_Window_BattleLog_startAction =Window_BattleLog.prototype.startAction;
-    Window_BattleLog.prototype.startAction=function(subject,action,targets){
-        if(action.isCounter()){
-            this.push('addText',counter.msg_format);
-        }
-        zz_MA_AfterCounter_Window_BattleLog_startAction.apply(this,arguments);
-    };
-}
+var  zz_MA_AfterCounter_Window_BattleLog_startAction =Window_BattleLog.prototype.startAction;
+Window_BattleLog.prototype.startAction=function(subject,action,targets){
+//    var counterObj= action.counterObject();
+
+    if(action.isCounter() && after_counter.msg_format){
+        this.push('addText',after_counter.msg_format);
+    }
+    zz_MA_AfterCounter_Window_BattleLog_startAction.apply(this,arguments);
+};
 
 
 })();
