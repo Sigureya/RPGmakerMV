@@ -17,6 +17,7 @@
  * @author　Sigurey
  * 
  * @param StateID
+ * @type state
  * @desc When a critical hit occurs, the state temporarily assigned 
  * @default 4
  * 
@@ -29,6 +30,7 @@
  * @author しぐれん（魔のささやき）
  * 
  * @param StateID
+ * @type state
  * @desc クリティカルヒットが発生したときに、一時的に付与するステートを指定します。
  * @default 4
  *  
