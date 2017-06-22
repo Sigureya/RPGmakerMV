@@ -15,24 +15,33 @@
  * 
  * 
  * @param PocketSize
+ * @type number
  * @desc ポケットに入れることができるアイテムの数を設定します。
  * ※未実装
  * @default 6
  * 
  * @param MaxColor
+ * @type number
  * @desc 最大個数を所持している際の表示色を設定します。
  * システムのカラー番号で指定されます。
  * @default 18
  * 
  * @param NotEnoughColor
+ * @type number
  * @desc マイセット実行時に、アイテムが足りなかった時の色を設定します。
  * @default 4
  *
  * @help
  * アクターごとにアイテムを所持させることができます。
- * ※ヘルプの書き途中です。
  * 
- * var 0.5.0(2017/06/20) アイテムを持たせることができるようになった。
+ * Game_Battler.consumeItemを再定義しているプラグインとは競合する可能性があります。
+ * これは、アイテムを減らす処理において
+ * Game_Battler.consumeItemを使わないようにしているからです。
+ * 
+ * ※ヘルプの書き途中です。
+ * var 0.7.0(2017/06/21) バトル中にアイテムを使えるようになった
+ * var 0.6.3(2017/06/21) バトルに少しだけ対応。
+ * var 0.6.0(2017/06/20) アイテムを持たせることができるようになった。
  * var 0.5.0(2017/06/20) 公開
  */
 /*
@@ -52,6 +61,7 @@
  * これをXYに割り当て。使う直前にYES/NOのチェック
  * 持たせたアイテムに、装備品同様のtraitを設定する機能
  * 
+ * ショップ対応
  * イベントコマンドのためにバインドする処理
  * （アイテムを増やす、をフックする）
  * 
@@ -91,6 +101,8 @@
         symbolAdd:'add',
         wordMyset:'マイセット',
         symbolMyset:'myset',
+        wordSort:'整列',
+        symbolSort:'sort',
         symbolOutOfWindow :'outwindow',
         symbolNon:'non',
         pocketWindow:{
@@ -106,9 +118,9 @@
 MA_itemPocket.prototype.size=function(){
     return 6;
 };
-MA_itemPocket.prototype.initialize=function(dataArray){
+MA_itemPocket.prototype.initialize=function(dataArray,indexTable){
     this._data=dataArray || [];
-    this._indexTable={};
+    this._indexTable= indexTable||{};
 };
 
 //削除方法は変えたほうがいいかも fill(null)でもいいかも
@@ -124,8 +136,19 @@ MA_itemPocket.prototype.swapItem =function(otherPocket,indexA,indexB){
     otherPocket.normalize();
 
 };
+// nullや、空っぽのアイテムを取り除く
+MA_itemPocket.prototype.normalize =function(){
+    for(var i=0; i< this._data.length;++i){
+        if(this.isEmpty(i)){
+            this._data.splice(i,1);
+        }
+    }
+    if(this._data[this._data.length-1]){
+        this._data.push(null);
+    }
+};
 
-MA_itemPocket.prototype.hasItem =function(){
+MA_itemPocket.prototype.hasItem =function(item){
     return true;
 };
 
@@ -190,17 +213,6 @@ MA_itemPocket.prototype.isEmpty =function(index){
     return true;
 };
 
-// nullや、空っぽのアイテムを取り除く
-MA_itemPocket.prototype.normalize =function(){
-    for(var i=0; i< this._data.length;++i){
-        if(this.isEmpty(i)){
-            this._data.splice(i,1);
-        }
-    }
-    if(this._data[this._data.length-1]){
-        this._data.push(null);
-    }
-}; 
 
 MA_itemPocket.prototype.newItem=function(){
     return {id:0,amount:0};
@@ -241,7 +253,6 @@ MA_itemPocket.prototype.consumeItem=function(index){
 }
 MA_itemPocket.prototype.canUse = function(index){
     return !this.isEmpty(index);
-//   return battler.canUse(this.itemData( index ));    
 };
 MA_itemPocket.prototype.useItem=function(index,targetList){
 
@@ -250,69 +261,12 @@ MA_itemPocket.prototype.useItem=function(index,targetList){
 };
 
 MA_itemPocket.prototype.releaseItem=function(index){
-
     $gameParty.gainItem(this.itemData(index) ,this._data[index].amount );
     this._data[index]=null;
-
-
+    this.normalize();
 };
 
-const zz_MA_Game_Actor_setup = Game_Actor.prototype.setup;
-Game_Actor.prototype.setup = function(actorId) {
-	zz_MA_Game_Actor_setup.call(this,actorId);
-    this.pocket_MA =[];
-        if(actorId ===1  ){
-            this.pocket_MA=[
-                {id:1,amount:3},
-                {id:3,amount:100},
-                {id:4,amount:4},
-                {id:5,amount:23},
-                {id:6,amount:1},
-            ];
-            return;
-        }
-};
 
-Game_Battler.prototype.itemPocket =function(){
-    return new MA_itemPocket([]);
-};
-
-Game_Actor.prototype.itemPocket=function(){
-    return new MA_itemPocket(this.pocket_MA);
-};
-const zz_MA_DataManager_extractSaveContents =DataManager.extractSaveContents;
-DataManager.extractSaveContents =function(){
-    zz_MA_DataManager_extractSaveContents.apply(this,arguments);
-    actorSetPocket();
-}
-function actorSetPocket(){
-    $gameActors._data.forEach(function(actor) {
-        actor;
-        if(!actor){return;}
-
-        if(!actor.pocket_MA){
-            actor.pocket_MA=[];
-        }
-    });;
-}
-
-//戦闘中のアイテム使用をフックする
-// Game_Battler.prototype.consumeItem =function(){
-// };
-
-//アイテムの使用可能判定をフック
-// Game_BattlerBase.prototype.meetsItemConditions = function(item) {
-//     return this.meetsUsableItemConditions(item) && $gameParty.hasItem(item);
-// };
-
-const windowSupport={
-    itemAmountColor:function(value){
-        if(value > 6){
-            return this.textColor(xxx.color.max);
-        }
-        return this.normalColor();    
-    },
-};
 
 //Window_ShopNumberを参考に作成する
 function Window_PocketNumber() {
@@ -335,8 +289,6 @@ Window_PocketNumber.prototype.createButtons =function(){
 Window_PocketNumber.prototype.clear =function(){
     this._item =null;
     this.refresh();
-//    this.contents.clear();
-
 };
 
 Window_PocketNumber.prototype.refresh=function(){
@@ -423,7 +375,7 @@ Window_PocketNumber.prototype.number=function(){
 function Window_ModeSelect(){
     this.initialize.apply(this,arguments);
 };
-Window_ModeSelect.prototype = Object.create(Window_HorzCommand.prototype);
+Window_ModeSelect.prototype = Object.create(Window_Command.prototype);
 Window_ModeSelect.prototype.constructor = Window_ModeSelect;
 
 Window_ModeSelect.prototype.initialize=function(x,y){
@@ -436,21 +388,26 @@ Window_ModeSelect.prototype.windowWidth = function() {
     return Graphics.boxWidth;
 };
 
+ Window_ModeSelect.prototype.maxCols = function() {
+     return 4;
+ };
+
 
 Window_ModeSelect.prototype.makeCommandList =function(){
     this.addCommand(xxx.wordUse, xxx.symbolUse );
     this.addCommand(xxx.wordSwap,xxx.symbolSwap);
     this.addCommand(xxx.wordRemove,xxx.symbolRemove);
     this.addCommand(xxx.wordAdd, xxx.symbolAdd );
-//    this.addCommand(xxx.wordMyset,xxx.symbolMyset);
+    this.addCommand(xxx.wordMyset,xxx.symbolMyset);
+    this.addCommand(xxx.wordSort,xxx.symbolSort);
 };
 
-Window_ModeSelect.prototype.cursorDown=function(){
-    //後回し
-    // this.deactivate();
-    // this.deselect();
-    // this.callHandler(xxx.symbolOutOfWindow);
-};
+// Window_ModeSelect.prototype.cursorDown=function(){
+//     //後回し
+//     // this.deactivate();
+//     // this.deselect();
+//     // this.callHandler(xxx.symbolOutOfWindow);
+// };
 
 
 function Window_Pocket(){
@@ -466,7 +423,6 @@ Window_Pocket.prototype.initialize=function(x,y,w,h){
     this.deselect();
     this._pocket = new MA_itemPocket();
     this._bindedItem =-1;
-    this._cols =1;
     this._actor =null;
     this._enableJudge = null;
 };
@@ -500,15 +456,18 @@ Window_Pocket.prototype.item =function(){
     const index =this.index();
     return  index>=0 ? this._pocket.itemData(index) :null;
 };
+Window_Pocket.prototype.selectedObject=function(){
+    return this._data[this.index()];
+};
+
 Window_Pocket.prototype.maxPageRows=function(){
     return Window_Selectable.prototype.maxPageRows.call(this)-1;
-
 };
 
 Window_Pocket.prototype.actor =function(){
     return this._actor;
 };
-Window_Pocket.prototype.actorName=function(){
+Window_Pocket.prototype.name=function(){
     return this.actor().name();
 };
 Window_Pocket.prototype.pocket=function(){
@@ -542,21 +501,18 @@ Window_Pocket.prototype.drawHorzLine = Window_Status.prototype.drawHorzLine;
 Window_Pocket.prototype.drawActorName =function(){
     this.changeTextColor(this.normalColor());
 
-    this.drawText(this.actorName(), 0,0,this.itemWidth());
+    this.drawText(this.name(), 0,0,this.itemWidth());
     var y = this.contents.fontSize;
     this.drawHorzLine(y);
 };
 
-
-
 Window_Pocket.prototype.drawAllItems =function(){
     Window_Selectable.prototype.drawAllItems.call(this);
     this.drawActorName();
-//    console.log("drawAllItems");
 };
 
 Window_Pocket.prototype.maxCols = function() {
-    return this._cols;
+    return 1;
 };
 Window_Pocket.prototype.itemCountWidth =function(){
     return this.textWidth('00/00');
@@ -592,22 +548,12 @@ Window_Pocket.prototype.drawItem =function(index){
         rect.width -= this.textPadding();
         this.drawItemName($dataItems[ item.id], rect.x, rect.y, rect.width );
         
-        var n= item.amount;//this._pocket.numItemsForParty(index);
         if(this._pocket.isItemMax(index  )){
             this.changeTextColor( this.textColor(xxx.color.max) );
         }
-        this.drawText( n,rect.x,rect.y,rect.width ,'right');
+        this.drawText( item.amount,rect.x,rect.y,rect.width ,'right');
     }
 };
-
-// function Window_PocketHelp (){
-// 	this.initialize.apply(this,arguments);
-    
-
-// };
-// Window_PocketHelp.prototype = Object.create(Window_Help.prototype);
-// Window_PocketHelp.prototype.constructor = Window_PocketHelp;
-
 
 function Window_MySet(){
 	this.initialize.apply(this,arguments);
@@ -625,16 +571,6 @@ Window_MySet.prototype.initialize=function(x,y,w,h){
 Window_MySet.prototype.maxCols = function() {
     return this._cols;
 };
-
-// 全ての所持アイテムをポケットであるかのように扱うプロクシ
-function Pocket_proxy(){
-    this.initialize.apply(this,arguments);
-}
-
-Pocket_proxy.prototype.useItem =function(index,targetList){
-//    this._dat
-};
-
 
 class ModeBase{
     constructor(scene){
@@ -704,6 +640,8 @@ class Mode_Use extends ModeBase{
         const item = this.item();
         if(!item){return;}
 
+        // 使用者のポケットに、ダミーデータを入れて使わせる。
+        //本来のポケットの内容を退避し、直後に戻す
         if(this.pocket().canUse( this._itemIndex )){
             const user = this._scene.user();
             const action =new Game_Action(user);
@@ -906,13 +844,13 @@ class Mode_Add extends ModeBase{
 
 };
 
-function Scene_ActorItemEquip() {
+function Scene_ItemPocket() {
     this.initialize.apply(this,arguments);    
 }
-Scene_ActorItemEquip.prototype = Object.create(Scene_ItemBase.prototype);
-Scene_ActorItemEquip.prototype.constructor = Scene_ActorItemEquip;
+Scene_ItemPocket.prototype = Object.create(Scene_ItemBase.prototype);
+Scene_ItemPocket.prototype.constructor = Scene_ItemPocket;
 
-Scene_ActorItemEquip.prototype.initialize =function(){
+Scene_ItemPocket.prototype.initialize =function(){
     Scene_MenuBase.prototype.initialize.call(this);
     this._windowStack =[];
     this._mode ='non';
@@ -920,7 +858,7 @@ Scene_ActorItemEquip.prototype.initialize =function(){
     this._currentPocketWindow=null;
     this._otherPocketWindow=null;
 };
-Scene_ActorItemEquip.prototype.createModeObject=function(){
+Scene_ItemPocket.prototype.createModeObject=function(){
     var table={};
     table[xxx.symbolUse]=new Mode_Use(this);
     table[xxx.symbolSwap]=new Mode_Swap(this);
@@ -929,7 +867,7 @@ Scene_ActorItemEquip.prototype.createModeObject=function(){
 
     this._modeTable=table;
 };
-Scene_ActorItemEquip.prototype.create =function(){
+Scene_ItemPocket.prototype.create =function(){
     actorSetPocket();
     Scene_MenuBase.prototype.create.call(this);
     this.createHelpWindow();
@@ -940,13 +878,10 @@ Scene_ActorItemEquip.prototype.create =function(){
 
     this.createModeObject();
     this.createNumberWindow();
-
-//    this.pushWindow(this._pocketWindow);
     this.pushWindow(this._modeSelectWindow);
     this._modeSelectWindow.select(0);
-//    this.pushWindow(this._numberWindow);
 };
-Scene_ActorItemEquip.prototype.subWindowRect=function(){
+Scene_ItemPocket.prototype.subWindowRect=function(){
     return {
         x:Graphics.boxWidth/2,
         y:this._modeSelectWindow.y+this._modeSelectWindow.height,
@@ -956,7 +891,7 @@ Scene_ActorItemEquip.prototype.subWindowRect=function(){
 
 };
 
-Scene_ActorItemEquip.prototype.createItemSelectWindow =function(){
+Scene_ItemPocket.prototype.createItemSelectWindow =function(){
     var wx = 0;
     var wy = this._pocketWindow.y + this._pocketWindow.height;
     var ww = Graphics.boxWidth;
@@ -973,7 +908,7 @@ Scene_ActorItemEquip.prototype.createItemSelectWindow =function(){
 };
 
 
-Scene_ActorItemEquip.prototype.createNumberWindow=function(){
+Scene_ItemPocket.prototype.createNumberWindow=function(){
     const rect = this.subWindowRect();
     var num = new Window_PocketNumber(rect.x,rect.y,rect.width, rect.height);
     this._numberWindow = num;
@@ -984,30 +919,28 @@ Scene_ActorItemEquip.prototype.createNumberWindow=function(){
     this.addWindow(num);
 };
 
-Scene_ActorItemEquip.prototype.number =function(){
+Scene_ItemPocket.prototype.number =function(){
     return this._numberWindow.number();
 };
 
-Scene_ActorItemEquip.prototype.opneNumberWindow=function(){
+Scene_ItemPocket.prototype.opneNumberWindow=function(){
     this._numberWindow.open();
     const item =this._itemWindow.item();
     this._numberWindow.setup(null,0);
     this._numberWindow.refresh();
 };
 
-Scene_ActorItemEquip.prototype.onNumberOk =function(){
+Scene_ItemPocket.prototype.onNumberOk =function(){
     this.currentModeObject().onNumberOk_EX();
 };
 
-Scene_ActorItemEquip.prototype.onNumberCancel =function(){
-    const n=this._numberWindow;
-    n.clear();
+Scene_ItemPocket.prototype.onNumberCancel =function(){
+    this._numberWindow.clear();
     this.currentModeObject().onNumberCancel_EX();
-    this;
     this.popWindow();
 };
 
-Scene_ActorItemEquip.prototype.setSecondActor =function(){
+Scene_ItemPocket.prototype.setSecondActor =function(){
     const cpw = this.currentPocketWidnow();
     const opw = this.oterhPocketWindow();
     const members =$gameParty.members();
@@ -1026,11 +959,11 @@ Scene_ActorItemEquip.prototype.setSecondActor =function(){
     // }
 };
 
-Scene_ActorItemEquip.prototype.isItemEnabled=function(item){
+Scene_ItemPocket.prototype.isItemEnabled=function(item){
     const mode = this.currentModeObject();
     return mode.isItemsInterested(item);
 };
-Scene_ActorItemEquip.prototype.createModeSelectWindow =function(){
+Scene_ItemPocket.prototype.createModeSelectWindow =function(){
     var a = new Window_ModeSelect(0,this._helpWindow.y +this._helpWindow.height );
     this._modeSelectWindow=a;
     a.setHandler('cancel',this.onModeCancel.bind(this));
@@ -1042,11 +975,11 @@ Scene_ActorItemEquip.prototype.createModeSelectWindow =function(){
     this.addWindow(a); 
 };
 
-Scene_ActorItemEquip.prototype.onModeCancel =function(){
+Scene_ItemPocket.prototype.onModeCancel =function(){
     this.popWindow();
 };
 
-Scene_ActorItemEquip.prototype.makePocketWindow=function(wx,wy){
+Scene_ItemPocket.prototype.makePocketWindow=function(wx,wy){
     const ww = xxx.pocketWindow.w();
     const wh = xxx.pocketWindow.h();
   
@@ -1062,7 +995,7 @@ Scene_ActorItemEquip.prototype.makePocketWindow=function(wx,wy){
     return aie;
 };
 
-Scene_ActorItemEquip.prototype.createPocketWindow =function(){
+Scene_ItemPocket.prototype.createPocketWindow =function(){
     this._pocketWindow = this.makePocketWindow(0,this._modeSelectWindow.y + this._modeSelectWindow.height);
     this._pocketWindow.setActor(this.actor());
     this._pocketWindow.refresh();
@@ -1075,7 +1008,7 @@ Scene_ActorItemEquip.prototype.createPocketWindow =function(){
     this._currentPocketWindow = this._pocketWindow;
     this._otherPocketWindow =this._pocketWindow2;
 };
-Scene_ActorItemEquip.prototype.onActorChange =function(){
+Scene_ItemPocket.prototype.onActorChange =function(){
     const aw = this.activeWindow();
     const pw = this._mode === xxx.symbolSwap? this.oterhPocketWindow(): this.currentPocketWidnow();
     pw.select(0);
@@ -1084,11 +1017,11 @@ Scene_ActorItemEquip.prototype.onActorChange =function(){
     aw.activate();
 };
 
-Scene_ActorItemEquip.prototype.openItemWindow=function(){
+Scene_ItemPocket.prototype.openItemWindow=function(){
     this.pushWindow(this._itemWindow);
 
 };
-Scene_ActorItemEquip.prototype.onPocketItemSelect =function(){    
+Scene_ItemPocket.prototype.onPocketItemSelect =function(){    
     const mode =this.currentModeObject();
     if(mode){
         const pw = this.currentPocketWidnow();
@@ -1098,23 +1031,23 @@ Scene_ActorItemEquip.prototype.onPocketItemSelect =function(){
     }
 }
 
-Scene_ActorItemEquip.prototype.swapPocketWidnow =function(){
+Scene_ItemPocket.prototype.swapPocketWidnow =function(){
     const tmp = this._currentPocketWindow;
     this._currentPocketWindow = this._otherPocketWindow;
     this._otherPocketWindow=tmp;
 };
-Scene_ActorItemEquip.prototype.currentPocketWidnow =function(){
+Scene_ItemPocket.prototype.currentPocketWidnow =function(){
     return this._currentPocketWindow;
 };
-Scene_ActorItemEquip.prototype.oterhPocketWindow=function(){
+Scene_ItemPocket.prototype.oterhPocketWindow=function(){
     return this._otherPocketWindow;
 };
-Scene_ActorItemEquip.prototype.setBasicHandler =function(window){
+Scene_ItemPocket.prototype.setBasicHandler =function(window){
     window.setHandler( 'cancel',this.popWindow.bind(this) );
     window.setHandler('ok',this.openActorWindow.bind(this) );
 };
 
-Scene_ActorItemEquip.prototype.hideSubWindow=function(window){
+Scene_ItemPocket.prototype.hideSubWindow=function(window){
     window.hide();
     this.popWindow();
 
@@ -1125,11 +1058,11 @@ Scene_ActorItemEquip.prototype.hideSubWindow=function(window){
 //=============================================================================
 // modeSelect
 //=============================================================================
-Scene_ActorItemEquip.prototype.setMode =function(mode){
+Scene_ItemPocket.prototype.setMode =function(mode){
     this._mode=mode;
 };
 
-Scene_ActorItemEquip.prototype.onModeSelect=function(){
+Scene_ItemPocket.prototype.onModeSelect=function(){
     
     this._currentPocketWindow = this._pocketWindow;
     this._otherPocketWindow = this._pocketWindow2;
@@ -1147,44 +1080,44 @@ Scene_ActorItemEquip.prototype.onModeSelect=function(){
 
 
 };
-Scene_ActorItemEquip.prototype.currentModeObject =function(){
+Scene_ItemPocket.prototype.currentModeObject =function(){
    return this._modeTable [this._mode];
 };
 
-Scene_ActorItemEquip.prototype.onActorOk=function(){
+Scene_ItemPocket.prototype.onActorOk=function(){
     var modeObject = this.currentModeObject();
     if(modeObject){
         modeObject.setActorIndex(this._actorWindow.index());
         modeObject.onActorOk_EX();
     }
 };
-Scene_ActorItemEquip.prototype.onActorCancel=function(){
+Scene_ItemPocket.prototype.onActorCancel=function(){
     Scene_ItemBase.prototype.onActorCancel.call(this);
     this.currentModeObject().onActorCancel_EX();
 };
 //誰が使うか
-Scene_ActorItemEquip.prototype.user =function(){
+Scene_ItemPocket.prototype.user =function(){
     return  Scene_Item.prototype.user.call(this);
 };
 
-Scene_ActorItemEquip.prototype.onItemSelect =function(){
+Scene_ItemPocket.prototype.onItemSelect =function(){
     var mode =this.currentModeObject();
     if(mode){
         mode.onItemSelect_EX();
     }
 };
-Scene_ActorItemEquip.prototype.onItemCancel=function(){
+Scene_ItemPocket.prototype.onItemCancel=function(){
     this.currentModeObject().onItemCancel_EX();
     this.popWindow();
 
 };
 
 
-Scene_ActorItemEquip.prototype.openActorWindow =function(){
+Scene_ItemPocket.prototype.openActorWindow =function(){
     this._actorWindow.show();
     this.pushWindow(this._actorWindow);
 };
-Scene_ActorItemEquip.prototype.actorSetCursorAll =function(selectAll){
+Scene_ItemPocket.prototype.actorSetCursorAll =function(selectAll){
     this._actorWindow.setCursorAll(selectAll);
 };
 
@@ -1194,18 +1127,18 @@ Scene_ActorItemEquip.prototype.actorSetCursorAll =function(selectAll){
 //=============================================================================
 // WindowStackSystem
 //=============================================================================
-Scene_ActorItemEquip.prototype.activeWindow =function(){
+Scene_ItemPocket.prototype.activeWindow =function(){
     return this._windowStack[this._windowStack.length-1];
 };
 
-Scene_ActorItemEquip.prototype.rebindWindow =function(window){
+Scene_ItemPocket.prototype.rebindWindow =function(window){
     const bw = this.activeWindow();
     bw.deactivate();
     bw.deselect();
     this._windowStack[this._windowStack.length-1] =window;
 };
 
-Scene_ActorItemEquip.prototype.pushWindow =function( window ){
+Scene_ItemPocket.prototype.pushWindow =function( window ){
     if(window.active){return;}
 
 
@@ -1216,7 +1149,7 @@ Scene_ActorItemEquip.prototype.pushWindow =function( window ){
 
 
 
-Scene_ActorItemEquip.prototype.popWindow=function(){
+Scene_ItemPocket.prototype.popWindow=function(){
     if(this._windowStack.length <=1 ){
         this.popScene();
         return;
@@ -1248,15 +1181,150 @@ Scene_Menu.prototype.createCommandWindow = function() {
 const zz_MA_scene_Scene_Menu_onPersonalOk=Scene_Menu.prototype.onPersonalOk;
 Scene_Menu.prototype.onPersonalOk =function(){
     if( this._commandWindow.currentSymbol() ===xxx.commandKey  ){
-        SceneManager.push(Scene_ActorItemEquip  );
+        SceneManager.push(Scene_ItemPocket  );
     }else{
         zz_MA_scene_Scene_Menu_onPersonalOk.call(this);
     }
 }
 
-Scene_Menu.prototype.commandBattleHistory = function(){
-        SceneManager.push(Scene_ActorItemEquip);
+// Scene_Menu.prototype.commandBattleHistory = function(){
+//     SceneManager.push(Scene_ItemPocket);
+// };
+
+const zz_MA_DataManager_extractSaveContents =DataManager.extractSaveContents;
+DataManager.extractSaveContents =function(){
+    zz_MA_DataManager_extractSaveContents.apply(this,arguments);
+    actorSetPocket();
+}
+function actorSetPocket(){
+    $gameActors._data.forEach(function(actor) {
+        if(!actor){return;}
+
+        if(!actor.pocket_MA){
+            actor.pocket_MA=[];
+        }
+    });;
+}
+
+
+// デフォルトのconsumeItemを無力化する
+Game_Battler.prototype.consumeItem = function(item) {};
+
+// 代わりのアイテム使用を作っておく
+const zz_Scene_Item_useItem_MA_itemPocket=Scene_Item.prototype.useItem;
+Scene_Item.prototype.useItem =function(){
+    const item = this.item();
+    $gameParty.consumeItem(item);
+    zz_Scene_Item_useItem_MA_itemPocket.call(this);
 };
+
+Game_Action.prototype.consumeItem=function(){
+    const item = this.item();
+    if(this._pocketPtr && item.consumable){
+        this._pocketPtr.amount-=1;
+    }
+};
+
+const zz_MA_itemPocket_BattleManager_startAction=BattleManager.startAction;
+BattleManager.startAction =function(){
+    zz_MA_itemPocket_BattleManager_startAction.call(this);
+    this._action.consumeItem();
+
+};
+
+const zz_MA_Game_Actor_setup = Game_Actor.prototype.setup;
+Game_Actor.prototype.setup = function(actorId) {
+	zz_MA_Game_Actor_setup.call(this,actorId);
+    this.pocket_MA =[];
+        if(actorId ===1  ){
+            this.pocket_MA=[
+                {id:1,amount:3},
+                {id:3,amount:100},
+                {id:4,amount:4},
+                {id:5,amount:23},
+                {id:6,amount:1},
+            ];
+            return;
+        }
+    this.pocketIndex_MA={};
+};
+
+Game_Battler.prototype.itemPocket =function(){
+    return new MA_itemPocket([],{});
+};
+
+Game_Actor.prototype.itemPocket=function(){
+    return new MA_itemPocket(this.pocket_MA,this.pocketIndex_MA);
+};
+
+
+function Window_BattlePocket(){
+	this.initialize.apply(this,arguments);
+}
+Window_BattlePocket.prototype = Object.create(Window_Pocket.prototype);
+Window_BattlePocket.prototype.constructor = Window_BattlePocket;
+
+Window_BattlePocket.prototype.initialize=function(){
+    Window_Pocket.prototype.initialize.apply(this,arguments);
+    this.hide();
+};
+
+Window_BattlePocket.prototype.maxCols=function(){
+    return 2;
+};
+Window_BattlePocket.prototype.selectLast =function(){
+    this.select(0);
+};
+
+Window_BattlePocket.prototype.show = function() {
+    this.selectLast();
+    this.showHelpWindow();
+    Window_Pocket.prototype.show.call(this);
+};
+
+Window_BattlePocket.prototype.hide = function() {
+    this.hideHelpWindow();
+    Window_Pocket.prototype.hide.call(this);
+};
+Window_BattlePocket.prototype.itemRect=function(index){
+    return  Window_Selectable.prototype.itemRect.call(this,index);
+};
+Window_BattlePocket.prototype.isEnabled =function(item){
+    return this._actor.canUse(item);
+};
+
+
+Window_BattlePocket.prototype.drawAllItems =function(){
+    Window_Selectable.prototype.drawAllItems.call(this);
+};
+
+Scene_Battle.prototype.onBattlePocketOk=function(){
+    const action = BattleManager.inputtingAction();
+    const pocketPtr = this._itemWindow.selectedObject();
+    action._pocketPtr = pocketPtr;
+};
+const zz_MA_ItemPocket_Scene_Battle_onItemOk=Scene_Battle.prototype.onItemOk;
+ Scene_Battle.prototype.onItemOk= function(){
+    zz_MA_ItemPocket_Scene_Battle_onItemOk.call(this);
+    this.onBattlePocketOk();
+
+};
+Scene_Battle.prototype.createItemWindow =function(){
+    var wy = this._helpWindow.y + this._helpWindow.height;
+    var wh = this._statusWindow.y - wy;
+    this._itemWindow = new Window_BattlePocket(0, wy, Graphics.boxWidth, wh);
+    this._itemWindow.setHelpWindow(this._helpWindow);
+    this._itemWindow.setHandler('ok',     this.onItemOk.bind(this));
+    this._itemWindow.setHandler('cancel', this.onItemCancel.bind(this));
+    this.addWindow(this._itemWindow);
+}; 
+
+const zz_MA_ItemPocket_Scene_Battle_commandItem=Scene_Battle.prototype.commandItem;
+Scene_Battle.prototype.commandItem =function(){
+    this._itemWindow.setActor(BattleManager.actor());
+    zz_MA_ItemPocket_Scene_Battle_commandItem.call(this);
+};
+
 
 
 //テスト用に一時メニュー無効化
