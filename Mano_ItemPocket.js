@@ -30,6 +30,21 @@
  * @type number
  * @desc マイセット実行時に、アイテムが足りなかった時の色を設定します。
  * @default 4
+ * 
+ * @param debugItem1
+ * @type item
+ * @desc デバッグモードで起動した際に、アクター１がこれを99個所持して開始します。
+ * @default 1
+ * 
+ * @param debugItem2
+ * @type item
+ * @desc デバッグモードで起動した際に、アクター１がこれを99個所持して開始します。
+ * @default 2
+ * 
+ * @param debugItem3
+ * @type item
+ * @desc デバッグモードで起動した際に、アクター１がこれを99個所持して開始します。
+ * @default 3
  *
  * @help
  * アクターごとにアイテムを所持させることができます。
@@ -60,6 +75,7 @@
  * 最大補充
  * これをXYに割り当て。使う直前にYES/NOのチェック
  * 持たせたアイテムに、装備品同様のtraitを設定する機能
+ * ShopNumberを参考に、クリック操作用のボタンを実装
  * 
  * ショップ対応
  * イベントコマンドのためにバインドする処理
@@ -82,7 +98,6 @@
  function MA_itemPocket(){
     this.initialize.apply(this,arguments);
 }
-
 
 (function () {
     'use strict';
@@ -112,7 +127,6 @@
         color:{
             max:Number(param.MaxColor) || 18,
         },
-
     };
 
 MA_itemPocket.prototype.size=function(){
@@ -134,7 +148,6 @@ MA_itemPocket.prototype.swapItem =function(otherPocket,indexA,indexB){
     otherPocket._data[indexB] = tmp;
     this.normalize();
     otherPocket.normalize();
-
 };
 // nullや、空っぽのアイテムを取り除く
 MA_itemPocket.prototype.normalize =function(){
@@ -198,7 +211,6 @@ MA_itemPocket.prototype.clampMySet=function(){
 
 MA_itemPocket.prototype.maxAmount=function(index){
     return 8;
-
 };
 MA_itemPocket.prototype.isItemMax =function(index){
     return this._data[index].amount >= this.maxAmount(index);
@@ -265,8 +277,6 @@ MA_itemPocket.prototype.releaseItem=function(index){
     this._data[index]=null;
     this.normalize();
 };
-
-
 
 //Window_ShopNumberを参考に作成する
 function Window_PocketNumber() {
@@ -350,15 +360,6 @@ Window_PocketNumber.prototype.changeNumber =function(amount){
     }
 };
 
-
-Window_PocketNumber.prototype.itemAmountColor =function(value){
-    if(value > 6){
-        return this.textColor(xxx.color.max);
-    }
-    return this.normalColor();
-};
-
-
 Window_PocketNumber.prototype.update = function() {
     Window_Selectable.prototype.update.call(this);
     this.processNumberChange();
@@ -382,7 +383,6 @@ Window_ModeSelect.prototype.initialize=function(x,y){
     Window_HorzCommand.prototype.initialize.call(this,x,y);
     this.deactivate();
     this.deselect();
-
 };
 Window_ModeSelect.prototype.windowWidth = function() {
     return Graphics.boxWidth;
@@ -391,7 +391,6 @@ Window_ModeSelect.prototype.windowWidth = function() {
  Window_ModeSelect.prototype.maxCols = function() {
      return 4;
  };
-
 
 Window_ModeSelect.prototype.makeCommandList =function(){
     this.addCommand(xxx.wordUse, xxx.symbolUse );
@@ -478,7 +477,6 @@ Window_Pocket.prototype.setActor =function(actor){
         this;
     }
     this._actor =actor;
-
     this.setPocket(actor.itemPocket());
     this._pocket.normalize();
 };
@@ -523,24 +521,14 @@ Window_Pocket.prototype.selectBack=function(){
 
 Window_Pocket.prototype.drawItemCount =function(item,x,y,width){
     this.drawText( item.id,x,y,width ,'right');
-
 };
 Window_Pocket.prototype.itemRect=function(index){
     var rect=  Window_Selectable.prototype.itemRect.call(this,index);
     rect.y += this.actorNameHeight();
     return rect;
-
-};
-
-Window_Pocket.prototype.itemAmountColor =function(value){
-    if(value > 6){
-        return this.textColor(xxx.color.max);
-    }
-    return this.normalColor();    
 };
 
 Window_Pocket.prototype.drawItem =function(index){
-
     const item = this._data[index];
     if(item){
         var numberWidth = this.itemCountWidth();
@@ -640,8 +628,7 @@ class Mode_Use extends ModeBase{
         const item = this.item();
         if(!item){return;}
 
-        // 使用者のポケットに、ダミーデータを入れて使わせる。
-        //本来のポケットの内容を退避し、直後に戻す
+
         if(this.pocket().canUse( this._itemIndex )){
             const user = this._scene.user();
             const action =new Game_Action(user);
@@ -697,9 +684,6 @@ class Mode_Use extends ModeBase{
         this._scene._actorWindow.refresh();
         SoundManager.playUseItem();
     }
-
-
-
 };
 class Mode_Swap extends ModeBase{
     constructor (scene){
@@ -892,12 +876,12 @@ Scene_ItemPocket.prototype.subWindowRect=function(){
 };
 
 Scene_ItemPocket.prototype.createItemSelectWindow =function(){
-    var wx = 0;
-    var wy = this._pocketWindow.y + this._pocketWindow.height;
-    var ww = Graphics.boxWidth;
-    var wh = Graphics.boxHeight- wy;
+    const wx = 0;
+    const wy = this._pocketWindow.y + this._pocketWindow.height;
+    const ww = Graphics.boxWidth;
+    const wh = Graphics.boxHeight- wy;
 
-    var iw = new Window_ItemList(wx,wy,ww,wh);
+    const iw = new Window_ItemList(wx,wy,ww,wh);
     iw.setCategory('item');
     iw.setHelpWindow(this._helpWindow);
     iw.makeItemList();
@@ -910,7 +894,7 @@ Scene_ItemPocket.prototype.createItemSelectWindow =function(){
 
 Scene_ItemPocket.prototype.createNumberWindow=function(){
     const rect = this.subWindowRect();
-    var num = new Window_PocketNumber(rect.x,rect.y,rect.width, rect.height);
+    const num = new Window_PocketNumber(rect.x,rect.y,rect.width, rect.height);
     this._numberWindow = num;
     num.setHandler('cancel',this.onNumberCancel.bind(this));
     num.setHandler('ok',this.onNumberOk.bind(this));
@@ -950,13 +934,6 @@ Scene_ItemPocket.prototype.setSecondActor =function(){
     }
     opw.setActor($gameParty.menuActor());
     opw.refresh();
-
-    // const secondActor = members[0]===cpw.actor() ? members[1]:members[0];
-
-    // if(opw.actor() !==secondActor){
-    //     opw.setActor(secondActor);
-    //     opw.refresh();
-    // }
 };
 
 Scene_ItemPocket.prototype.isItemEnabled=function(item){
@@ -970,7 +947,6 @@ Scene_ItemPocket.prototype.createModeSelectWindow =function(){
     a.setHandler('ok',this.onModeSelect.bind(this));
     a.setHandler('pagedown', this.nextActor.bind(this));
     a.setHandler('pageup',   this.previousActor.bind(this));
-
 
     this.addWindow(a); 
 };
@@ -1019,7 +995,6 @@ Scene_ItemPocket.prototype.onActorChange =function(){
 
 Scene_ItemPocket.prototype.openItemWindow=function(){
     this.pushWindow(this._itemWindow);
-
 };
 Scene_ItemPocket.prototype.onPocketItemSelect =function(){    
     const mode =this.currentModeObject();
@@ -1050,10 +1025,7 @@ Scene_ItemPocket.prototype.setBasicHandler =function(window){
 Scene_ItemPocket.prototype.hideSubWindow=function(window){
     window.hide();
     this.popWindow();
-
 };
-
-
 
 //=============================================================================
 // modeSelect
@@ -1077,8 +1049,6 @@ Scene_ItemPocket.prototype.onModeSelect=function(){
         this.pushWindow(  cpw );
     }
     this.currentModeObject().onModeOk_EX();
-
-
 };
 Scene_ItemPocket.prototype.currentModeObject =function(){
    return this._modeTable [this._mode];
@@ -1095,7 +1065,6 @@ Scene_ItemPocket.prototype.onActorCancel=function(){
     Scene_ItemBase.prototype.onActorCancel.call(this);
     this.currentModeObject().onActorCancel_EX();
 };
-//誰が使うか
 Scene_ItemPocket.prototype.user =function(){
     return  Scene_Item.prototype.user.call(this);
 };
@@ -1109,10 +1078,7 @@ Scene_ItemPocket.prototype.onItemSelect =function(){
 Scene_ItemPocket.prototype.onItemCancel=function(){
     this.currentModeObject().onItemCancel_EX();
     this.popWindow();
-
 };
-
-
 Scene_ItemPocket.prototype.openActorWindow =function(){
     this._actorWindow.show();
     this.pushWindow(this._actorWindow);
@@ -1121,9 +1087,6 @@ Scene_ItemPocket.prototype.actorSetCursorAll =function(selectAll){
     this._actorWindow.setCursorAll(selectAll);
 };
 
-
-
-
 //=============================================================================
 // WindowStackSystem
 //=============================================================================
@@ -1131,23 +1094,11 @@ Scene_ItemPocket.prototype.activeWindow =function(){
     return this._windowStack[this._windowStack.length-1];
 };
 
-Scene_ItemPocket.prototype.rebindWindow =function(window){
-    const bw = this.activeWindow();
-    bw.deactivate();
-    bw.deselect();
-    this._windowStack[this._windowStack.length-1] =window;
-};
-
 Scene_ItemPocket.prototype.pushWindow =function( window ){
     if(window.active){return;}
-
-
     this._windowStack.push(window);
-
     window.activate();
 };
-
-
 
 Scene_ItemPocket.prototype.popWindow=function(){
     if(this._windowStack.length <=1 ){
@@ -1165,7 +1116,6 @@ Scene_ItemPocket.prototype.popWindow=function(){
 
 };
 
-//MA_BattleHistory.Window_MenuCommand.addOriginalCommands=Window_MenuCommand.prototype.addOriginalCommands;
 const zz_MA_BattleHistory_Window_MenuCommand_prototype_addOriginalCommands=Window_MenuCommand.prototype.addOriginalCommands;
 Window_MenuCommand.prototype.addOriginalCommands =function(){
     zz_MA_BattleHistory_Window_MenuCommand_prototype_addOriginalCommands.call(this);
@@ -1187,9 +1137,6 @@ Scene_Menu.prototype.onPersonalOk =function(){
     }
 }
 
-// Scene_Menu.prototype.commandBattleHistory = function(){
-//     SceneManager.push(Scene_ItemPocket);
-// };
 
 const zz_MA_DataManager_extractSaveContents =DataManager.extractSaveContents;
 DataManager.extractSaveContents =function(){
@@ -1224,6 +1171,15 @@ Game_Action.prototype.consumeItem=function(){
         this._pocketPtr.amount-=1;
     }
 };
+
+const zz_BattleManager_startInput_MA_itemPocket =BattleManager.startInput;
+BattleManager.startInput =function(){
+    $gameParty.members().forEach(function(actor) {
+        actor.itemPocket().normalize();
+    }, this);
+    zz_BattleManager_startInput_MA_itemPocket.call(this);
+};
+
 
 const zz_MA_itemPocket_BattleManager_startAction=BattleManager.startAction;
 BattleManager.startAction =function(){
