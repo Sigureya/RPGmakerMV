@@ -397,8 +397,8 @@ Window_ModeSelect.prototype.makeCommandList =function(){
     this.addCommand(xxx.wordSwap,xxx.symbolSwap);
     this.addCommand(xxx.wordRemove,xxx.symbolRemove);
     this.addCommand(xxx.wordAdd, xxx.symbolAdd );
-    this.addCommand(xxx.wordMyset,xxx.symbolMyset);
-    this.addCommand(xxx.wordSort,xxx.symbolSort);
+//    this.addCommand(xxx.wordMyset,xxx.symbolMyset);
+//    this.addCommand(xxx.wordSort,xxx.symbolSort);
 };
 
 // Window_ModeSelect.prototype.cursorDown=function(){
