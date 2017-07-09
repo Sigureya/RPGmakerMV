@@ -285,7 +285,7 @@ Imported.Mano_AfterCounter =true;
 (function () {
 'use strict';
 
-var params = PluginManager.parameters('Mano_AfterCounter');
+const params = PluginManager.parameters('Mano_AfterCounter');
 
 const after_counter={
     tagName :String(params['tagName']||'CounterExt'),
@@ -456,7 +456,7 @@ Counter.prototype.evalCondition=function(subject,action,trait){
     return condResult;
 };
 Counter.prototype.numConvertTo =function(func,value){
-    var num = Number(value);
+    const num = Number(value);
     if(num !==NaN){
         func.call(this,num);
     }
@@ -641,19 +641,29 @@ Game_Battler.prototype.findCounterAciton=function(opponentAction){
 //=============================================================================
 // BattleManager
 //=============================================================================
-var zz_MA_AfterCounter_BattleManager_BattleManager_initMembers =BattleManager.initMembers;
+const zz_MA_AfterCounter_BattleManager_initMembers =BattleManager.initMembers;
 BattleManager.initMembers =function(){
+
+    zz_MA_AfterCounter_BattleManager_initMembers.call(this);
     this._reservedCounter =[];
 };
 
+BattleManager.isCounterReserved =function(){
+    return this._reservedCounter.length > 0;
+
+};
+BattleManager.getNextCounterAction=function(){
+    return this._reservedCounter.shift();
+};
+
 BattleManager.intersectCounterAction =function(){
-    if(this._reservedCounter.length > 0){
+    if(this.isCounterReserved()){
         if(!this._orgSubject){
             this._orgSubject =this._subject;
         }
-        var counter = this._reservedCounter.shift();
-        this._subject = counter.subject();
-        this._subject._actions.unshift(counter);
+        var counterAction = this.getNextCounterAction();
+        this._subject = counterAction.subject();
+        this._subject._actions.unshift(counterAction);
     }else{
         if(this._orgSubject){
             this._subject = this._orgSubject;
@@ -668,12 +678,12 @@ BattleManager.intersectCounterAction =function(){
 };
 
 
-var zz_MA_AfterCounter_BattleManager_updateTurn = BattleManager.updateTurn;
+const zz_MA_AfterCounter_BattleManager_updateTurn = BattleManager.updateTurn;
 BattleManager.updateTurn =function(){
     this.intersectCounterAction();
     zz_MA_AfterCounter_BattleManager_updateTurn.call(this);
 };
-var zz_MA_AfterCounter_BattleManager_invokeNormalAction =BattleManager.invokeNormalAction;
+const zz_MA_AfterCounter_BattleManager_invokeNormalAction =BattleManager.invokeNormalAction;
 BattleManager.invokeNormalAction=function(subject,target){
     zz_MA_AfterCounter_BattleManager_invokeNormalAction.apply(this,arguments);
     target._targetedMA =true;
@@ -688,13 +698,16 @@ BattleManager.counterActionSort =function(){
 
 
 
-var zz_MA_AfterCounter_BattleManager_endAction =BattleManager.endAction;
+const zz_MA_AfterCounter_BattleManager_endAction =BattleManager.endAction;
 BattleManager.endAction =function(){
-
     zz_MA_AfterCounter_BattleManager_endAction.call(this);
-    this.reserveCounterr();
-}
-BattleManager.reserveCounterr =function()    {
+    this.reserveCounter();
+};
+BattleManager.pushCounter =function(counterAction){
+    this._reservedCounter.push(counterAction);
+};
+
+BattleManager.reserveCounter =function()    {
     var act =this._action;
 
     if(act.canCounter()){
@@ -703,13 +716,13 @@ BattleManager.reserveCounterr =function()    {
         for(var i=0;i <counterUser.length;i+=1){
             var counterAction= counterUser[i].findCounterAciton(act);
             if(counterAction){
-                this._reservedCounter.push(counterAction);
+                this.pushCounter(counterAction);
             }        
         }
         this.counterActionSort();
     }
 };
-var  zz_MA_AfterCounter_Window_BattleLog_startAction =Window_BattleLog.prototype.startAction;
+const  zz_MA_AfterCounter_Window_BattleLog_startAction =Window_BattleLog.prototype.startAction;
 Window_BattleLog.prototype.startAction=function(subject,action,targets){
 //    var counterObj= action.counterObject();
 
