@@ -205,9 +205,7 @@ Window_BattleEnemy.prototype.hide = function() {
     this.hideHelpWindow();
 };
 
-const Window_BattleEnemy_updateHelp=Window_BattleEnemy.prototype.updateHelp;
 Window_BattleEnemy.prototype.updateHelp = function() {
-    Window_BattleEnemy_updateHelp.call(this);
     this.setHelpWindowItem(this.enemy());
 };
 
