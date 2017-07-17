@@ -22,6 +22,13 @@
  * 空欄の場合、何もしません。
  * @default 反撃！
  * 
+ * @param DefinableAmmount
+ * @type number
+ * @desc CounterExt5などで、設定できる最大数を設定します。
+ * @default 10
+ * 
+ * 
+ * 
  * @help
  * 
  * パラメータは、デフォルトでは以下の形になっています。
@@ -36,7 +43,7 @@
  * 
  * 複数の条件を設定したい場合、「CounterExt3」など、
  * 数字を付けて対応してください。
- * 9まで対応しています。
+ * 1からDefinableAmmountで指定した数まで対応しています。
  * 
  * パラメータごとに改行してください。
  * ■cond
@@ -289,71 +296,43 @@ const params = PluginManager.parameters('Mano_AfterCounter');
 
 const after_counter={
     tagName :String(params['tagName']||'CounterExt'),
+    chainAttackTagName :String(params.chainAttack||'chain'),
     modeReg:/(target|use|hit)/,
     msg_format :String( params['msg_format']),
-    defineCounterTraitImple:function(obj,tagName){
-        const counterEX = obj.meta[tagName];
-        if( !counterEX ){
-            return; 
-        }
+    definableAmmount:Number(params.DefinableAmmount),
 
-        var c_base = new Counter();
-        c_base.setMeta(counterEX);
-        obj.counter_Manosasayaki.push(c_base);
-    },
-    defineCounterTrait:function(obj) {
-        var ct = obj.counter_Manosasayaki;
-        if(ct !==undefined){return;}
 
-        obj.counter_Manosasayaki=[];
-        var tagName = after_counter.tagName;
-        after_counter.defineCounterTraitImple(obj,tagName);
-        for(var i=0;i <=9;i+=1 ){
-            after_counter.defineCounterTraitImple(obj,tagName+i);
+    fetchIntersectTrait:function(obj,tagName) {
+        var result =[];
+        const note_X =obj.meta[tagName];
+        if(note_X){
+            var c_base = new IntersectCondition(tagName);
+            c_base.setMeta(note_X);
+            result.push(c_base);
         }
+        var max = after_counter.definableAmmount;
+        for(var i=1;i <=max;i+=1 ){
+            const note =obj.meta[tagName+1];
+            if(note){
+                var c_base = new IntersectCondition(tagName);
+                c_base.setMeta(note);
+                result.push(c_base);
+            }
+        }
+        return result;
     },
 };
 
-//=============================================================================
-// DefineCounterTrait
-//=============================================================================
-// after_counter.defineCounterTraitImple =function(obj,tagName){
-
-//     const counterEX = obj.meta[tagName];
-//     if( !counterEX ){
-//         return; 
-//     }
-
-//     var c_base = new Counter();
-//     c_base.setMeta(counterEX);
-//     obj.counter_Manosasayaki.push(c_base);
-// };
-
-// after_counter.defineCounterTrait=function(obj) {
-//     var ct = obj.counter_Manosasayaki;
-//     if(ct !==undefined){return;}
-
-//     obj.counter_Manosasayaki=[];
-//     var tagName = after_counter.tagName;
-//     after_counter.defineCounterTraitImple(obj,tagName);
-//     for(var i=0;i <=9;i+=1 ){
-//         after_counter.defineCounterTraitImple(obj,tagName+i);
-//     }
-// };
-
-
-//counter.tagName = params['tagName']||'CounterExt';
-//counter.modeReg =/(target|use|hit)/;
-//counter.msg_format = String( params['msg_format']);
 
 //=============================================================================
 // Counter Class
 //=============================================================================
-function Counter() {
+function IntersectCondition() {
     this.initialize.apply(this,arguments);
 }
-Counter.prototype.initialize=function()
+IntersectCondition.prototype.initialize=function(tag)
 {
+    this._tag =tag;
     this._priority = 0;
     this._rate = 1;
     this._cond = null;
@@ -363,74 +342,74 @@ Counter.prototype.initialize=function()
     this._element =[];
     this.setSkillID(1);
 };
-Counter.prototype.skillEmptyItem=function(){
+IntersectCondition.prototype.skillEmptyItem=function(){
     console.log("ぬるぽ");
     return null;
 }
 
 
-Counter.prototype.setEmptyItem=function(){
-    this._getItemFunc = Counter.prototype.skillEmptyItem;
+IntersectCondition.prototype.setEmptyItem=function(){
+    this._getItemFunc = IntersectCondition.prototype.skillEmptyItem;
 }
 
-Counter.prototype.skillFromNumber=function(){
+IntersectCondition.prototype.skillFromNumber=function(){
     return $dataSkills[this._id];
 };
 
-Counter.prototype.setSkillID =function(id){
+IntersectCondition.prototype.setSkillID =function(id){
     this._id =id;
-    this._getItemFunc = Counter.prototype.skillFromNumber;
+    this._getItemFunc = IntersectCondition.prototype.skillFromNumber;
 };
-Counter.prototype.skillFromGameVariables=function(){
+IntersectCondition.prototype.skillFromGameVariables=function(){
     return $dataSkills[$gameVariables.value(this._id)];
 };
-Counter.prototype.setSkillVariable =function(id){
+IntersectCondition.prototype.setSkillVariable =function(id){
     this._id =id;
-    this._getItemFunc = Counter.prototype.skillFromGameVariables;
+    this._getItemFunc = IntersectCondition.prototype.skillFromGameVariables;
 };
 
-Counter.prototype.skillCopy=function(opponentAction){
+IntersectCondition.prototype.skillCopy=function(opponentAction){
     return opponentAction.item()
 };
 
-Counter.prototype.setSkill=function(value){
+IntersectCondition.prototype.setSkill=function(value){
     this.numOrVariable(value, this.setSkillID, this.setSkillVariable );
 };
 
-Counter.prototype.item =function(){
+IntersectCondition.prototype.item =function(){
     return this._getItemFunc.call(this);
 };
-Counter.prototype.rate =function(){
+IntersectCondition.prototype.rate =function(){
     return this._rate;
 
 };
-Counter.prototype.setRate=function(rate){
+IntersectCondition.prototype.setRate=function(rate){
     this._rate = rate/100;
 
 };
-Counter.prototype.setMode =function(mode){
+IntersectCondition.prototype.setMode =function(mode){
     var match = after_counter.modeReg.exec(mode);
     if(match){
         this._mode = match[1];
     }
 };
-Counter.prototype.priority =function(){
+IntersectCondition.prototype.priority =function(){
     return this._priority;
 };
-Counter.prototype.setPriority =function(p){
+IntersectCondition.prototype.setPriority =function(p){
     this._priority = p;
 };
 
 
-Counter.prototype.setCondition =function(cond){
+IntersectCondition.prototype.setCondition =function(cond){
     this._cond=cond;
 };
 
-Counter.prototype.setCommonEvent =function(eventId){
+IntersectCondition.prototype.setCommonEvent =function(eventId){
     this._commonEvent = Number( eventId);
 };
 
-Counter.prototype.evalCondition=function(subject,action,trait){
+IntersectCondition.prototype.evalCondition=function(subject,action,trait){
 
     const act       = action;
     const item      = action.item();
@@ -451,18 +430,18 @@ Counter.prototype.evalCondition=function(subject,action,trait){
         
     } catch (e) {
         console.error(e.toString());
-        throw new Error('条件式(cond)が不正です。該当データ('+trait.name+')式:' + this._cond);
+        throw new Error('条件式(cond)が不正です。該当データ('+trait.name+'<'+this._tag+'>)式:' + this._cond);
     }
     return condResult;
 };
-Counter.prototype.numConvertTo =function(func,value){
+IntersectCondition.prototype.numConvertTo =function(func,value){
     const num = Number(value);
     if(num !==NaN){
         func.call(this,num);
     }
 
 };
-Counter.prototype.numOrVariable =function(str,numFunc,variableFunc){
+IntersectCondition.prototype.numOrVariable =function(str,numFunc,variableFunc){
     let reg =/[(\[](\d)?[)\]]/i;
     var match = reg.exec(str);
     if(match){
@@ -473,7 +452,7 @@ Counter.prototype.numOrVariable =function(str,numFunc,variableFunc){
     }
 };
 
-Counter.prototype.patternMatch=function(key ,value){
+IntersectCondition.prototype.patternMatch=function(key ,value){
     const k = key[0];
 
     switch (k) {
@@ -511,7 +490,7 @@ Counter.prototype.patternMatch=function(key ,value){
     
 };
 
-Counter.prototype.setMeta=function(metaStr){
+IntersectCondition.prototype.setMeta=function(metaStr){
     const reg = /(|cond|skill|rate|priority|prio|mode|event)\s*=(.+)/g;
     for(;;){
         var match = reg.exec(metaStr);
@@ -519,7 +498,7 @@ Counter.prototype.setMeta=function(metaStr){
         this.patternMatch(match[1],match[2]);
     }
 };
-Counter.prototype.selectTargetIndex=function(action,opponent ){
+IntersectCondition.prototype.selectTargetIndex=function(action,opponent ){
     if(action.isForOpponent()){
         action.setTarget( opponent.index()  );
     }else if(action.isForFriend()){
@@ -527,7 +506,7 @@ Counter.prototype.selectTargetIndex=function(action,opponent ){
     }
 };
 
-Counter.prototype.createAction=function(subject,opponentAction)
+IntersectCondition.prototype.createAction=function(subject,opponentAction)
 {
     const action = new Game_Action(subject);
     const item = this.item();
@@ -537,9 +516,10 @@ Counter.prototype.createAction=function(subject,opponentAction)
         action.setAttack();
     }
     this.selectTargetIndex(action,opponentAction.subject());
+    action._counterObject =this;
     return action;
 };
-Counter.prototype.modeMathc=function(subject){
+IntersectCondition.prototype.modeMathc=function(subject){
     if(this._mode ==='target'){
         return !!subject._targetedMA;
     }
@@ -551,7 +531,7 @@ Counter.prototype.modeMathc=function(subject){
     return true;
 };
 
-Counter.prototype.callCommonEvent=function(subject,opponentAction){
+IntersectCondition.prototype.callCommonEvent=function(subject,opponentAction){
     if(this._commonEvent ===0){return;}
 
     const inter = new Game_Interpreter();
@@ -564,7 +544,7 @@ Counter.prototype.callCommonEvent=function(subject,opponentAction){
     inter.update();
 };
 
-Counter.prototype.Judge =function(subject,opponentAction,trait){
+IntersectCondition.prototype.Judge =function(subject,opponentAction,trait){
     if(! (Math.random() < this.rate())){return false;}
     this.callCommonEvent(subject,opponentAction);
     var result = true;
@@ -574,7 +554,7 @@ Counter.prototype.Judge =function(subject,opponentAction,trait){
 
     return result && subject.canUse(this.item());
 };
-Counter.prototype.createMessage=function(myAction){
+IntersectCondition.prototype.createMessage=function(myAction){
     return '';
 }
 
@@ -593,6 +573,16 @@ Game_Action.prototype.canCounter=function(){
     return (!this.item().meta.CanNotCounter) && !this.isCounter() ;
 };
 
+Game_Action.prototype.isChainAttack =function(){
+    return false;
+};
+
+Game_Action.prototype.canChainAttack=function(){
+    return false;
+};
+
+
+
 Game_Action.prototype.counterSpeed=function(){
 
     var result = this.speed()
@@ -602,42 +592,117 @@ Game_Action.prototype.counterSpeed=function(){
     return result;
 };
 
+function fetchIntersectTrait(){
+
+}
+
+function findIntersectAction(){
+
+}
+class IntersectionVisitor{
+    constructor(subject,opponentAction){
+        this.intersect =null;
+        this.opponentAction = opponentAction;
+        this.subject =subject;
+    }
+    visit(counter,traitObj){
+        if(this.intersect){
+            if(this.intersect.priority() > counter.priority()){
+                return;
+            }
+        }
+        if(counter.Judge(this.subject,this.opponentAction,traitObj)){
+            this.intersect = counter;
+        }
+    }
+    getAction(){
+        if(this.intersect){
+            return this.intersect.createAction(this.subject,this.opponentAction);
+        }
+        return null;
+    }
+
+}
+
 //=============================================================================
 // Game_Battler
 //=============================================================================
 Game_Battler.prototype.findCounterAciton=function(opponentAction){
-    var traits= this.traitObjects();
-    var counterObj =null;
-    var tn = after_counter.tagName
-    traits.forEach(function(trait){
-        var c_ext = trait.meta[tn];
-        if(!c_ext){return;}
-
-        var cm = trait.counter_Manosasayaki;
-        if(cm ===undefined){
-            const afc =after_counter;
-            after_counter.defineCounterTrait(trait);
-            cm = trait.counter_Manosasayaki;
-        }
-        for(var i=0,len = cm.length ;i < len; i+=1 ){
-            var co_i = cm[i];
-            if(!co_i.modeMathc(this)){continue;}
-            if(counterObj){
-                if(  co_i.priority() < counterObj.priority ()){continue;}                    
-            }   
-            if(co_i.Judge(this,opponentAction,trait) ){
-                counterObj = co_i;
+    const visitor =new IntersectionVisitor(this,opponentAction);
+    this.acceptForCounter(function(counter,traitObj){
+        visitor.visit(counter,traitObj);
+    });
+    return visitor.getAction();
+};
+Game_Battler.prototype.acceptForCounter =function(func){
+    const list = this.counterTraitObjects();
+    for(var i=0; i <list.length;++i){
+        const obj = list[i];
+        if(obj.counter_MA){
+            for(var j =0;j < obj.counter_MA.length;j+=1){
+                func(obj.counter_MA[j],obj);
             }
         }
-    },this);
-    if(counterObj){
-        var act = counterObj.createAction(this,opponentAction);
-        act._counterObject = counterObj;
-        return act;
     }
-
-    return null;
 };
+Game_Battler.prototype.findChainAciton=function(opponentAction){
+    const visitor =new IntersectionVisitor(this,opponentAction);
+    this.acceptForChain(function(counter,traitObj){
+        visitor.visit(counter,traitObj);
+    });
+    return visitor.getAction();
+};
+
+
+Game_Battler.prototype.acceptForChain =function(func){
+    const list = this.counterTraitObjects();
+    for(var i=0; i <list.length;++i){
+        const obj = list[i];        
+        if(obj.chain_MA){
+            for(var j =0;j < obj.chain_MA.length;j+=1){
+                func(obj.chain_MA[j],obj);
+            }
+        }
+    }
+};
+
+
+Game_Battler.prototype.counterTraitObjects=function(){
+    return this.traitObjects();
+};
+function setCounterTrait_ForObjectList(objList,tagName,targetMember){
+    const len = objList.length;
+    for(var i =1; i< len;i+=1){
+        const obj = objList[i];
+        obj[targetMember]=after_counter.fetchIntersectTrait(obj,tagName);
+    }
+}
+function setCounterTrait(tagName,targetMember){
+    const list =[
+        $dataEnemies,
+        $dataArmors,
+        $dataStates,
+        $dataActors,
+        $dataClasses
+    ];
+    list.forEach(function(data){
+        setCounterTrait_ForObjectList(data,tagName,targetMember);
+    });
+}
+
+
+const Scene_Map_create = Scene_Map.prototype.create;
+Scene_Map.prototype.create =function(){
+    Scene_Map_create.call(this);
+};
+const zz_Scene_Boot_loadSystemImages = Scene_Boot.loadSystemImages;
+Scene_Boot.loadSystemImages= function() {
+    zz_Scene_Boot_loadSystemImages.apply(this,arguments);
+    setCounterTrait('CounterExt','counter_MA');
+    setCounterTrait('chain','chain_MA');
+
+};
+
 //=============================================================================
 // BattleManager
 //=============================================================================
@@ -646,24 +711,39 @@ BattleManager.initMembers =function(){
 
     zz_MA_AfterCounter_BattleManager_initMembers.call(this);
     this._reservedCounter =[];
+    this._reservedChainAttack=[];
 };
 
 BattleManager.isCounterReserved =function(){
     return this._reservedCounter.length > 0;
+};
+BattleManager.isChainAttackReserved =function(){
+    return this._reservedChainAttack.length > 0;
+};
+BattleManager.isIntersectActionReserved =function(){
+    return this.isCounterReserved() ;//|| this.isChainAttackReserved();
+};
+
+BattleManager.getNextIntersectAction =function(){
 
 };
+
 BattleManager.getNextCounterAction=function(){
-    return this._reservedCounter.shift();
+    if(this.isCounterReserved()){
+        return this._reservedCounter.shift();
+    }
+
+    return this._reservedChainAttack.shift();
 };
 
 BattleManager.intersectCounterAction =function(){
-    if(this.isCounterReserved()){
+    const intersectAction = this.getNextCounterAction();
+    if(intersectAction){
         if(!this._orgSubject){
             this._orgSubject =this._subject;
         }
-        var counterAction = this.getNextCounterAction();
-        this._subject = counterAction.subject();
-        this._subject._actions.unshift(counterAction);
+        this._subject = intersectAction.subject();
+        this._subject._actions.unshift(intersectAction);
     }else{
         if(this._orgSubject){
             this._subject = this._orgSubject;
@@ -702,15 +782,19 @@ const zz_MA_AfterCounter_BattleManager_endAction =BattleManager.endAction;
 BattleManager.endAction =function(){
     zz_MA_AfterCounter_BattleManager_endAction.call(this);
     this.reserveCounter();
+    this.reserveChainAttack();
 };
 BattleManager.pushCounter =function(counterAction){
     this._reservedCounter.push(counterAction);
+};
+BattleManager.canCounter =function(action){
+    return action.canCounter();
 };
 
 BattleManager.reserveCounter =function()    {
     var act =this._action;
 
-    if(act.canCounter()){
+    if(this.canCounter(act)){
         var counterUser = act.opponentsUnit().aliveMembers();
 
         for(var i=0;i <counterUser.length;i+=1){
@@ -722,6 +806,25 @@ BattleManager.reserveCounter =function()    {
         this.counterActionSort();
     }
 };
+BattleManager.canChainAttack =function(action){
+    return !this.isCounterReserved() && !action.isCounter() ;
+};
+BattleManager.pushChainAttack =function(action){
+    this._reservedChainAttack.push(action);
+};
+BattleManager.reserveChainAttack =function(){
+    const act = this._action;
+    if(this.canChainAttack(act)){
+        var chainUser = act.friendsUnit().aliveMembers();
+        for(var i=0;i <chainUser.length;i+=1){
+            const chainAction = chainUser[i].findChainAciton(act);
+            if(chainAction){
+                this.pushChainAttack(chainAction);
+            }
+        }
+    }
+};
+
 const  zz_MA_AfterCounter_Window_BattleLog_startAction =Window_BattleLog.prototype.startAction;
 Window_BattleLog.prototype.startAction=function(subject,action,targets){
 //    var counterObj= action.counterObject();
