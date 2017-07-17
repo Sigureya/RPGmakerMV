@@ -17,6 +17,10 @@
  * @desc カウンターの条件設定に使うタグ名を指定します。
  * @default CounterExt
  * 
+ * @param chainTag
+ * @desc 連携攻撃の条件設定に使うタグ名を指定します。
+ * @default chain
+ * 
  * @param msg_format
  * @desc 反撃による行動の時に、挿入する文章を設定します。
  * 空欄の場合、何もしません。
@@ -166,6 +170,10 @@
  * this.isCounter() ? 500:100
  * 
  * ■更新履歴
+ * ver 1.0.0(2017/07/17)
+ * 公開後目立ったバグ報告がないので1.0にバージョンを格上げ。
+ * また、味方の攻撃に連携できる機能を暫定的に追加。
+ * 
  * ver 0.9.4(2017/06/11)
  * ヒットした時のみカウンターするmode = hitを追加。
  * ※後日バグ修正
@@ -296,7 +304,7 @@ const params = PluginManager.parameters('Mano_AfterCounter');
 
 const after_counter={
     tagName :String(params['tagName']||'CounterExt'),
-    chainAttackTagName :String(params.chainAttack||'chain'),
+    chainAttackTagName :String(params.chainTag),
     modeReg:/(target|use|hit)/,
     msg_format :String( params['msg_format']),
     definableAmmount:Number(params.DefinableAmmount),
@@ -592,13 +600,6 @@ Game_Action.prototype.counterSpeed=function(){
     return result;
 };
 
-function fetchIntersectTrait(){
-
-}
-
-function findIntersectAction(){
-
-}
 class IntersectionVisitor{
     constructor(subject,opponentAction){
         this.intersect =null;
