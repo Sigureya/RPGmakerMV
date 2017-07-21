@@ -463,7 +463,6 @@ IntersectCondition.prototype.setCommonEvent =function(eventId){
 
 IntersectCondition.prototype.evalCondition=function(subject,action,trait){
 
-    console.log('evalCond:'+subject.name());
     const act       = action;
     const item      = action.item();
     const skill     = item;
