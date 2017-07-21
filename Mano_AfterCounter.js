@@ -13,7 +13,7 @@
  * 条件式や反撃時の行動も設定できます。
  * @author しぐれん（魔のささやき）
  * 
- * @param tagName
+ * @param counterTag
  * @desc カウンターの条件設定に使うタグ名を指定します。
  * @default CounterExt
  * 
@@ -21,10 +21,15 @@
  * @desc 連携攻撃の条件設定に使うタグ名を指定します。
  * @default chain
  * 
- * @param msg_format
+ * @param counterMessage
  * @desc 反撃による行動の時に、挿入する文章を設定します。
  * 空欄の場合、何もしません。
  * @default 反撃！
+ * 
+ * @param chainMessage
+ * @desc 連携による行動の時に、挿入する文章を設定します。
+ * 空欄の場合、何もしません。
+ * @default 追撃！
  * 
  * @param DefinableAmmount
  * @type number
@@ -50,6 +55,9 @@
  * 1からDefinableAmmountで指定した数まで対応しています。
  * 
  * パラメータごとに改行してください。
+ * <chain:※条件指定>で味方が行動した後に行動する連携攻撃が可能となります。
+ * 条件指定の書き方はカウンターと同じです。
+ * こちらもchain3など番号を書くと複数指定できます。
  * ■cond
  * JavaScriptによる条件文を定義します。
  * 比較演算子は以下のものが使用可能です。
@@ -133,7 +141,7 @@
  * >
  * 属性番号2に対して反撃。
  * <CounterExt:
- *    cond   = elementId === 2
+ *    cond   = elementID === 2
  * >
  * スイッチ[1]がONの時に反撃。
  * <CounterExt:
@@ -144,9 +152,24 @@
  *    cond   = v(1)===100
  * >
  * クリティカルヒットを受けたときに反撃
+ * ※実装ミスにより、機能していません
+ * ごめんなさい
  * <CounterExt:
  *    cond = result.critical
  * >
+ * 
+ * 番号8のスキルに対して反撃。
+ * <CounterExt:
+ *    cond = skillID === 8
+ * >
+ * 
+ * 番号9,12,20のスキルに対して反撃
+ * <CounterExt:
+ *    cond = [9,12,20].contains(skillID)
+ * >
+ * 上記の二つのskillIDをitemIDにすると、
+ * 特定の番号のアイテムに反応するようになります。
+ * 
  * コモンイベント[1]で処理を行い、スイッチ[5]番がONの時に反撃
  * <CounterExt:
  *    cond  = s(5)
@@ -303,31 +326,47 @@ Imported.Mano_AfterCounter =true;
 const params = PluginManager.parameters('Mano_AfterCounter');
 
 const after_counter={
-    tagName :String(params['tagName']||'CounterExt'),
-    chainAttackTagName :String(params.chainTag),
+    counterTag :String(params['tagName']||'CounterExt'),
+    chainAttackTag :String(params.chainTag),
     modeReg:/(target|use|hit)/,
     msg_format :String( params['msg_format']),
     definableAmmount:Number(params.DefinableAmmount),
 
 
-    fetchIntersectTrait:function(obj,tagName) {
+    fetchIntersectTrait:function(obj,intersect_type) {
         var result =[];
-        const note_X =obj.meta[tagName];
+        const note_X =obj.meta[intersect_type.tagName];
         if(note_X){
-            var c_base = new IntersectCondition(tagName);
+            var c_base = new IntersectCondition(intersect_type);
             c_base.setMeta(note_X);
             result.push(c_base);
         }
         var max = after_counter.definableAmmount;
         for(var i=1;i <=max;i+=1 ){
-            const note =obj.meta[tagName+1];
+            const note =obj.meta[intersect_type.tagName+1];
             if(note){
-                var c_base = new IntersectCondition(tagName);
+                var c_base = new IntersectCondition(intersect_type);
                 c_base.setMeta(note);
                 result.push(c_base);
             }
         }
         return result;
+    },
+};
+const INTERSECT_TYPE={
+    COUNTER :{
+        name:after_counter.counterTag,
+        id:1,
+        targetMember:'counter_MA',
+        message:String(params.counterMessage),
+        tagName:String(params.counterTag),
+    },
+    CHAIN :{
+        name:after_counter.chainAttackTag,
+        id:2,
+        targetMember:'chain_MA',
+        message:String(params.chainMessage),
+        tagName:String(params.chainTag),
     },
 };
 
@@ -338,9 +377,9 @@ const after_counter={
 function IntersectCondition() {
     this.initialize.apply(this,arguments);
 }
-IntersectCondition.prototype.initialize=function(tag)
+IntersectCondition.prototype.initialize=function(type)
 {
-    this._tag =tag;
+    this._type = type || INTERSECT_TYPE.COUNTER;
     this._priority = 0;
     this._rate = 1;
     this._cond = null;
@@ -350,10 +389,15 @@ IntersectCondition.prototype.initialize=function(tag)
     this._element =[];
     this.setSkillID(1);
 };
+
+IntersectCondition.prototype.typename =function(){
+    return this._type.name;
+
+};
 IntersectCondition.prototype.skillEmptyItem=function(){
     console.log("ぬるぽ");
     return null;
-}
+};
 
 
 IntersectCondition.prototype.setEmptyItem=function(){
@@ -419,12 +463,14 @@ IntersectCondition.prototype.setCommonEvent =function(eventId){
 
 IntersectCondition.prototype.evalCondition=function(subject,action,trait){
 
+    console.log('evalCond:'+subject.name());
     const act       = action;
     const item      = action.item();
     const skill     = item;
     const a         = subject;
     const b         = action.subject();
     const elementID = item.damage.elementId;
+    
     const v         = $gameVariables.value.bind($gameVariables);
     const s         = $gameSwitches.value.bind($gameSwitches);
     const result    = subject.result();
@@ -438,7 +484,7 @@ IntersectCondition.prototype.evalCondition=function(subject,action,trait){
         
     } catch (e) {
         console.error(e.toString());
-        throw new Error('条件式(cond)が不正です。該当データ('+trait.name+'<'+this._tag+'>)式:' + this._cond);
+        throw new Error('条件式(cond)が不正です。該当データ('+trait.name+'<'+this.typename()+'>)式:' + this._cond);
     }
     return condResult;
 };
@@ -563,8 +609,9 @@ IntersectCondition.prototype.Judge =function(subject,opponentAction,trait){
     return result && subject.canUse(this.item());
 };
 IntersectCondition.prototype.createMessage=function(myAction){
-    return '';
-}
+    this;
+    return this._type.message;
+};
 
 
 //=============================================================================
@@ -575,7 +622,10 @@ Game_Action.prototype.isCounter=function(){
 };
 Game_Action.prototype.createCounterMessage =function(){
     return this._counterObject.createMessage(this  );
-}
+};
+Game_Action.prototype.counterType =function(){
+    return this._counterObject;
+};
 
 Game_Action.prototype.canCounter=function(){
     return (!this.item().meta.CanNotCounter) && !this.isCounter() ;
@@ -612,6 +662,10 @@ class IntersectionVisitor{
                 return;
             }
         }
+        if(!counter.modeMathc(this.subject)){
+            return;
+        }
+
         if(counter.Judge(this.subject,this.opponentAction,traitObj)){
             this.intersect = counter;
         }
@@ -671,14 +725,14 @@ Game_Battler.prototype.acceptForChain =function(func){
 Game_Battler.prototype.counterTraitObjects=function(){
     return this.traitObjects();
 };
-function setCounterTrait_ForObjectList(objList,tagName,targetMember){
+function setCounterTrait_ForObjectList(objList,intersect_type){
     const len = objList.length;
     for(var i =1; i< len;i+=1){
         const obj = objList[i];
-        obj[targetMember]=after_counter.fetchIntersectTrait(obj,tagName);
+        obj[intersect_type.targetMember]=after_counter.fetchIntersectTrait(obj,intersect_type);
     }
 }
-function setCounterTrait(tagName,targetMember){
+function setCounterTrait(intersect_type){
     const list =[
         $dataEnemies,
         $dataArmors,
@@ -687,7 +741,9 @@ function setCounterTrait(tagName,targetMember){
         $dataClasses
     ];
     list.forEach(function(data){
-        setCounterTrait_ForObjectList(data,tagName,targetMember);
+        setCounterTrait_ForObjectList(data,
+            intersect_type);
+//            intersect_type.name,intersect_type.targetMember);
     });
 }
 
@@ -699,8 +755,8 @@ Scene_Map.prototype.create =function(){
 const zz_Scene_Boot_loadSystemImages = Scene_Boot.loadSystemImages;
 Scene_Boot.loadSystemImages= function() {
     zz_Scene_Boot_loadSystemImages.apply(this,arguments);
-    setCounterTrait('CounterExt','counter_MA');
-    setCounterTrait('chain','chain_MA');
+    setCounterTrait(INTERSECT_TYPE.COUNTER);
+    setCounterTrait(INTERSECT_TYPE.CHAIN);
 
 };
 
@@ -725,9 +781,6 @@ BattleManager.isIntersectActionReserved =function(){
     return this.isCounterReserved() ;//|| this.isChainAttackReserved();
 };
 
-BattleManager.getNextIntersectAction =function(){
-
-};
 
 BattleManager.getNextCounterAction=function(){
     if(this.isCounterReserved()){
@@ -759,6 +812,14 @@ BattleManager.intersectCounterAction =function(){
 };
 
 
+
+const BattleManager_startAction=BattleManager.startAction;
+BattleManager.startAction =function(){
+    BattleManager_startAction.call(this);
+    this._targetsCopy = this._targets.clone();
+
+};
+
 const zz_MA_AfterCounter_BattleManager_updateTurn = BattleManager.updateTurn;
 BattleManager.updateTurn =function(){
     this.intersectCounterAction();
@@ -788,6 +849,25 @@ BattleManager.endAction =function(){
 BattleManager.pushCounter =function(counterAction){
     this._reservedCounter.push(counterAction);
 };
+BattleManager.intersectActionFromId =function(subject,skillId,target){
+    if(subject){
+        const finalTarget = target ||-1;
+        const action = new Game_Action(subject);
+        action.setSkill(skillId);
+        this.pushCounter(action);
+    }
+};
+
+
+BattleManager.intersectEnemyActionFromId =function(enemyIndex,skillId,target){
+    this.intersectActionFromId( $gameTroop.members()[enemyIndex],skillId,target);
+};
+
+BattleManager.intersectActorActionFromId =function(enemyIndex,skillId,target){
+    this.intersectActionFromId( $gameParty.members()[enemyIndex],skillId,target);
+};
+
+
 BattleManager.canCounter =function(action){
     return action.canCounter();
 };
@@ -799,7 +879,7 @@ BattleManager.reserveCounter =function()    {
         var counterUser = act.opponentsUnit().aliveMembers();
 
         for(var i=0;i <counterUser.length;i+=1){
-            var counterAction= counterUser[i].findCounterAciton(act);
+            var counterAction= counterUser[i].findCounterAciton(act,this._targetsCopy);
             if(counterAction){
                 this.pushCounter(counterAction);
             }        
@@ -828,10 +908,9 @@ BattleManager.reserveChainAttack =function(){
 
 const  zz_MA_AfterCounter_Window_BattleLog_startAction =Window_BattleLog.prototype.startAction;
 Window_BattleLog.prototype.startAction=function(subject,action,targets){
-//    var counterObj= action.counterObject();
 
-    if(action.isCounter() && after_counter.msg_format){
-        this.push('addText',after_counter.msg_format);
+    if(action.isCounter()){
+        this.push('addText',action.createCounterMessage());
     }
     zz_MA_AfterCounter_Window_BattleLog_startAction.apply(this,arguments);
 };
