@@ -356,6 +356,7 @@ const after_counter={
 const INTERSECT_TYPE={
     COUNTER :{
         name:after_counter.counterTag,
+        defaultMode:'target',
         id:1,
         targetMember:'counter_MA',
         message:String(params.counterMessage),
@@ -363,13 +364,13 @@ const INTERSECT_TYPE={
     },
     CHAIN :{
         name:after_counter.chainAttackTag,
+        defaultMode:'use',
         id:2,
         targetMember:'chain_MA',
         message:String(params.chainMessage),
         tagName:String(params.chainTag),
     },
 };
-
 
 //=============================================================================
 // Counter Class
@@ -383,7 +384,7 @@ IntersectCondition.prototype.initialize=function(type)
     this._priority = 0;
     this._rate = 1;
     this._cond = null;
-    this._mode = 'target';
+    this._mode = type ? type.defaultMode:'target';
     this._commonEvent =0;
     this._msg =null;
     this._element =[];
@@ -580,8 +581,11 @@ IntersectCondition.prototype.modeMathc=function(subject){
     if(this._mode ==='hit'){
         return !!subject._hitMA;
     }
+    if(this._mode ==='use'){
+        return true;
+    }
 
-    return true;
+    return false;
 };
 
 IntersectCondition.prototype.callCommonEvent=function(subject,opponentAction){
@@ -740,9 +744,7 @@ function setCounterTrait(intersect_type){
         $dataClasses
     ];
     list.forEach(function(data){
-        setCounterTrait_ForObjectList(data,
-            intersect_type);
-//            intersect_type.name,intersect_type.targetMember);
+        setCounterTrait_ForObjectList(data,intersect_type);
     });
 }
 
@@ -785,7 +787,6 @@ BattleManager.getNextCounterAction=function(){
     if(this.isCounterReserved()){
         return this._reservedCounter.shift();
     }
-
     return this._reservedChainAttack.shift();
 };
 
