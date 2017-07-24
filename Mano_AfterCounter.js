@@ -8,7 +8,7 @@
 // [Twitter]: https://twitter.com/Sigureya/
 //=============================================================================
 
-/*:ja
+/*:
  * @plugindesc 攻撃を受けた後に、スキルを使います。
  * 条件式や反撃時の行動も設定できます。
  * @author しぐれん（魔のささやき）
@@ -215,107 +215,6 @@
  * ver 0.9.1(2017/05/19) バグ修正とヘルプの修正
  * ver 0.9.0(2017/05/19) 公開
  */
-/*:
- * @plugindesc 
- * 
- * After receiving the attack, use the skill.
- * You can also set the trigger condition
- * @author しぐれん(siguren)
- * 
- * @param tagName
- * @desc Define the name part of <name: data>.
- * @default CounterExt
- * 
- * @param msg_format
- * @desc At the time of action by counterattack, set the sentences to be displayed.
- * If it is blank, I do not do anything.
- * @default CounterAttack!
- * 
- * @help
- * 
- * By default, the parameters are in the following form.
- * <CounterExt:
- *    cond     = true   #Invocation condition
- *    rate     = 100    #Activation rate
- *    prio = 0      #Priority when multiple conditions satisfy
- *    skill    = 1      #use skill
- *    mode     = target #Do you decide when it did not become an attack target
- * >
- * 
- * If you want to set multiple conditions, 
- * please attach a number such as "CounterExt3".
- * It corresponds to 9.
- * ■cond
- * Define conditional statements.
- * Comparison operators other than > are available.
- * The following variables can be referred to within the condition statement.
- * act      : Game_action is stored.
- * elementId: The attribute number is stored.
- * a        : Counter user.
- * b        : The opponent who attacked.
- * skillID  : ID of the skill. 0 if the opponent's action is not a skill.
- * itemID   : ID of the item. 0 if the opponent's action is not an item.
- *
- * ■rate
- * Define the counterattack rate.
- * It is almost the same as the characteristic "counter rate".
- * Ignore all default counter rate settings. * 
- * ■skill
- * Specify it in the form of N or v[N].
- * (N is an integer)
- * For v[N], retrieve the skill number from the variable.
- * ■priority
- * Define the priority.
- * Counterattack judgment is done from objects with high priority, 
- * and it will be executed from those that first fulfilled the condition.
- * If priority is the same,
- * State judged in the order of actor> occupation> equipment.
- * However, this order is not guaranteed because 
- * it varies depending on the implementation.
- * ■mode
- * use, target can be specified.
- * use counts when skills that satisfy the criteria are used.
- * target is activated when it becomes an attack target of a skill which satisfies the condition.
- * 
-
-* ■ Sample
- * Counter Attack with 50% against magic. 
- * Because they did not designate skills, they attacked with regular attacks.
- * <CounterExt:
- * Cond = act.isMagicSkill ()
- * Rate = 50
- *>
- * Counterattack with the skill of ID 9 against magic.
- * <CounterExt:
- * Cond = act.isMagicSkill ()
- * Skill = 9
- *>
- * Counterattack with the skill of ID defined with variable 1 against magic.
- * <CounterExt:
- * Cond = act.isMagicSkill ()
- * Skill = v [1]
- *>
- * Counterattack if your HP falls below 50%.
- * <CounterExt:
- * Cond = a.hpRate () <0.5
- *>
- * Counterattack against attribute number 2.
- * <CounterExt:
- * Cond = elementId === 2
- *>
- * Counterattack when switch [1] is ON.
- * <CounterExt:
- * Cond = s (1)
- *>
- * Counterattack when variable [1] is 100.
- * <CounterExt:
- * Cond = v (1) === 100
- * > 
- * 
-
-* ■ Update history
- * Var 0.9.0 (2017/05/21) Published in English
- *  */
 
 var Imported = (Imported || {});
 Imported.Mano_AfterCounter =true;
@@ -331,7 +230,6 @@ const after_counter={
     modeReg:/(target|use|hit)/,
     msg_format :String( params['msg_format']),
     definableAmmount:Number(params.DefinableAmmount),
-
 
     fetchIntersectTrait:function(obj,intersect_type) {
         var result =[];
@@ -388,7 +286,7 @@ IntersectCondition.prototype.initialize=function(type)
     this._commonEvent =0;
     this._msg =null;
     this._element =[];
-    this.setSkillID(1);
+    this.setSkillID(0);
 };
 
 IntersectCondition.prototype.typename =function(){
@@ -399,7 +297,6 @@ IntersectCondition.prototype.skillEmptyItem=function(){
     console.log("ぬるぽ");
     return null;
 };
-
 
 IntersectCondition.prototype.setEmptyItem=function(){
     this._getItemFunc = IntersectCondition.prototype.skillEmptyItem;
@@ -434,11 +331,9 @@ IntersectCondition.prototype.item =function(){
 };
 IntersectCondition.prototype.rate =function(){
     return this._rate;
-
 };
 IntersectCondition.prototype.setRate=function(rate){
     this._rate = rate/100;
-
 };
 IntersectCondition.prototype.setMode =function(mode){
     var match = after_counter.modeReg.exec(mode);
@@ -452,7 +347,6 @@ IntersectCondition.prototype.priority =function(){
 IntersectCondition.prototype.setPriority =function(p){
     this._priority = p;
 };
-
 
 IntersectCondition.prototype.setCondition =function(cond){
     this._cond=cond;
@@ -540,8 +434,7 @@ IntersectCondition.prototype.patternMatch=function(key ,value){
             break;
         default:
             break;
-    };
-    
+    };  
 };
 
 IntersectCondition.prototype.setMeta=function(metaStr){
@@ -589,30 +482,39 @@ IntersectCondition.prototype.modeMathc=function(subject){
 };
 
 IntersectCondition.prototype.callCommonEvent=function(subject,opponentAction){
-    if(this._commonEvent ===0){return;}
+    if(this._commonEvent !==0){
+        const inter = new Game_Interpreter();
+        inter.counter = this;
+        inter.a = subject;
+        inter.b = opponentAction.subject();
+        inter.act = opponentAction;
 
-    const inter = new Game_Interpreter();
-    inter.counter = this;
-    inter.a = subject;
-    inter.b = opponentAction.subject();
-    inter.act = opponentAction;
-
-    inter.setup($dataCommonEvents[this._commonEvent].list);
-    inter.update();
+        inter.setup($dataCommonEvents[this._commonEvent].list);
+        inter.update();
+    }
+};
+IntersectCondition.prototype.canUse =function(subject){
+    const item = this.item();
+    if(item){
+        return subject.canUse(item);
+    }
+    return true;
 };
 
+
 IntersectCondition.prototype.Judge =function(subject,opponentAction,trait){
+    if(!this.modeMathc(subject)){return false;}
     if(! (Math.random() < this.rate())){return false;}
+
     this.callCommonEvent(subject,opponentAction);
     var result = true;
     if(this._cond){
         result = this.evalCondition(subject,opponentAction,trait);
     }
 
-    return result && subject.canUse(this.item());
+    return result && this.canUse(subject);
 };
 IntersectCondition.prototype.createMessage=function(myAction){
-    this;
     return this._type.message;
 };
 
@@ -665,9 +567,6 @@ class IntersectionVisitor{
                 return;
             }
         }
-        if(!counter.modeMathc(this.subject)){
-            return;
-        }
 
         if(counter.Judge(this.subject,this.opponentAction,traitObj)){
             this.intersect = counter;
@@ -695,7 +594,7 @@ Game_Battler.prototype.findCounterAciton=function(opponentAction){
 Game_Battler.prototype.acceptForCounter =function(func){
     const list = this.counterTraitObjects();
     for(var i=0; i <list.length;++i){
-        const obj = list[i];
+        var obj = list[i];
         if(obj.counter_MA){
             for(var j =0;j < obj.counter_MA.length;j+=1){
                 func(obj.counter_MA[j],obj);
@@ -854,10 +753,10 @@ BattleManager.intersectActionFromId =function(subject,skillId,target){
         const finalTarget = target ||-1;
         const action = new Game_Action(subject);
         action.setSkill(skillId);
+        action.setTarget(finalTarget);
         this.pushCounter(action);
     }
 };
-
 
 BattleManager.intersectEnemyActionFromId =function(enemyIndex,skillId,target){
     this.intersectActionFromId( $gameTroop.members()[enemyIndex],skillId,target);
@@ -898,7 +797,7 @@ BattleManager.reserveChainAttack =function(){
     if(this.canChainAttack(act)){
         var chainUser = act.friendsUnit().aliveMembers();
         for(var i=0;i <chainUser.length;i+=1){
-            const chainAction = chainUser[i].findChainAciton(act);
+            var chainAction = chainUser[i].findChainAciton(act);
             if(chainAction){
                 this.pushChainAttack(chainAction);
             }
@@ -910,7 +809,10 @@ const  zz_MA_AfterCounter_Window_BattleLog_startAction =Window_BattleLog.prototy
 Window_BattleLog.prototype.startAction=function(subject,action,targets){
 
     if(action.isCounter()){
-        this.push('addText',action.createCounterMessage());
+        const msg = action.createCounterMessage();
+        if(msg){
+            this.push('addText',msg);
+        }
     }
     zz_MA_AfterCounter_Window_BattleLog_startAction.apply(this,arguments);
 };
