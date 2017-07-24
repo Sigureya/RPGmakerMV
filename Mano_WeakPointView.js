@@ -35,14 +35,17 @@
  * @default 100
  * 
  * @param WeakText
+ * @type string
  * @desc 弱点の表示名。
  * @default 弱点
  * 
  * @param ResistanceText
+ * @type string
  * @desc 耐性の表示名。
  * @default 耐性
  * 
  * @param BlockText
+ * @type string
  * @desc 無効の表示名。
  * @default 無効
  * 
@@ -73,16 +76,19 @@
  * @default #EEEEEE
  * 
  * @param textMode
+ * @type boolean
  * @desc 設定した文字列の表示方法
  * true:そのまま表示,false:ファイルを読み込む
  * @default true
  * 
  * @param displayNonTarget
+ * @type boolean
  * @desc 攻撃対象外の敵に対して、弱点を表示するか
  * true:そのまま表示,false:表示しない
  * @default false
  *
  * @param displayNonSelect
+ * @type boolean
  * @desc 攻撃対象を選択しないスキルの際に、ワンクッションを置いて弱点を表示するか
  * true:表示,false:表示しない（未実装）
  * @default true
@@ -108,8 +114,8 @@ Imported.Mano_WeakPointView = true;
 (function () {
     'use strict';
 
-	var param = PluginManager.parameters('Mano_WeakPointView');
-	var weakPointView ={
+	const param = PluginManager.parameters('Mano_WeakPointView');
+	const weakPointView ={
         anchorX :1.0-Number(param.anchorX),
         anchorY :1.0-Number(param.anchorY),
         textMode :Boolean(param.textMode==='true'),
@@ -124,8 +130,8 @@ Imported.Mano_WeakPointView = true;
         OutlineColor : String(param.OutlineColor),
         weakLine:Number(param.WeakLine)/100,
         resistanceLine:Number(param.ResistanceLine)/100,
-        axisX : Number(param.axisX),
-        axisY : Number(param.axisY),
+//        axisX : Number(param.axisX),
+//        axisY : Number(param.axisY),
     };
 
 
@@ -200,13 +206,13 @@ WeakPointView_Sprite.prototype.initialize=function(battler){
 WeakPointView_Sprite.prototype.updatePosition=function(){
    this.x = this.battler().weakPointView_X()+this._slideX ;
    this.y = this.battler().weakPointView_Y();    
-}
+};
 
 WeakPointView_Sprite.prototype.openUpdate =function(){
     this._slideX =0;
     this.opacity =255;
 //    this.visible= true;
-}
+};
 
 WeakPointView_Sprite.prototype.closeUpdate =function(){
     
@@ -214,7 +220,7 @@ WeakPointView_Sprite.prototype.closeUpdate =function(){
         this._slideX += 2;
         this.opacity -= 10;
     }
-}
+};
 
 WeakPointView_Sprite.prototype.update =function(){
 
@@ -341,7 +347,7 @@ Spriteset_Battle.prototype.updateWeakPointView=function(){
 //-----------------------------------------//
 // Window_BattleEnemy                      //
 //-----------------------------------------//
-var zz_MA_WeakPointView_Window_BattleEnemy_select =Window_BattleEnemy.prototype.select;
+const zz_MA_WeakPointView_Window_BattleEnemy_select =Window_BattleEnemy.prototype.select;
 Window_BattleEnemy.prototype.select =function(index){
     zz_MA_WeakPointView_Window_BattleEnemy_select.call(this,index);
     var action = BattleManager.inputtingAction();
@@ -375,24 +381,24 @@ Scene_Battle.prototype.openAllWeakPointView =function(){
          members[i].openWeakView();
     }
 }
-var zz_MA_WeakPointView_Scene_Battle_commandAttack =Scene_Battle.prototype.commandAttack;
+const zz_MA_WeakPointView_Scene_Battle_commandAttack =Scene_Battle.prototype.commandAttack;
 Scene_Battle.prototype.commandAttack= function() {
     zz_MA_WeakPointView_Scene_Battle_commandAttack.call(this);
     this.weakPointView_setAction();
     var e = this._enemyWindow.enemy();
-    if(e){
+     if(e){
         e.openWeakView();
     }
 }
 
-var zz_MA_WeakPointView_Scene_Battle_onSelectAction= Scene_Battle.prototype.onSelectAction;
+const zz_MA_WeakPointView_Scene_Battle_onSelectAction= Scene_Battle.prototype.onSelectAction;
 Scene_Battle.prototype.onSelectAction =function(){
     this.weakPointView_setAction();
 	zz_MA_WeakPointView_Scene_Battle_onSelectAction.call(this);
 };
 Scene_Battle.prototype.weakPointView_setAction=function(){
-    var action = BattleManager.inputtingAction();
-    var members = $gameTroop.members();
+    const action = BattleManager.inputtingAction();
+    const members = $gameTroop.members();
 
     for(var i=0,len = members.length;i<len;  i +=1){
         var e = members[i];
@@ -405,23 +411,22 @@ Scene_Battle.prototype.weakPointView_setAction=function(){
     }else{
         this.closeAllWeakPointView();
     }
-}
-var zz_MA_WeakPointView_Scene_Battle_startActorCommandSelection=Scene_Battle.prototype.startActorCommandSelection;
+};
+const zz_MA_WeakPointView_Scene_Battle_startActorCommandSelection=Scene_Battle.prototype.startActorCommandSelection;
 Scene_Battle.prototype.startActorCommandSelection = function(){
     zz_MA_WeakPointView_Scene_Battle_startActorCommandSelection.call(this);
     this.closeAllWeakPointView();
-}
+};
 
-var zz_MA_WeakPointView_Scene_Battle_onEnemyOk=Scene_Battle.prototype.onEnemyOk;
+const zz_MA_WeakPointView_Scene_Battle_onEnemyOk=Scene_Battle.prototype.onEnemyOk;
 Scene_Battle.prototype.onEnemyOk = function(){
     zz_MA_WeakPointView_Scene_Battle_onEnemyOk.call(this);
     this.closeAllWeakPointView();
-}
-
-var zz_MA_WeakPointView_Scene_Battle_onEnemyCancel=Scene_Battle.prototype.onEnemyCancel;
+};
+const zz_MA_WeakPointView_Scene_Battle_onEnemyCancel=Scene_Battle.prototype.onEnemyCancel;
 Scene_Battle.prototype.onEnemyCancel = function() {
     zz_MA_WeakPointView_Scene_Battle_onEnemyCancel.call(this);
     this.closeAllWeakPointView();
-}
+};
 
 })();
