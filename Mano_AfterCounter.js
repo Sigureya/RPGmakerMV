@@ -215,7 +215,15 @@
  * ver 0.9.1(2017/05/19) バグ修正とヘルプの修正
  * ver 0.9.0(2017/05/19) 公開
  */
-
+/**
+ * TODO
+ * ステートカウンター
+ * ステートが発生した時、カウンター
+ * 行動開始時に監視候補をリスト化し、発生したのをチェックする
+ * <StateCounter:
+ *  state = 1
+ * >
+ */
 var Imported = (Imported || {});
 Imported.Mano_AfterCounter =true;
 
@@ -286,6 +294,7 @@ IntersectCondition.prototype.initialize=function(type)
     this._commonEvent =0;
     this._msg =null;
     this._element =[];
+    this._state =[];
     this.setSkillID(0);
 };
 
@@ -628,6 +637,8 @@ Game_Battler.prototype.counterTraitObjects=function(){
     return this.traitObjects();
 };
 function setCounterTrait_ForObjectList(objList,intersect_type){
+    if(!objList){return;}
+
     const len = objList.length;
     for(var i =1; i< len;i+=1){
         const obj = objList[i];
@@ -652,11 +663,12 @@ const Scene_Map_create = Scene_Map.prototype.create;
 Scene_Map.prototype.create =function(){
     Scene_Map_create.call(this);
 };
-const zz_Scene_Boot_loadSystemImages = Scene_Boot.loadSystemImages;
-Scene_Boot.loadSystemImages= function() {
-    zz_Scene_Boot_loadSystemImages.apply(this,arguments);
+//const zz_Scene_Boot_loadSystemImages = Scene_Boot.loadSystemImages;
+const Scene_Boot_start = Scene_Boot.prototype.start;
+Scene_Boot.prototype.start= function() {
     setCounterTrait(INTERSECT_TYPE.COUNTER);
     setCounterTrait(INTERSECT_TYPE.CHAIN);
+    Scene_Boot_start.apply(this,arguments);
 
 };
 
