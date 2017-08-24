@@ -21,20 +21,16 @@
  * @param maxAmount
  * @type number
  * @desc １種類当たりの入れることができる量を定義します。
- * ※未実装
  * @default 99
  * 
  * @param pocketSize
  * @type number
  * @desc ポケットに入れることができるアイテムの種類を設定します。
- * 重複
- * ※未実装
  * @default 6
  * 
- * @canDuplicate
- * @boolean
+ * @param canDuplicate
+ * @type boolean
  * @同じ種類のアイテムをポケットに入れることができるかを定義します。
- * 未実装
  * @default false
  * 
  * @param MaxColor
@@ -49,30 +45,11 @@
  * @未実装
  * @default 4
  * 
- * @param usingIndex
- * @type boolean
- * @desc 所持アイテムの索引を作成します。内部処理に関係します。
- * 未実装
- * @default false
- * 
- * @param includePocket
- * @type switch
- * @desc 指定したスイッチがONの場合、
- * イベントコマンド「条件分岐」でポケットも調べます。
- * 
- * @param includeOutMember
- * @type switch
- * @desc 指定したスイッチがONの場合、
- * パーティから離れていたメンバーもチェックします。
- * 
  * @param developMode
  * @type boolean
  * @desc 開発モードフラグです。ダミーデータなどの設定が入っています。
  * @default false
  * 
- * @param outSwitchOFF
- * @type boolean
- * @desc 一部のイベントコマンド
  *  
  * @param DQlikeMode
  * @type boolean
@@ -111,17 +88,6 @@
  * DS版DQ4には世界樹の葉を大量に所持できてしまうバグがあるのですが、
  * そういった現象への対策です。
  * 
- * ◆Pocket Sync true
- * アイテム関連のイベントコマンドを実行した場合に、
- * ポケット内のアイテムに対しても実行します。
- * 効果はこのイベントコマンドを実行したイベント内部でのみ有効です。
- * ◆Pocket Sync false
- * SyncONを解除するのに使います。
- * 
- * 以下のイベントコマンドが該当します。
- * ・アイテムの増減（アイテムを減らすとき）
- * ・条件分岐（アイテムを持っているか）
- * ・変数の操作（アイテムの所持数）
  * 
  * 
  * ■競合について
@@ -130,6 +96,13 @@
  * Game_Battler.consumeItemを使わないようにしているからです。
  * 対応パッチは作成しますので、問題があった際には積極的に報告お願いします。
  * Twitterの方が反応速いです。
+ * 
+ * ■メソッドの命名法則
+ * 以下の通りです。
+ * execute**()
+ * **を実際に実行する関数。
+ * 必要なWindowを開く部分は**の方にあります。
+ * 
  * 
  * ※ヘルプの書き途中です。
  * 
@@ -153,6 +126,10 @@
  * パーティ外のアクターもチェック（世界樹の葉オーバー対策）
  * 
  * TODO
+ * リファクタリング
+ * mode関連の処理を、Sceneのメソッドとして実装しなおす
+ * モード開始時と終了時はstart**,end**で行う
+ * 
  * マイセット(マイセット名は、アイテム取り出しと同じ場所に格納)
  * アイテム欄から持たせる処理(特定のボタンで呼び出す)
  * アイテムごとの持たせられる数の上限（できた）
@@ -176,6 +153,17 @@
  * 
  * サブメニュー
  * 決定キーを押したときに表示　
+ * ◆Pocket Sync true
+ * アイテム関連のイベントコマンドを実行した場合に、
+ * ポケット内のアイテムに対しても実行します。
+ * 効果はこのイベントコマンドを実行したイベント内部でのみ有効です。
+ * ◆Pocket Sync false
+ * SyncONを解除するのに使います。
+ * 
+ * 以下のイベントコマンドが該当します。
+ * ・アイテムの増減（アイテムを減らすとき）
+ * ・条件分岐（アイテムを持っているか）
+ * ・変数の操作（アイテムの所持数）
  * 
  * 最近使ったアイテム？
  * 最大個数所持している場合は、個数表示を赤に
@@ -191,14 +179,14 @@
 */ 　
 
 
-(function () {
+(function (global) {
     'use strict';
     const param = PluginManager.parameters('Mano_ItemPocket');
 
     const xxx={
         DQliekMode:Boolean(param.DQlikeMode==='true'),
         maxAmount : Number (param.maxAmount),
-        canDuplicate:Boolean(param.CanDuplicate==='true'),
+        canDuplicate:Boolean(param.canDuplicate==='true'),
         pocketSize :Number(param.pocketSize),
 
         commandKey :"actorItemEquip",
@@ -243,19 +231,6 @@ function pocket_includeMembers(){
     return [];
 }
 
-//hasItemの処理を高速化するためのキャッシュ
-class HasItemCatch{
-    constructor(){
-        this._data=[];
-    }
-
-    //消失時に呼び出し、削除街リストへ
-    itemLost(itemId){
-
-
-    }
-
-};
 /**
  * 
  * @param {number} itemId 
@@ -272,7 +247,7 @@ function maxAmount(itemId){
  */
 
 function canPutInPocket(item){
-    return DataManager.isItem(item);
+    return DataManager.isItem(item) && item.occasion<=1 ;
 }
 /**
  * 
@@ -337,6 +312,10 @@ const pocketFunction={
         }
     },
     bootEachItem:function(item){
+        if(!canPutInPocket(item) ){
+            item.maxAmount_MA =0;
+            return;
+        }
         const capa = item.meta[xxx.tag.maxAmount];
         if(capa){
             item.maxAmount_MA =Number(capa);
@@ -360,7 +339,7 @@ Scene_Boot.prototype.start= function() {
 
 
 
- function MA_itemPocket(){
+function MA_itemPocket(){
     this.initialize.apply(this,arguments);
 }
 MA_itemPocket.prototype.initialize=function(dataArray){
@@ -377,12 +356,15 @@ MA_itemPocket.prototype.length =function(){
     return this.data().length;
 };
 
-/**
- * @return {boolean}
- */
-MA_itemPocket.prototype.isFull =function(){
-    return this.length() >=this.maxSize();
-};
+// /**
+//  * @return {boolean}
+//  */
+// MA_itemPocket.prototype.isFull =function(){
+//     return this.length() >=this.maxSize();
+// };
+// MA_itemPocket.prototype.maxSize=function(){
+//     return xxx.pocketSize;
+// };
 
 MA_itemPocket.prototype.front =function(){
     return this.data()[0];
@@ -392,9 +374,6 @@ MA_itemPocket.prototype.back =function(){
     return this._data[this._data.length-1];
 };
 
-MA_itemPocket.prototype.maxSize=function(){
-    return 6;
-};
 
 
 //削除方法は変えたほうがいいかも fill(null)でもいいかも
@@ -420,6 +399,11 @@ MA_itemPocket.prototype.normalize =function(){
         }
     }
 };
+MA_itemPocket.prototype.normalizeAtSwap =function(){
+    this.normalize();
+    pocketFunction.backNullPush(this._data);
+};
+
 /**
  * @return {PocketIndex}
  */
@@ -546,12 +530,6 @@ MA_itemPocket.prototype.isEmpty =function(index){
     return true;
 };
 
-
-// MA_itemPocket.prototype.newItem=function(itemId){
-//     const id_= itemId || 0;
-//     return {id:0,amount:0};
-// };
-
 MA_itemPocket.prototype.allocateItem =function(itemId){
     this._data.push(  pocketFunction.newItem(itemId));
 
@@ -622,6 +600,10 @@ MA_itemPocket.prototype.releaseItem=function(index,amount){
 };
 
 class PocketIndex{
+    /**
+     * 
+     * @param {PokectItemData[]} data_ 
+     */
     constructor(data_){
         this._data =data_;
         this._table ={};
@@ -637,10 +619,18 @@ class PocketIndex{
     }
     /**
      * @param {Number} itemId 
+     * @return {any}
+     */
+    fetch(itemId){
+        return this._table[itemId];
+    }
+
+    /**
+     * @param {Number} itemId 
      * @param {Number} amount 
      */
     addItem(itemId,amount){
-        var obj = this._table[itemId];
+        var obj = this.fetch(itemId); //this._table[itemId];
         if(!obj){
             const newItem =pocketFunction.newItem(itemId);
             obj = {
@@ -659,14 +649,17 @@ class PocketIndex{
     /**
      * @param {Number} itemId 
      */
+
     canAdd(itemId){
-        
+
+
         if(this.capacity(itemId) >0){
             return true;
         }
 
         return false;
     }
+
     /**
      * @param {Number} itemId 
      * @return {Number}
@@ -704,6 +697,8 @@ class PocketIndex{
         return -1;
     }
 };
+MA_itemPocket.PocketIndex = PocketIndex;
+
 function test(cond){
     console.log(cond ?"Success":'fauled');
 }
@@ -732,12 +727,17 @@ Window_PocketNumber.prototype.initialize=function(x,y,w,h){
     this._item =null;
     this._max=1;
     this._number=1;
-}; 
+};
+
+Window_PocketNumber.prototype.item =function(){
+    return this._item;
+};
 Window_PocketNumber.prototype.createButtons =function(){
 //    Window_ShopNumber.prototype.createButtons.call(this);
 };
 Window_PocketNumber.prototype.clear =function(){
     this._item =null;
+    this.updateCursor();
     this.refresh();
 };
 
@@ -773,7 +773,12 @@ Window_PocketNumber.prototype.drawNumber=function(){
     const x = this.cursorX();
     const y = this.itemY();
     const width = this.cursorWidth() - this.textPadding();
-    this.resetTextColor();
+    if(this._number>=this._max){
+        this.changeTextColor( this.textColor(xxx.color.max) );        
+    }else{
+        this.resetTextColor();
+    }
+
     this.drawText(this._number, x,y,width,'right' );
 };
 Window_PocketNumber.prototype.cursorWidth = function() {
@@ -791,6 +796,13 @@ Window_PocketNumber.prototype.setup=function(item,max){
     this._number =1;
     this._item =item;
     this._max =max;
+};
+
+Window_PocketNumber.prototype.setPrevWindow =function(window){
+    this._prevWindow =window;
+};
+Window_PocketNumber.prototype.getPrevWindow =function(){
+   return this._prevWindow;
 };
 
 /**
@@ -833,18 +845,40 @@ Window_ModeSelect.prototype.windowWidth = function() {
     return Graphics.boxWidth;
 };
 
- Window_ModeSelect.prototype.maxCols = function() {
+Window_ModeSelect.prototype.maxCols = function() {
      return 4;
- };
+};
+
+Window_ModeSelect.prototype.addUseCommand =function(){
+    this.addCommand(xxx.wordUse, xxx.symbolUse );    
+};
+Window_ModeSelect.prototype.addRemoveCommand =function(){
+    this.addCommand(xxx.wordRemove, xxx.symbolRemove );    
+};
+Window_ModeSelect.prototype.addSwapCommand =function(){
+    this.addCommand(xxx.wordSwap, xxx.symbolSwap );    
+};
+Window_ModeSelect.prototype.addAddCommand =function(){
+    this.addCommand(xxx.wordAdd, xxx.symbolAdd );    
+};
 
 Window_ModeSelect.prototype.makeCommandList =function(){
-    this.addCommand(xxx.wordUse, xxx.symbolUse );
-    this.addCommand(xxx.wordSwap,xxx.symbolSwap);
-    this.addCommand(xxx.wordRemove,xxx.symbolRemove);
-    this.addCommand(xxx.wordAdd, xxx.symbolAdd );
-//    this.addCommand(xxx.wordMyset,xxx.symbolMyset);
-//    this.addCommand(xxx.wordSort,xxx.symbolSort);
+    this.addUseCommand();
+    this.addSwapCommand();
+    this.addRemoveCommand();
+    this.addAddCommand();
 };
+
+Window_ModeSelect.prototype.processPageup =function(){
+    Window_Command.prototype.processPageup.call(this);
+    this.activate();    
+};
+Window_ModeSelect.prototype.processPagedown =function(){
+    Window_Command.prototype.processPagedown.call(this);
+    this.activate();    
+};
+
+
 
 // Window_ModeSelect.prototype.cursorDown=function(){
 //     //後回し
@@ -878,12 +912,14 @@ Window_Pocket.prototype.canActorChange =function(){
 Window_Pocket.prototype.processPagedown =function(){
     if(this.canActorChange()){
         Window_Selectable.prototype.processPagedown.call(this);
+        this.activate();
     }
 };
 
 Window_Pocket.prototype.processPageup =function(){
     if(this.canActorChange()){
         Window_Selectable.prototype.processPageup.call(this);
+        this.activate();
     }
 };
 Window_Pocket.prototype.isEnabled =function(item){
@@ -995,6 +1031,13 @@ Window_Pocket.prototype.itemCountWidth =function(){
     return this.textWidth('00/00');
 };
 Window_Pocket.prototype.selectBack=function(){
+    if(this._data.length <xxx.pocketSize){
+        const last = this._data[this._data.length-1];
+        if(last){
+            this._data.push(null);
+        }        
+    }
+
     this.select( Math.max( 0,this._data.length-1));
 };
 
@@ -1027,12 +1070,6 @@ Window_Pocket.prototype.drawItem =function(index){
         this.drawItemAmount(index,rect);        
     }
 };
-if(xxx.DQliekMode){
-    Window_Pocket.prototype.drawItemAmount =function(){};
-    xxx.canDuplicate =true;
-    xxx.maxAmount =1;
-
-}
 
 
 function Window_MySet(){
@@ -1052,376 +1089,80 @@ Window_MySet.prototype.maxCols = function() {
     return this._cols;
 };
 
-
-class ModeBase{
-    constructor(scene){
-        this._number =0;
-        this._scene =scene;
-        this._pocket =null;
-        this._itemIndex =-1;
-        this._actorIndex=-1
-        this._subWindow=null;
-        this._destoyPocketIndexList=[];
+class ModeObject{
+    /**
+     * @param {String} symbol 
+     */
+    constructor(symbol){
+        this._symbol =symbol;
+        this._table ={};
+        this._enableJudge =function(item){return true;}
     }
     /**
-     * @return {Scene_ItemPocket}
+     * 
+     * @param {String} key 
+     * @param {Function} func 
      */
-    get scene(){
-        return this._scene;
-    }
-
-    destoryPocketIndex(actorId){
-        this._destoyPocketIndexList[actorId]=true;
-    }
-
-    mainWindow(){
-
-    }
-    subWindow(){
-        return this._subWindow;
-    }
-
-
-    setItemIndex(index){
-        this._itemIndex =index;
-    }
-    setPocket(pocket){
-        this._pocket =pocket;
-    }
-
-    setNumber(number){
-        this._number=number;
-    }
-    itemData(){
-        return this._pocket.itemData(this._itemIndex);
+    setHandler(key,func){
+        this._table[key]=func;
     }
     /**
-     * @return {MA_itemPocket}
+     * @param {String} key 
      */
-    pocket(){
-        return this._pocket;
-    }
-    log(){
-        console.log('log not implement');
-    }
-    log_EX(){
-        console.log( typeof(this));
-        this.log();
-
-    }
-
-    normalizePocket(){
-        this.pocket().normalize();
-    }
-
-    onModeOk(){}
-    onModeOk_EX(){
-        this._actorIndex = this._scene.actor()._actorId;
-        this.onModeOk();
-        if(this._subWindow){
-            this._subWindow.open();
-        }
-//        this.onActorChange_EX();
-    }
-    onModeExit(){}
-    onModeExit_EX(){ 
-        this.onModeExit();
-        if(this._subWindow){
-            this._subWindow.close();
-        }
-     }
-    onNumberOk(){}
-    onNumberOk_EX(){this.onNumberOk();}
-    onNumberCancel(){}
-    onNumberCancel_EX(){this.onNumberCancel();}
-    onActorChange(){
-        this._scene.defaultActorChange();
-        this._scene._pocketWindow.select(0);        
-    }
-    actorId(){
-        return this._actorIndex;
-    }
-
-    onActorChange_EX(){
-        this._actorIndex = this._scene.actor()._actorId;
-        this.onActorChange();
-    }
-    onItemOk(){}
-    onItemSelect_EX(){ this.onItemOk(); }
-    onItemCancel(){}
-    onItemCancel_EX(){this.onItemCancel();}
-    onActorOk(){}
-    onActorOk_EX(){ this.onActorOk();}
-    onActorCancel(){}
-    onActorCancel_EX(){this.onActorCancel();}
-
-    isItemsInterested(item ){return false;}
-};
-class Mode_Use extends ModeBase{
-    constructor(scene){
-        super(scene);
-//        this._scene =scene;
-    }
-
-    isItemsInterested(item ){
-        return !!item;    
-    }
-    onItemOk(){
-        const item =this.itemData();
-        if(item){
-            this._scene._actorWindow.select(0);
-            this._scene.actorSetCursorAll(this.isForAll(item));
-            this._scene.openActorWindow();
-        }
-    }
-
-    onActorOk(){
-        const item = this.itemData();
-        if(!item){return;}
-
-        if(this.pocket().canUse( this._itemIndex )){
-            const user = this._scene.user();
-            const action =new Game_Action(user);
-            action.setItemObject(item);
-            const targets =this.makeTargets(item);
-            if(this.isValidTargets(action,targets)){
-                this.executeAction(action,targets);
-                this.pocket().consumeItem( this._itemIndex);
-
-                if(this.pocket().amount( this._itemIndex ) <=0){
-                    this.destoryPocketIndex( this._scene.actor()._actorId);
-                }
-                return;
-            }
-        }
-        SoundManager.playBuzzer();
-    }
-    onActorCancel(){
-        this.normalizePocket();
-        this._scene.currentPocketWidnow().refresh();
-    }
-
-    // private:
-    isValidTargets(action,targets){
-        return targets.some(
-            function(tar){
-                return action.testApply(tar);
-            }
-        );
-    }
-
-    isForAll(item){
-        return [2,8,10].contains(item.scope);
-    }
-
-    makeTargets(item){
-         var members =$gameParty.members();
-         if(this.isForAll( item ) ){
-             return members;
-         }
-         const index = this._scene._actorWindow.index();
-         if(index >=0 ){
-             return [members[index]];
-         }
-         return [];
-    }
-
-    executeAction(action,targets){
-        targets.forEach(function(target) {
-            const repeat = action.numRepeats();
-            for(var i=0;i < repeat; i+=1){
-                action.apply(target);
-            }
-        });;
-        action.applyGlobal();
-        this._scene.checkCommonEvent();
-        this._scene.checkGameover();
-        this._scene._actorWindow.refresh();
-        SoundManager.playUseItem();
-    }
-};
-//アクター切り替え時に、何かが必要
-class Mode_Swap extends ModeBase{
-    constructor (scene){
-        super(scene);
-  //      this._scene =scene;
-        this._secondItemIndex=-1;
-        this._secondPocket =null;
-        this._actor=null;
-        this._mainWindow =this.scene._pocketWindow;
-        this._subWindow = this.scene._pocketWindow2;
-    }
-
-    memberReset(){
-        this._secondPocket=null;
-        this._secondItemIndex=-1;
-        this._itemIndex =-1;
-        this._pocket =null;
-    }
-
-
-    onModeExit(){
-        $gameParty.setMenuActor(this._actor);
-    }
-    onModeOk(){
-
-        this.memberReset();
-        this.scene.setSecondActor();
-        this._subWindow.deselect();
-
-        const p= this._mainWindow.pocket();
-        this.normalizeAtSwap (p);
-        this._actor =this._scene.actor();
-    }
-
-    onItemCancel(){
-        if(this._itemIndex===-1){
-
-
+    callHandler(key){
+        const func = this._table[key];
+        if(func){
+            func.call();
         }else{
-            this._mainWindow.activate();
-            this._itemIndex=-1;
-        }
-
-    }
-    normalizeAtSwap(pocket){
-        pocket.normalize();
-        pocketFunction.backNullPush(pocket._data);
-    }
-    onActorChange(){
-        const actor =this._scene.actor();
-        this._subWindow.setActor(actor);            
-        this.normalizeAtSwap( actor.itemPocket());
-        this._subWindow.deselect();
-        this._subWindow.refresh();
-    }
-    
-    cleanup(){
-        this.destoryPocketIndex( this._mainWindow.actor()._actorId  );
-        this.destoryPocketIndex( this._subWindow.actor()._actorId  );
-    }
-
-    executeSwap(){
-        const pocket1 = this._mainWindow.pocket();
-        const pocket2 = this._subWindow.pocket();
-        const itemObject = this._mainWindow.itemObject();
-        const swap1_notNull = !!itemObject;
-        pocket1.swapItem(pocket2,this._mainWindow.index(),this._subWindow.index());
-
-        this.normalizeAtSwap(pocket1 );
-        this.normalizeAtSwap(pocket2);
-        this.cleanup();
-
-
-        if(swap1_notNull){
-//            this._mainWindow.select(0);
-        }else{
-            this._mainWindow.selectBack();            
-        }
-
-        this._mainWindow.refresh();
-        this._subWindow.refresh();
-
-        this.memberReset();
-        this._scene.popWindow();
-
-    }
-
-    checkNull2(pocket_){
-        var count=0;
-        for (var index = 0; index < pocket_._data.length; index++) {
-            var element = pocket_._data[index];
-            if(element===null){
-                count +=1;
-            }            
-        }
-        if( count >=2){
-            console.log("null2でまずいですよ");
-            this;
+            throw new Error(key +':not handling');
         }
     }
-
-    log(){
-        log('first :'+this._itemIndex);
-        log('second:'+this._secondItemIndex);
+    /**
+     * @return {Function}
+     */
+    pocketCancelFunction(){
+        const func = this._table['pocketCancel'];
+        return func;
+    }
+    pocketOk(){
+        this.callHandler('pocketOk');
+    }
+    numeberOk(){
+        this.callHandler('numberOk');
+    }
+    actorOk(){
+        this.callHandler('actorOk');
     }
 
-    onItemOk(){
-        if(this._secondItemIndex!==-1){
-            var a = this._subWindow.active;
-            this.executeSwap();
-            return;
-        }
-        if(this._itemIndex!==-1){
-            this.scene.pushWindow(this._subWindow);
-            this.normalizeAtSwap( this._subWindow.pocket() );
-            // 末尾を選ぶじゃなくて、window1がnull選択なら、nullでないのを選択に
-            const item =this.itemData();
-            if(item){
-                this._subWindow.selectBack();
-            }else{
-                //LR時のselect(0)はこれではない
-                this._subWindow.select(0);
-            }
-        }        
+
+    numberCancel(){
+        this.callHandler('numberCancel');
     }
 
-    
-    setPocket(pocket){
-        if(!this._pocket ){
-            this._pocket =pocket;
-            return;
-        }
-        if(!this._secondPocket){
-            this._secondPocket =pocket;
-        }
-    }
 
-    setItemIndex(index){
-        if(this._itemIndex===-1){
-            this._itemIndex =index;
-        }else{
-            this._secondItemIndex=index;
-        }
+    start(){
+        this.callHandler('start');
     }
+    end(){
+        this.callHandler('end');
+    }
+    /**
+     * 
+     * @param {Function} func 
+     */
+    setEnableJudge(func){
+        this._enableJudge =func;
+    }
+    /**
+     * @return {boolean}
+     * @param {RPG.Item} item 
+     */
+    isItemeEnabled(item){
+        return this._enableJudge(item);
+    };
 
-    isItemsInterested(item ){
-        return true;
-    }
 };
-class Mode_Remove extends ModeBase{
-    constructor(scene){
-        super(scene);
-//        this._scene=scene;
-        this._subWindow =this.scene._numberWindow;
-    }
 
-    onNumberOk(){
-        const pocket = this.pocket();
-
-        pocket.releaseItem(this._itemIndex,this._number);
-        if(pocket.amount(this._itemIndex)<=0){
-            this.destoryPocketIndex(this.actorId());
-        }
-        pocket.normalize();
-
-        const pw = this._scene.currentPocketWidnow();
-        pw.refresh();
-        this._scene._itemWindow.refresh();
-
-    }
-
-    onItemOk(){
-
-
-        const pw = this._scene.currentPocketWidnow();
-        const item = pw.item();
-        this._subWindow.setup( item,this.pocket().amount(this._itemIndex)   );
-        this._subWindow.refresh();
-        this._scene.pushWindow(this._subWindow);
-    }
-    isItemsInterested(item ){return !!item;}
-};
 
 function Window_AddItem(){
     this.initialize.apply(this,arguments);
@@ -1442,7 +1183,6 @@ Window_AddItem.prototype.initialize=function(x,y,w,h){
 //外部テーブルと連携する
 Window_AddItem.prototype.isEnabled =function(item){
     return this._enableJudge(item);
-
 };
 Window_AddItem.prototype.setEnabledFunc=function(func){
     this._enableJudge=func;
@@ -1453,10 +1193,31 @@ Window_AddItem.prototype.drawItem =function(index){
 };
 
 Window_AddItem.prototype.makeItemList=function(){
-    this._data = $gameParty.items();
+    this._data = $gameParty.items().filter(pocketFunction.canPutInPocket);
 };
 
 class Mode_Add extends ModeBase{
+    constructor(scene){
+        super(scene);
+        this._subWindow =scene._numberWindow;
+        this._cache =[];
+        this._cache.length = $gameParty.members().length;
+    }
+    onModeOk(){
+        this._scene.startAddMode();
+    }
+    onModeExit(){
+        this._scene.endAddMode();
+    }
+    isItemsInterested(item ){
+        return false;
+    }
+    onNumberOk(){
+        this._scene.executeAddItem();
+    }
+}
+
+class Mode_Add0 extends ModeBase{
     constructor(scene){
         super(scene);
         this._subWindow =scene._numberWindow;
@@ -1481,19 +1242,23 @@ class Mode_Add extends ModeBase{
         return !!item;
     }
     onItemOk(){
-        const item =this._scene.item();
-        const pocket = this.pocket();
-        const indexTable = this._scene.pocketIndex(this._scene.actor());
-        const index = indexTable.indexOf(item.id); //pocket.indexOf(item.id);
-        
-
-        const pocketCapacity =indexTable.capacity(item.id);// index !==-1?pocket.capacity(index) :pocketFunction.maxAmount(item.id);
-        const capacity =  Math.min(pocketCapacity, $gameParty.numItems( item ));
-        this._scene._pocketWindow.select(index);
-        this._subWindow.setup(item,capacity);
-        this._subWindow.refresh();
-        this._scene.pushWindow( this._subWindow );
+        this._scene.addItem(this._scene.item());
     }
+
+
+    // onItemOk(){
+    //     const item =this._scene.item();
+    //     const pocket = this.pocket();
+    //     const indexTable = this._scene.pocketIndex(this._scene.actor());
+    //     const index = indexTable.indexOf(item.id); //pocket.indexOf(item.id);
+
+    //     const pocketCapacity =indexTable.capacity(item.id);// index !==-1?pocket.capacity(index) :pocketFunction.maxAmount(item.id);
+    //     const capacity =  Math.min(pocketCapacity, $gameParty.numItems( item ));
+    //     this._scene._pocketWindow.select(index);
+    //     this._subWindow.setup(item,capacity);
+    //     this._subWindow.refresh();
+    //     this._scene.pushWindow( this._subWindow );
+    // }
 
     onNumberCancel(){
         this._scene._pocketWindow.deselect();        
@@ -1520,7 +1285,6 @@ class Mode_Add extends ModeBase{
     }
 
 };
-
 function Scene_ItemPocket() {
     this.initialize.apply(this,arguments);    
 }
@@ -1535,6 +1299,8 @@ Scene_ItemPocket.prototype.initialize =function(){
     this._currentPocketWindow=null;
     this._otherPocketWindow=null;
     this._pocketIndex=[];
+
+    this._destoryReservationlist =[];
 };
 /**
  * @param {Game_Actor} actor
@@ -1549,6 +1315,11 @@ Scene_ItemPocket.prototype.pocketIndex =function(actor){
     }
     return result;
 };
+
+Scene_ItemPocket.prototype.reserveDestoryIndex =function(actorId){
+    this._destoryReservationlist[actorId]=true;
+
+};
 Scene_ItemPocket.prototype.destoryPocketIndex=function(){
     const mode = this.currentModeObject();
     const len =mode._destoyPocketIndexList.length;
@@ -1560,16 +1331,6 @@ Scene_ItemPocket.prototype.destoryPocketIndex=function(){
     mode._destoyPocketIndexList.length=0;
 };
 
-
-Scene_ItemPocket.prototype.createModeObject=function(){
-    var table={};
-    table[xxx.symbolUse]=new Mode_Use(this);
-    table[xxx.symbolSwap]=new Mode_Swap(this);
-    table[xxx.symbolRemove]=new Mode_Remove(this);
-    table[xxx.symbolAdd] = new Mode_Add(this);
-
-    this._modeTable=table;
-};
 
 Scene_ItemPocket.prototype.createAllWindow=function(){
     this.createHelpWindow();
@@ -1587,8 +1348,8 @@ Scene_ItemPocket.prototype.create =function(){
 
     this.createAllWindow();
 
-    this.createModeObject();
-    this.pushWindow(this._modeSelectWindow);
+//    this.createModeObject();
+    this._modeSelectWindow.activate();
     this._modeSelectWindow.select(0);
 };
 Scene_ItemPocket.prototype.subWindowRect=function(){
@@ -1605,9 +1366,34 @@ Scene_ItemPocket.prototype.subWindowRect=function(){
  * @return {boolean}
  */
 Scene_ItemPocket.prototype.canAddItem =function(item){
-    const indexTable= this.pocketIndex(this.actor());
-    
+    const indexTable= this.pocketIndex(this.actor());    
     return indexTable.canAdd(item.id) ;
+};
+
+/**
+ * @return {RPG.Item}
+ * アイテムウィンドウで選択されているアイテムを返す
+ */
+Scene_ItemPocket.prototype.item = function() {
+    return this._itemWindow.item();
+};
+/**
+ * @return {MA_itemPocket}
+ */
+Scene_ItemPocket.prototype.pocket =function(){
+    return this._pocketWindow.pocket();
+};
+/**
+ * @return {Game_Actor}
+ */
+Scene_ItemPocket.prototype.actor=function(){
+    return this._actor;
+}
+
+
+Scene_ItemPocket.prototype.onAddItemOk =function(){
+    const item = this._itemWindow.item();
+    this.addItem(item);
 };
 
 Scene_ItemPocket.prototype.createItemSelectWindow =function(){
@@ -1619,7 +1405,7 @@ Scene_ItemPocket.prototype.createItemSelectWindow =function(){
     const iw = new Window_AddItem(wx,wy,ww,wh);
     iw.setEnabledFunc( this.canAddItem.bind(this) );
     iw.setHandler( 'cancel',this.onItemCancel.bind(this) );
-    iw.setHandler('ok',this.onItemSelect.bind(this));
+    iw.setHandler('ok',this.onAddItemOk.bind(this));
     iw.setCategory('item');
     iw.setHelpWindow(this._helpWindow);
     iw.makeItemList();
@@ -1629,6 +1415,23 @@ Scene_ItemPocket.prototype.createItemSelectWindow =function(){
     this._itemWindow=iw;
     this.addWindow(iw);
 };
+// Scene_ItemPocket.prototype.onItemOk=function(){
+
+// //    this.onItemSelect();
+// };
+/**
+ * @param {RPG.Item} item
+ */
+Scene_ItemPocket.prototype.setupCapacityNumber =function(item){
+
+    const indexTable = this.pocketIndex(this.actor());
+    const pocketCapacity =indexTable.capacity(item.id);
+    const capacity =  Math.min(pocketCapacity, $gameParty.numItems( item ));
+    this._numberWindow.setup(item,capacity);
+    this._numberWindow.refresh();
+    this._numberWindow.activate();
+};
+
 
 
 Scene_ItemPocket.prototype.createNumberWindow=function(){
@@ -1656,18 +1459,344 @@ Scene_ItemPocket.prototype.openNumberWindow=function(){
 };
 
 Scene_ItemPocket.prototype.onNumberOk =function(){
+//    this.executeAddItem();
     const mode = this.currentModeObject();
-    mode.setNumber(this._numberWindow.number());
-    mode.onNumberOk_EX();
+    mode.numeberOk();
+    
+
+//    mode.setNumber(this._numberWindow.number());
+//    mode.onNumberOk_EX();
     this._numberWindow.clear();
-    this.popWindow();
+
+
+//    this.popWindow();
 };
 
 Scene_ItemPocket.prototype.onNumberCancel =function(){
-    this._numberWindow.clear();
-    this.currentModeObject().onNumberCancel_EX();
-    this.popWindow();
+    const mode = this.currentModeObject();
+    mode.numberCancel();
+    // this._pocketWindow.deselect();
+    // this._numberWindow.clear();
+    // this._numberWindow.getPrevWindow().activate(); 
+
 };
+Scene_ItemPocket.prototype.startAddMode =function(){
+    this.openItemWindow();
+    this.openNumberWindow();
+    this._numberWindow.setPrevWindow(this._itemWindow);
+    this.pocketIndex(this.actor());
+};
+Scene_ItemPocket.prototype.endAddMode =function(){
+    this._numberWindow.setPrevWindow(null);
+    this._itemWindow.deselect();
+    this._numberWindow.close();
+    this._modeSelectWindow.activate();
+};
+/**
+ * @param {RPG.Item} item
+ */
+Scene_ItemPocket.prototype.addItem =function(item){
+    this.setupCapacityNumber(item);
+    const index = this._pocketWindow.indexOf(item); 
+    this._pocketWindow.select(index);
+};
+Scene_ItemPocket.prototype.executeAddItem =function(){
+    const table = this.pocketIndex(this.actor());
+    const item = this._numberWindow.item();
+    const amount =this._numberWindow.number()
+    table.addItem(item.id,amount);
+    $gameParty.loseItem(item,amount);
+
+    this._pocketWindow.refresh();
+    this._itemWindow.refresh();
+    this._pocketWindow.deselect();
+    this._itemWindow.activate();
+};
+Scene_ItemPocket.prototype.modeAddNumberCancel =function(){
+    this._pocketWindow.deselect();
+    this._numberWindow.clear();
+    this._itemWindow.activate();
+
+};
+
+Scene_ItemPocket.prototype.startRemoveMode =function(){
+    this._pocketWindow.activate();
+    this._pocketWindow.select(0);
+    this._numberWindow.setPrevWindow(this._pocketWindow);
+    this.openNumberWindow();
+};
+
+Scene_ItemPocket.prototype.endRemoveMode =function(){
+    this._numberWindow.close();
+};
+
+Scene_ItemPocket.prototype.executeRemoveItem =function(){
+    const pocket = this.pocket();
+    const index =this._pocketWindow.index();
+    pocket.releaseItem(index,this._numberWindow.number());
+    if(pocket.amount(index)<=0){
+        this.reserveDestoryIndex(this.actor().actorId())
+    }
+    pocket.normalize();
+    this._pocketWindow.refresh();
+    this._itemWindow.refresh();
+    this._pocketWindow.activate();
+};
+Scene_ItemPocket.prototype.modeRemoveNumberCancel =function(){
+    this._numberWindow.clear();
+    this._pocketWindow.activate();
+};
+/**
+ * @param {RPG.Item} item
+ * @return {boolean}
+ */
+Scene_ItemPocket.prototype.isRemoveabelItem=function(item){
+    return !!item;
+};
+
+Scene_ItemPocket.prototype.removeItem =function(){
+    const item = this._pocketWindow.item();
+    const amount =this._pocketWindow.itemObject().amount;
+    this._numberWindow.setup(item,amount);
+    this._numberWindow.refresh();
+    this._numberWindow.activate();
+};
+
+/**
+ * @param {RPG.Item} item
+ * @return {Boolean}
+ */
+Scene_ItemPocket.prototype.isItemEnabled=function(item){
+    const mode = this.currentModeObject();
+    return mode.isItemeEnabled(item);
+};
+Scene_ItemPocket.prototype.startSwapMode =function(){
+    const actorA = this._pocketWindow.actor();
+    const actorB =$gameParty.members()[0];
+    $gameParty.setMenuActor(actorB);
+    if(actorA ===actorB){
+        $gameParty.makeMenuActorNext();
+    }
+    this.subPocketWindowSetActor($gameParty.menuActor());
+    this._pocketWindow2.open();
+    this._pocketWindow.activate();
+    this._pocketWindow.select(0);
+};
+
+Scene_ItemPocket.prototype.endSwapMode =function(){
+    $gameParty.setMenuActor(this._pocketWindow.actor());
+    this._actor = this._pocketWindow.actor();
+    this._pocketWindow.deselect();
+    this._pocketWindow2.close();
+    console.log('endswap');
+};
+Scene_ItemPocket.prototype.openSwapWindow =function(){
+    this._pocketWindow2.open();
+};
+Scene_ItemPocket.prototype.swapSelectSecond =function(){
+    if(this._pocketWindow.item()){
+        this._pocketWindow2.selectBack();        
+    }else{
+        this._pocketWindow2.select(0);
+    }
+    this._pocketWindow2.activate();
+};
+
+
+
+Scene_ItemPocket.prototype.executeSwap =function(){
+    console.log('stackLen:'+this._windowStack.length);
+    const pocket1 = this._pocketWindow.pocket();
+    const pocket2 = this._pocketWindow2.pocket();
+    const isSelectBack = !!this._pocketWindow.itemObject();
+    
+    pocket1.swapItem(pocket2,this._pocketWindow.index(),this._pocketWindow2.index());
+    pocket1.normalizeAtSwap();
+    pocket2.normalizeAtSwap();
+    
+    if((!pocket2.front())||isSelectBack  ){
+        this._pocketWindow.select(0);
+    }else{
+        this._pocketWindow.selectBack();
+    }
+    this._pocketWindow2.deselect();
+    this._pocketWindow.refresh();
+    this._pocketWindow2.refresh();
+
+};
+
+Scene_ItemPocket.prototype.startItemUseMode =function(){
+    this._pocketWindow.activate();
+    this._pocketWindow.select(0);
+//    this._o
+};
+Scene_ItemPocket.prototype.endItemUseMode =function(){
+    this._pocketWindow.deselect();
+    this._modeSelectWindow.activate();
+//    this._o
+};
+/**
+ * @param {RPG.Item} item
+ */
+Scene_ItemPocket.prototype.itemScopeForAll =function(item){
+    return [2,8,10].contains(item.scope);
+};
+
+Scene_ItemPocket.prototype.useItem =function(){
+    const item = this._pocketWindow.item();
+    if(item){
+        this._actorWindow.select(0);
+        this.actorSetCursorAll( this.itemScopeForAll(item) );
+        this.openActorWindow();
+        this._actorWindow.activate();
+    }
+};
+/**
+ * @return {Game_Actor[]}
+ */
+Scene_ItemPocket.prototype.allMembers =function(){
+    return $gameParty.members();
+};
+
+/**
+ * @param {RPG.Item} item
+ * @return {Game_Actor[]}
+ */
+Scene_ItemPocket.prototype.makeItemTargets =function(item){
+    if(this.itemScopeForAll(item) ){
+        return this.allMembers();
+    }
+    const index = this._actorWindow.index();
+    if(index>=0){
+        return [$gameParty.members()[index]];
+    }
+    return [];
+};
+
+/**
+ * @private
+ * @param {Game_Action} action
+ * @param {Game_Actor[]} targets
+ * @return {boolean}
+ */
+Scene_ItemPocket.prototype.isValidTargets =function(action,targets){
+    return targets.some( action.testApply.bind(action));
+};
+/**
+ * 
+ * @param {Game_Action} action 
+ * @param {Game_Actor[]} targets 
+ */
+Scene_ItemPocket.prototype.executeAction=function(action ,targets){
+    targets.forEach(function(target){
+        const repeat = action.numRepeats();
+        for(var i=0;i < repeat; i+=1){
+            action.apply(target);
+        }    
+    });
+    action.applyGlobal();
+    this.checkGameover();
+    this.checkGameover();
+    this._actorWindow.refresh();
+    this._itemUsed =true;
+    this.playUseItem();
+};
+Scene_ItemPocket.prototype.playBuzzer =function(){
+    SoundManager.playBuzzer();
+};
+Scene_ItemPocket.prototype.playUseItem =function(){
+    SoundManager.playUseItem();
+};
+
+
+Scene_ItemPocket.prototype.executeUseItem =function(){
+    const pocket = this.pocket();
+    const index = this._pocketWindow.index();
+    const item = pocket.itemData(index);
+//    const item = this.ite
+    if(pocket.canUse(index)){
+        const user = this.user();
+        const action =new Game_Action(user,false);
+        action.setItemObject(item);
+        const targets = this.makeItemTargets(item);
+        if(this.isValidTargets(action,targets)){
+            this.executeAction(action,targets);
+            pocket.consumeItem(index);
+            if(pocket.amount(index)<=0){
+                this.reserveDestoryIndex(this.actor().actorId());
+            }
+            return;
+        }
+        //TODO:描き途中
+    }
+    this.playBuzzer();
+
+};
+
+// TODO:あとでこっちのモードに切り替える
+Scene_ItemPocket.prototype.createAddCommand =function(){
+    const mode =new ModeObject(xxx.symbolAdd);
+    mode.setHandler('start',this.startAddMode.bind(this));
+    mode.setHandler('end',this.endAddMode.bind(this));
+    mode.setHandler('numberOk',this.executeAddItem.bind(this));
+    mode.setHandler('numberCancel',this.modeAddNumberCancel.bind(this));
+    this._modeTable[xxx.symbolAdd]=mode;
+};
+Scene_ItemPocket.prototype.createSwapCommand =function(){
+    const mode =new ModeObject(xxx.symbolSwap);
+    mode.setHandler('start',this.startSwapMode .bind(this));
+    mode.setHandler('end',this.endSwapMode.bind(this));
+    mode.setHandler('pocketOk',this.swapSelectSecond.bind(this));
+//    mode.setHandler('pocketCancel',this.)
+    this._modeTable[xxx.symbolSwap]=mode;
+};
+Scene_ItemPocket.prototype.createRemoveCommand =function(){
+    const mode =new ModeObject(xxx.symbolRemove);
+    mode.setHandler('start',this.startRemoveMode .bind(this));
+    mode.setHandler('end',this.endRemoveMode.bind(this));
+    mode.setHandler('numberOk',this.executeRemoveItem.bind(this));
+    mode.setHandler('numberCancel',this.modeRemoveNumberCancel.bind(this));
+    mode.setHandler('pocketOk',this.removeItem.bind(this));
+    mode.setEnableJudge(this.isRemoveabelItem.bind(this));
+    this._modeTable[xxx.symbolRemove]=mode;
+};
+
+Scene_ItemPocket.prototype.createUseCommand =function(){
+    const mode =new ModeObject(xxx.symbolUse);
+    mode.setHandler('start',this.startItemUseMode.bind(this));
+    mode.setHandler('end',this.endItemUseMode.bind(this));
+    mode.setHandler('pocketOk',this.useItem.bind(this));
+    mode.setHandler('actorOk',this.executeUseItem.bind(this));
+    this._modeTable[xxx.symbolUse] =mode;
+//    this._modeSelectWindow.addCommand(xxx.worduse,addMode);
+};
+
+//TODO:こっちの方が新しい　あとでこっちに切り替え
+// 並びをユーザーで制御できるようにする
+Scene_ItemPocket.prototype.createModeObjects =function(){
+    this._modeTable={};
+    this.createUseCommand();
+    this.createAddCommand();
+    this.createSwapCommand();
+    this.createRemoveCommand();
+};
+
+
+Scene_ItemPocket.prototype.createModeSelectWindow =function(){
+    var a = new Window_ModeSelect(0,this._helpWindow.y +this._helpWindow.height );
+    this._modeSelectWindow=a;
+    a.setHandler('cancel',this.onModeCancel.bind(this));
+    a.setHandler('ok',this.onModeOk.bind(this));
+    a.setHandler('pagedown', this.nextActor.bind(this));
+    a.setHandler('pageup',   this.previousActor.bind(this));
+
+    this.createModeObjects();
+    this.addWindow(a); 
+    a.refresh(); 
+};
+
+
+
 
 Scene_ItemPocket.prototype.setSecondActor =function(){
     const cpw = this.currentPocketWidnow();
@@ -1680,27 +1809,84 @@ Scene_ItemPocket.prototype.setSecondActor =function(){
     opw.setActor($gameParty.menuActor());
     opw.refresh();
 };
+
+Scene_ItemPocket.prototype.cancelSwap =function(){
+    $gameParty.setMenuActor( this._pocketWindow.actor() );    
+    this._pocketWindow2.close();
+};
 /**
- * @param {RPG.Item} item
- * @return {Boolean}
+ * @param {Game_Actor} actor
  */
-Scene_ItemPocket.prototype.isItemEnabled=function(item){
+Scene_ItemPocket.prototype.subPocketWindowSetActor =function(actor){
+    this._pocketWindow2.setActor(actor);
+    this._pocketWindow2.activate();
+    this._pocketWindow2.refresh();
+};
+Scene_ItemPocket.prototype.onSubPocketStartSelection =function(){
+    const item = this._pocketWindow.item();
+    if(item){
+        this._pocketWindow2.selectBack();        
+    }else{
+        this._pocketWindow2.select(0);
+    }
+    this.pushWindow(this._pocketWindow2);
+
+
+};
+Scene_ItemPocket.prototype.onPocketOk =function(){
     const mode = this.currentModeObject();
-    return mode.isItemsInterested(item);
-};
-Scene_ItemPocket.prototype.createModeSelectWindow =function(){
-    var a = new Window_ModeSelect(0,this._helpWindow.y +this._helpWindow.height );
-    this._modeSelectWindow=a;
-    a.setHandler('cancel',this.onModeCancel.bind(this));
-    a.setHandler('ok',this.onModeSelect.bind(this));
-    a.setHandler('pagedown', this.nextActor.bind(this));
-    a.setHandler('pageup',   this.previousActor.bind(this));
-
-    this.addWindow(a); 
+    mode.pocketOk();
 };
 
-Scene_ItemPocket.prototype.onModeCancel =function(){
-    this.popWindow();
+Scene_ItemPocket.prototype.endMode =function(){
+    const mode = this.currentModeObject();
+    mode.end();
+
+};
+
+Scene_ItemPocket.prototype.onPocketCancel =function(){
+    const mode = this.currentModeObject();
+    const func = mode.pocketCancelFunction();
+    if(func){
+
+    }else{
+        this.endMode();
+        this._pocketWindow.deselect();
+        this._modeSelectWindow.activate();
+    }
+};
+
+
+Scene_ItemPocket.prototype.onSubPocketWidnowCancel =function(){
+    this.onItemCancel();
+    this.cancelSwap();
+
+};
+
+Scene_ItemPocket.prototype.onSubPocketWindowOk =function(){
+     this.executeSwap();
+     this._pocketWindow.activate();
+};
+
+Scene_ItemPocket.prototype.onSubPocketWindowChangeActor =function(){
+    this.subPocketWindowSetActor($gameParty.menuActor());
+};
+Scene_ItemPocket.prototype.onSubWindowPageup =function(){
+    $gameParty.makeMenuActorPrevious();
+    if($gameParty.menuActor() ===this._pocketWindow.actor()){
+ //       $gameParty.makeMenuActorPrevious();        
+    }
+//    this.previousActor();
+    this.onSubPocketWindowChangeActor();
+
+};
+Scene_ItemPocket.prototype.onSubWindowPagedown =function(){
+    $gameParty.makeMenuActorNext();
+    if($gameParty.menuActor() ===this._pocketWindow.actor()){
+//        $gameParty.makeMenuActorNext();        
+    }
+    //    this.nextActor();
+    this.onSubPocketWindowChangeActor();
 };
 /**
  * @param {Number} wx 
@@ -1712,8 +1898,8 @@ Scene_ItemPocket.prototype.makePocketWindow=function(wx,wy){
   
     var aie = new Window_Pocket(wx,wy,ww,wh);
     aie.setEnableJudge(  this.isItemEnabled.bind(this) );  
-    aie.setHandler( 'cancel',this.onItemCancel.bind(this) );
-    aie.setHandler('ok',this.onPocketItemSelect.bind(this) );
+    aie.setHandler( 'cancel',this.onPocketCancel.bind(this) );
+    aie.setHandler('ok',this.onPocketOk.bind(this) );
     aie.setHandler('pagedown', this.nextActor.bind(this));
     aie.setHandler('pageup',   this.previousActor.bind(this));
     aie.setHelpWindow(this._helpWindow);
@@ -1722,14 +1908,16 @@ Scene_ItemPocket.prototype.makePocketWindow=function(wx,wy){
     return aie;
 };
 
-
 Scene_ItemPocket.prototype.createSubPocketWindow=function(){
     const w = this.subWindowRect();
     var aie = new Window_Pocket(w.x,w.y,w.width,w.height);
     this._pocketWindow2 = aie;
     aie.setEnableJudge(  this.isItemEnabled.bind(this) );  
-    aie.setHandler( 'cancel',this.onItemCancel.bind(this) );
-    aie.setHandler('ok',this.onPocketItemSelect.bind(this) );
+    aie.setHandler( 'cancel',this.onSubPocketWidnowCancel.bind(this) );
+    aie.setHandler('ok',this.onSubPocketWindowOk.bind(this) );
+    aie.setHandler('pageup',this.onSubWindowPageup.bind(this));
+    aie.setHandler('pagedown',this.onSubWindowPagedown.bind(this));
+    
     aie.setHelpWindow(this._helpWindow);
     aie.openness=0;    
     this.addWindow(aie);
@@ -1739,6 +1927,7 @@ Scene_ItemPocket.prototype.createSubPocketWindow=function(){
 Scene_ItemPocket.prototype.createPocketWindow =function(){
 
     this._pocketWindow = this.makePocketWindow(0,this._modeSelectWindow.y + this._modeSelectWindow.height);
+
     this._pocketWindow.setActor(this.actor());
     this._pocketWindow.refresh();
     this._currentPocketWindow = this._pocketWindow;
@@ -1752,6 +1941,19 @@ Scene_ItemPocket.prototype.defaultActorChange =function(){
 
 };
 Scene_ItemPocket.prototype.onActorChange =function(){
+    const a_window =this.activeWindow();
+//    a_window.activate();
+    this._pocketWindow.setActor(this.actor());
+    this._pocketWindow.refresh();
+    return;
+    
+
+    if( a_window===this._pocketWindow || a_window ===this._modeSelectWindow){
+        this._pocketWindow.setActor(this.actor());
+        this._pocketWindow.activate();
+        this._pocketWindow.refresh();
+    }
+    return;
     const aw = this.activeWindow();
     const mode =this.currentModeObject();
     mode.onActorChange_EX();
@@ -1762,9 +1964,18 @@ Scene_ItemPocket.prototype.onActorChange =function(){
     this.activeWindow().activate();
 };
 
-Scene_ItemPocket.prototype.openItemWindow=function(){
-    this.pushWindow(this._itemWindow);
+Scene_ItemPocket.prototype.onSwapOk =function(){
+
 };
+
+Scene_ItemPocket.prototype.openItemWindow=function(){
+    this._itemWindow.activate();
+    this._itemWindow.select(0);
+    
+//    this.pushWindow(this._itemWindow);
+};
+
+
 Scene_ItemPocket.prototype.onPocketItemSelect =function(){    
     const mode =this.currentModeObject();
     if(mode){
@@ -1792,8 +2003,8 @@ Scene_ItemPocket.prototype.setBasicHandler =function(window){
 };
 
 Scene_ItemPocket.prototype.hideSubWindow=function(window){
-    window.hide();
-    this.popWindow();
+    // window.hide();
+    // this.popWindow();
 };
 
 //=============================================================================
@@ -1803,24 +2014,19 @@ Scene_ItemPocket.prototype.setMode =function(mode){
     this._mode=mode;
 };
 
-Scene_ItemPocket.prototype.onModeSelect=function(){
-    
-    this._currentPocketWindow = this._pocketWindow;
-    this._otherPocketWindow = this._pocketWindow2;
-
+Scene_ItemPocket.prototype.onModeOk=function(){
     this._mode = this._modeSelectWindow.currentSymbol();
-    if(this._mode ===xxx.symbolAdd){
-        this._itemWindow.select(0);
-        this.pushWindow(this._itemWindow);
-    }else{
-        const cpw =this.currentPocketWidnow();
-        cpw.select(0);
-        this.pushWindow(  cpw );
-    }
     const modeObj =this.currentModeObject();
-
-    modeObj.onModeOk_EX();
+    modeObj.start();
 };
+
+Scene_ItemPocket.prototype.onModeCancel =function(){
+    SceneManager.pop();
+};
+
+/**
+ * @return {ModeObject}
+ */
 Scene_ItemPocket.prototype.currentModeObject =function(){
    const mode=  this._modeSelectWindow.currentData();
    return this._modeTable [mode.symbol];
@@ -1838,14 +2044,27 @@ Scene_ItemPocket.prototype.currentWindow=function(){
 
 Scene_ItemPocket.prototype.onActorOk=function(){
     var modeObject = this.currentModeObject();
-    if(modeObject){
-        modeObject.onActorOk_EX();
-    }
+    modeObject.actorOk();
+//    modeObject.
+
+
+    // if(modeObject){
+    //     modeObject.onActorOk_EX();
+    // }
 };
 Scene_ItemPocket.prototype.onActorCancel=function(){
-    Scene_ItemBase.prototype.onActorCancel.call(this);
-    this.currentModeObject().onActorCancel_EX();
+    this._actorWindow.hide();
+    if(this._itemUsed){
+        this._pocketWindow.pocket().normalize();
+        this._pocketWindow.refresh();
+    }
+    this._itemUsed=false;
+    this._pocketWindow.activate();
 };
+
+/**
+ * @return {Game_Actor}
+ */
 Scene_ItemPocket.prototype.user =function(){
     return  Scene_Item.prototype.user.call(this);
 };
@@ -1859,12 +2078,12 @@ Scene_ItemPocket.prototype.onItemSelect =function(){
     }
 };
 Scene_ItemPocket.prototype.onItemCancel=function(){
-    this.currentModeObject().onItemCancel_EX();
-    this.popWindow();
+    this.endAddMode();
+//    this.currentModeObject().onItemCancel_EX();
+//    this.popWindow();
 };
 Scene_ItemPocket.prototype.openActorWindow =function(){
     this._actorWindow.show();
-    this.pushWindow(this._actorWindow);
 };
 Scene_ItemPocket.prototype.actorSetCursorAll =function(selectAll){
     this._actorWindow.setCursorAll(selectAll);
@@ -1878,9 +2097,12 @@ Scene_ItemPocket.prototype.activeWindow =function(){
 };
 
 Scene_ItemPocket.prototype.pushWindow =function( window ){
+    return;
+
+
     if(window.active){return;}
-//    console.log('push:');
-//    console.log(window);
+    console.log('push:');
+    console.log(window);
 
 
     this._windowStack.push(window);
@@ -1888,17 +2110,20 @@ Scene_ItemPocket.prototype.pushWindow =function( window ){
 };
 
 Scene_ItemPocket.prototype.popWindow=function(){
+    return;
+
+
     if(this._windowStack.length <=1 ){
         this.popScene();
         return;
     }
     var lastWindow = this._windowStack.pop();
     lastWindow.deselect();
-//    console.log('pop');
-//    console.log(lastWindow);
+    console.log('pop');
+    console.log(lastWindow);
 
     this.activeWindow().activate();
-    if(this._windowStack.length ===1){
+    if(this._windowStack.length ===0){
         this.destoryPocketIndex();
         const mode = this.currentModeObject();
         mode.onModeExit_EX();        
@@ -2125,7 +2350,14 @@ Game_Interpreter.prototype.pluginCommand =function(command,args){
             break;
     }
 };
+(function(){
 
+if(xxx.DQliekMode){
+    Window_Pocket.prototype.drawItemAmount =function(){};
+    xxx.canDuplicate =true;
+    xxx.maxAmount =1;
+}
+})();
 // const Game_Interpreter_command111 =Game_Interpreter.prototype.command111;
 // Game_Interpreter.prototype.command111 =function(){
 //     const result= Game_Interpreter_command111.call(this);
@@ -2139,9 +2371,26 @@ Game_Interpreter.prototype.pluginCommand =function(command,args){
 //     return result;
 // };
 
+const namespace ={
+    MA_itemPocket:MA_itemPocket,
+    Scene_ItemPocket:Scene_ItemPocket,
+    Mode:{
+        Add:Mode_Add
 
+    },
+};
 //テスト用に一時メニュー無効化
+
+global.Mano_ItemPocket =namespace;
+const PocketIndex_canAdd = PocketIndex.prototype.canAdd;
+namespace.MA_itemPocket.PocketIndex.prototype.canAdd =function(itemId){
+    if(this._data.length <xxx.pocketSize){
+        return true;
+    }
+    return PocketIndex_canAdd.call(this,itemId);
+};
+
 
 //Window_MenuCommand.prototype.addMainCommands=function(){};
 //Window_MenuCommand.prototype.addFormationCommand=function(){};
-})();
+})(this);
