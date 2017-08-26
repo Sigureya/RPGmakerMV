@@ -125,6 +125,8 @@
  * 
  * ※ヘルプの書き途中です。
  * 
+ * var 1.0.0(2017/08/26) イベントコマンド「条件分岐」で、アイテム所持をチェックできるようにした。
+ * DQ風所持モードの拡張プラグインを追加。
  * var 0.7.5(2017/06/28) アイテムの出し入れで個数指定を可能にし、入れられない時はグレーアウト。
  * var 0.7.0(2017/06/21) バトル中にアイテムを使えるようになった
  * var 0.6.3(2017/06/21) バトルに少しだけ対応。
@@ -2546,43 +2548,6 @@ Game_Interpreter.prototype.pluginCommand =function(command,args){
             break;
     }
 };
-(function(){
-
-if(xxx.DQliekMode){
-    Window_Pocket.prototype.drawItemAmount =function(){};
-
-//    xxx.canDuplicate =true;
-    xxx.maxAmount =1;
-    PocketIndex.prototype.addItem =function(itemId,amount){
-        for(var i=0;i < amount; ++i){
-            this._data.push(pocketFunction.newItem(itemId,1));
-        }
-    };
-    PocketIndex.prototype.capacity =function(itemId){
-        return this.vacant();
-    };
-    Window_Pocket.prototype.amount =function(){
-        return this.pocket().amountSumOfItem(this.item());
-    };
-    MA_itemPocket.prototype.releaseItem =function(index,amount){
-        const item = this.itemData(index);
-        var released = amount;
-        const len =this.length();
-        for(var i=0;i <len;i+=1){
-            if(released<=0){
-                break;
-            }
-            if(this._data[i].id ===item.id){
-                released -=this._data[i].amount;
-                this._data[i].amount =0;
-            }
-        }
-        $gameParty.gainItem(item,amount);
-    };
-
-
-}
-})();
 // const Game_Interpreter_command111 =Game_Interpreter.prototype.command111;
 // Game_Interpreter.prototype.command111 =function(){
 //     const result= Game_Interpreter_command111.call(this);
@@ -2602,7 +2567,6 @@ const namespace ={
     PocketIndex:PocketIndex,
     Window_Pocket:Window_Pocket,
     pocketFunction:pocketFunction,
-
 };
 //テスト用に一時メニュー無効化
 
