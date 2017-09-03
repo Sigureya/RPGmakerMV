@@ -1569,8 +1569,6 @@ Window_AddItem.prototype.makeItemList=function(){
 };
 
 
-
-
 function Scene_ItemPocket() {
     this.initialize.apply(this,arguments);    
 }
@@ -2404,6 +2402,7 @@ Scene_ItemPocket.prototype.createNameInputWindow =function(){
     var input = new Window_NameInput(this._nameEditWindow);
     input.y = this._nameEditWindow.y + this._nameEditWindow.height;
     input.hide();
+    input.deactivate();
     this._nameInputWindow =input;
     this.addWindow(input);
 };
@@ -2896,7 +2895,7 @@ const zz_MA_ItemPocket_Scene_Battle_onItemOk=Scene_Battle.prototype.onItemOk;
  Scene_Battle.prototype.onItemOk= function(){
     zz_MA_ItemPocket_Scene_Battle_onItemOk.call(this);
     this.onBattlePocketOk();
-
+onItemOk
 };
 Scene_Battle.prototype.createItemWindow =function(){
     var wy = this._helpWindow.y + this._helpWindow.height;
