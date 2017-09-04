@@ -139,6 +139,7 @@
  * 
  * ※ヘルプの書き途中です。
  * 
+ * var 1.1.0(2017/09/05) マイセット機能を実装
  * var 1.0.0(2017/08/26) イベントコマンド「条件分岐」で、アイテム所持をチェックできるようにした。
  * DQ風所持モードの拡張プラグインを追加。
  * var 0.7.5(2017/06/28) アイテムの出し入れで個数指定を可能にし、入れられない時はグレーアウト。
@@ -2396,7 +2397,11 @@ Scene_ItemPocket.prototype.createNameEditWindow =function(){
 Scene_ItemPocket.prototype.createNameInputWindow =function(){
     var input = new Window_NameInput(this._nameEditWindow);
     input.y = this._nameEditWindow.y + this._nameEditWindow.height;
-//    input.height =this._modeSelectWindow.height + this.smallPocketHegiht();
+    var aaa = 300;
+    input.width =input.width-aaa;
+    input.x =aaa;
+
+
     input.hide();
     input.deactivate();
     input.setHandler('ok',this.onNameEditOk.bind(this));
