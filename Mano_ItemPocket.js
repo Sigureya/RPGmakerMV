@@ -12,6 +12,52 @@
 /*:
  * @author しぐれん（魔のささやき）
  * @plugindesc キャラクターごとに個別にアイテムを所持します。
+ *
+ * @param menuCommand
+ * @desc メニュー画面におけるアイテム所持のコマンド名
+ * @type string
+ * @default アイテム所持
+ * 
+ * 
+ * @param command
+ * @text コマンド
+ * 
+ * @param CommandUse
+ * @type string
+ * @desc アイテムを使うコマンド名
+ * @default 使う
+ * @parent command
+ * 
+ * @param CommandSwap
+ * @type string
+ * @desc アイテムを入れ替えるコマンド名
+ * @default 入れ替え
+ * @parent command
+ * 
+ * @param CommandRemove
+ * @type string
+ * @desc アイテムをしまうコマンド名
+ * @default しまう
+ * @parent command
+ * 
+ * @param CommandAdd
+ * @type string
+ * @desc アイテムを入れるコマンド名
+ * @default 入れる
+ * @parent command
+ * 
+ * @param CommandMyset
+ * @type string
+ * @desc マイセットのコマンド名
+ * @default マイセット
+ * @parent command
+ * 
+ * @param CommandSort
+ * @type string
+ * @desc アイテムのソートのコマンド名
+ * @default マイセット
+ * @parent command
+ * 
  * 
  * 
  * @param InsertForPocket
@@ -19,15 +65,20 @@
  * @desc 指定したスイッチがONの時、
  * 新しく手に入れたアイテムを先頭のアクターのポケットに入れます。
  * 
+ * @param pocket
+ * @text ポケットの設定
+ * 
  * @param maxAmount
  * @type number
  * @desc １種類当たりの入れることができる量を定義します。
  * @default 99
+ * @parent pocket
  * 
  * @param pocketSize
  * @type number
  * @desc ポケットに入れることができるアイテムの種類を設定します。
  * @default 6
+ * @parent pocket
  * 
  * @param canDuplicate
  * @type boolean
@@ -39,46 +90,61 @@
  * @desc 最大個数を所持している際の表示色を設定します。
  * システムのカラー番号で指定されます。
  * @default 18
+ * @parent pocket
  * 
  * @param NotEnoughColor
  * @type number
- * @desc マイセット実行時に、アイテムが足りなかった時の色を設定します。
+ * @desc マイセット実行時に、アイテムが足りなかった時の色を設定します
  * @未実装
  * @default 4
  * 
+ * @param myset
+ * @text マイセット機能
  * 
  * @param usingMyset
  * @type boolean
- * @desc マイセット機能を使うかどうかを定義します。
- * @on マイセット機能を使う
- * @off マイセット機能を使わない
+ * @desc マイセット機能を使うかどうかを定義します
+ * @on 使う
+ * @off 使わない
  * @default true
+ * @parent myset
  * 
  * @param mysetSize
  * @type number
- * @desc マイセットの保存数を定義します。
+ * @desc マイセットの保存数を定義します
  * @default 8
+ * @parent myset
  * 
  * @param mysetFormat
  * @type string
- * @desc マイセットのデフォルト名です。
+ * @desc マイセットのデフォルト名です
  * @default マイセット【%1】
+ * @parent myset
  * 
  * @param saveMyset
  * @type string
- * @desc マイセットを保存する時のコマンドです。
+ * @desc マイセットを保存する時のコマンドです
  * @default マイセットの保存
+ * @parent myset
+ * 
+ * @param saveMysetHelp
+ * @type string
+ * @desc マイセットを保存する時のヘルプ表示
+ * @default マイセットの保存
+ * @parent myset
  * 
  * @param loadMyset
  * @type string
  * @desc マイセットを読み込む時のコマンドです。
  * @default マイセットの読み込み
+ * @parent myset
  * 
  * 
  * @param renameMyset
  * @type string
  * @desc マイセットの登録名を変更する時のコマンド名です
  * @default マイセットの名前変更
+ * @parent myset
  *  
  * @param developMode
  * @type boolean
@@ -117,7 +183,11 @@
  * DS版DQ4には世界樹の葉を大量に所持できてしまうバグがあるのですが、
  * そういった現象への対策です。
  * 
+ * ■メモについて
+ * メモ欄で、アクターの初期アイテムが設定できます。
+ * 以下のような内容で書き込むと、ID1のアイテムが4個加わった状態でスタートします加わった状態でスタートしますs
  * 
+ * <PocketItem[1]:4>
  * 
  * ■競合について
  * Game_Battler.consumeItemを再定義しているプラグインとは競合する可能性があります。
@@ -196,6 +266,14 @@
  * <MaxAmount:2>
 */ 　
 
+/*~struct~Myset:
+ * @param param1
+ * @default sample1
+ *
+ * @param param2
+ * @default sample2
+ */
+
 function MA_itemPocket(){
     this.initialize.apply(this,arguments);
 }
@@ -237,6 +315,14 @@ MA_itemPocket.prototype.length =function(){
     return this.data().length;
 };
 
+/**
+ * @param {Function<RPG.Item,RPG.Item>} func
+ */
+MA_itemPocket.prototype.sort =function(func){
+    this.data().sort(function(a,b){
+        return func($dataItems[a.id],$dataItems[b.id]);
+    });
+};
 // MA_itemPocket.prototype.backNullPush =function(){
 //     return;
 //     if(this.isFull()){return;}
@@ -564,17 +650,17 @@ MA_itemPocket.prototype.loadMyset =function(myset){
         renameMyset:String(param.renameMyset),
 
         commandKey :"actorItemEquip",
-        commandName:'アイテム所持',
+        commandName:String(param.menuCommand),
 
-        wordUse:'使う',
+        wordUse:String(param.CommandUse),
         symbolUse:'use',
-        wordSwap:'入れ替え',
+        wordSwap:String(param.CommandSwap),
         symbolSwap:'swap',
-        wordRemove:'しまう',
+        wordRemove:String(param.CommandRemove),
         symbolRemove:'remove',
-        wordAdd:'入れる',
+        wordAdd:String(param.CommandAdd),
         symbolAdd:'add',
-        wordMyset:'マイセット',
+        wordMyset:String(param.CommandMyset),
         symbolMyset:'myset',
         wordSort:'整列',
         symbolSort:'sort',
@@ -1733,7 +1819,7 @@ Scene_ItemPocket.prototype.setupCapacityNumber =function(item){
 Scene_ItemPocket.prototype.createNumberWindow=function(){
     const rect = this.subWindowRect();
 
-    const num = new Window_PocketNumber(rect.x,rect.y,rect.width, xxx.pocketWindow.smallH());
+    const num = new Window_PocketNumber(rect.x,rect.y,rect.width, this.smallPocketHegiht());
     this._numberWindow = num;
     num.setHandler('cancel',this.onNumberCancel.bind(this));
     num.setHandler('ok',this.onNumberOk.bind(this));
@@ -1801,7 +1887,7 @@ Scene_ItemPocket.prototype.executeAddItem =function(){
     $gameParty.loseItem(item,amount);
 
     this._pocketWindow.refresh();
-    if($gameParty.hasItem(item)){
+    if($gameParty.numItems(item)>0){
         this._itemWindow.redrawItem(this._itemWindow.index());
     }else{
         this._itemWindow.refresh();
@@ -2100,9 +2186,9 @@ Scene_ItemPocket.prototype.loadMyset =function(){
 };
 
 Scene_ItemPocket.prototype.endLoadMyset =function(){
-    this._windowMysetCommand.activate();
-    this._mysetListWindow.deselect();
-    this._pocketPreviewWindow.show();
+    // this._windowMysetCommand.activate();
+    // this._mysetListWindow.deselect();
+    // this._pocketPreviewWindow.show();
     this.mysetExecuteSucces();
 };
 
@@ -2138,15 +2224,12 @@ Scene_ItemPocket.prototype.executeSaveMyset =function(){
 
     $gameParty.saveMyset(index,pocket);
 
-    this._mysetListWindow.deactivate();
-    this._mysetListWindow.deselect();
-
-    this._windowMysetCommand.activate();
     this._pocketPreviewWindow.setPocket( $gameParty.getPocketMyset(index).pocket   );
     this._pocketPreviewWindow.refresh();
     this.playSaveMysetSound();
 
     this.mysetExecuteSucces();
+    this._helpWindow.clear();
 };
 
 Scene_ItemPocket.prototype.selectMysetList =function(){
@@ -2218,6 +2301,10 @@ Scene_ItemPocket.prototype.onMysetCommandCancel =function(){
 };
 
 Scene_ItemPocket.prototype.mysetExecuteSucces =function(){
+    this._mysetListWindow.deactivate();
+    this._mysetListWindow.deselect();
+
+    this._windowMysetCommand.activate();
     this._pocketPreviewWindow.hide();
     this._pocketWindow.show();
 
@@ -2239,6 +2326,27 @@ Scene_ItemPocket.prototype.onMysetCommandOk =function(){
             this.renameMyset();
             break;
     }
+};
+/**
+ * 
+ * @param {RPG.Item} item1 
+ * @param {RPG.Item} item2 
+ */
+function idUpper(item1,item2){
+    return item1.id -item2.id;
+}
+
+Scene_ItemPocket.prototype.sortPreview =function(){
+     var pocket= this.pocket().clone();
+     pocket.sort(idUpper);
+
+
+
+};
+
+Scene_ItemPocket.prototype.startSortMode =function(){
+
+
 };
 
 // TODO:あとでこっちのモードに切り替える
@@ -2312,6 +2420,11 @@ Scene_ItemPocket.prototype.createModeSelectWindow =function(){
     this.createModeObjects();
     this.addWindow(a); 
     a.refresh(); 
+};
+
+Scene_ItemPocket.prototype.createYesNoWindow =function(){
+
+
 };
 
 Scene_ItemPocket.prototype.createMysetListWindow =function(){
@@ -2721,6 +2834,26 @@ Game_Action.prototype.consumeItem=function(){
         this._pocketPtr.amount-=1;
     }
 };
+/**
+ * @param {Number} itemId
+ */
+Game_Party.prototype.someoneHasItemId=function(itemId){
+    return this.members().some(function(actor){
+        if(actor){
+            return actor.isInPocket(itemId);
+        }
+        return false;
+    });
+};
+
+
+/**
+ * @param {RPG.Item}
+ */
+Game_Party.prototype.someoneHasItem=function(item){
+    return this.someoneHasItemId(item.id)
+};
+ 
 const Game_Party_hasItem = Game_Party.prototype.hasItem;
 Game_Party.prototype.hasItem =function(item){
     const result = Game_Party_hasItem.call(this,item);
@@ -2728,12 +2861,14 @@ Game_Party.prototype.hasItem =function(item){
     const members =pocketFunction.includeMembers();
     Mano_ItemPocket_State.includeAll =false;
     Mano_ItemPocket_State.includeParty=false;
-    return members.some(function(actor){
-        if(actor){
-            return actor.isInPocket(item.id);
-        }
-        return false;
-    });
+
+    return this.someoneHasItem(item);
+    // return members.some(function(actor){
+    //     if(actor){
+    //         return actor.isInPocket(item.id);
+    //     }
+    //     return false;
+    // });
 };
 /**
  * @return {MysetListItem[]}
@@ -2809,17 +2944,34 @@ BattleManager.startInput =function(){
     zz_BattleManager_startInput_MA_itemPocket.call(this);
 };
 
-
-
 const zz_MA_Game_Actor_setup = Game_Actor.prototype.setup;
 Game_Actor.prototype.setup = function(actorId) {
-	zz_MA_Game_Actor_setup.call(this,actorId);
-    this.pocket_MA =[];
-    if(actorId ===1  ){
-        this.pocket_MA=pocketFunction.createDummyData();
-        return;
-    }
+    zz_MA_Game_Actor_setup.call(this,actorId);
+    this.setupPocket();
 };
+Game_Actor.prototype.setupPocket =function(){
+    
+    var actorData =$dataActors[this._actorId];
+    var matched=false;
+    var reg =/PocketItem\[(\d)\]/;
+    var pocket =new MA_itemPocket([]);
+    for(var key in actorData.meta){
+        var match = reg.exec(key);
+        if(match){
+            matched=true;
+            var itemId =Number(match[1]);
+            var amount = Number(actorData.meta[key]);
+            pocket.addItem($dataItems[itemId],amount);
+        }else{
+            if(matched){
+                break;
+            }
+        }
+
+    }
+    this.pocket_MA=pocket.data();
+};
+
 /**
  * @return {MA_itemPocket} 
  */
