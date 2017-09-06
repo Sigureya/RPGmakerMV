@@ -1307,6 +1307,17 @@ Window_Pocket.prototype.drawAllItems =function(){
     Window_Selectable.prototype.drawAllItems.call(this);
     this.drawActorName();
 };
+Window_Pocket.prototype.deselect =function(){
+    this.updateHelp();
+    Window_Pocket.baseType.prototype.deselect.call(this);
+
+
+};
+
+Window_Pocket.prototype.updateHelp =function(){
+    this.setHelpWindowItem(this.item());
+
+};
 
 Window_Pocket.prototype.maxCols = function() {
     return 1;
@@ -1316,6 +1327,7 @@ Window_Pocket.prototype.itemCountWidth =function(){
 };
 Window_Pocket.prototype.selectBack=function(){
     const shift = (this.needNullPush()? 0:1);
+
     this.select( Math.max( 0,this._data.length-shift));
 };
 
@@ -1914,6 +1926,7 @@ Scene_ItemPocket.prototype.startRemoveMode =function(){
 
 Scene_ItemPocket.prototype.endRemoveMode =function(){
     this.closeItemWindow();
+    this._pocketWindow.deselect();
     this._numberWindow.close();
 };
 
@@ -2284,6 +2297,7 @@ Scene_ItemPocket.prototype.endRename =function(){
 };
 
 Scene_ItemPocket.prototype.onNameEditCancel =function(){
+//    this.actor().mhp
 
 };
 Scene_ItemPocket.prototype.onNameEditOk =function(){
@@ -2837,7 +2851,7 @@ Game_Action.prototype.consumeItem=function(){
 /**
  * @param {Number} itemId
  */
-Game_Party.prototype.someoneHasItemId=function(itemId){
+Game_Party.prototype.isInPocket=function(itemId){
     return this.members().some(function(actor){
         if(actor){
             return actor.isInPocket(itemId);
@@ -2851,7 +2865,7 @@ Game_Party.prototype.someoneHasItemId=function(itemId){
  * @param {RPG.Item}
  */
 Game_Party.prototype.someoneHasItem=function(item){
-    return this.someoneHasItemId(item.id)
+    return this.isInPocket(item.id)
 };
  
 const Game_Party_hasItem = Game_Party.prototype.hasItem;
@@ -3014,7 +3028,7 @@ Window_BattlePocket.prototype.show = function() {
     this.showHelpWindow();
     Window_Pocket.prototype.show.call(this);
 };
-
+Window_BattlePocket.prototype.drawActorName =function(){};
 Window_BattlePocket.prototype.hide = function() {
     this.hideHelpWindow();
     Window_Pocket.prototype.hide.call(this);
@@ -3036,9 +3050,6 @@ Window_BattlePocket.prototype.isEnabled =function(item){
 };
 
 
-// Window_BattlePocket.prototype.drawAllItems =function(){
-//     Window_Selectable.prototype.drawAllItems.call(this);
-// };
 
 Scene_Battle.prototype.onBattlePocketOk=function(){
     const action = BattleManager.inputtingAction();
