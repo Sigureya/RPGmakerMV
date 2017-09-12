@@ -30,6 +30,12 @@
  * @off 使わない
  * @default false
  *  
+ * @param defaultWeight
+ * @desc アイテムのデフォルトの重さ
+ * メモに何も書かなかった場合、ここに指定した数値が代入されます。
+ * @type number
+ * @default 1
+ * 
  * @param weightText2
  * @desc 重さの表示形式(個数指定時)
  * @default 重さ
@@ -716,7 +722,7 @@ MA_itemPocket.prototype.loadMyset =function(myset){
 
     const xxx={
         maxAmount : Number (param.maxAmount),
-        weight:0,
+        weight:Number(param.defaultWeight),
         canDuplicate:Boolean(param.canDuplicate==='true'),
         pocketSize :Number(param.pocketSize),
 
@@ -847,11 +853,13 @@ const pocketFunction={
         }else{
             item.maxAmount_MA = xxx.maxAmount;
         }
-        const  weight=item.meta[ xxx.tag.weight];
-        if(weight){
-            item.weight_MA = Number(weight);
-        }else{
-            item.weight_MA = xxx.weight;
+        if(xxx.usingWeight){
+            const  weight=item.meta[ xxx.tag.weight];
+            if(weight){
+                item.weight_MA = Number(weight);
+            }else{
+                item.weight_MA = xxx.weight;
+            }
         }
     },
     canPutInPocket:canPutInPocket ,
