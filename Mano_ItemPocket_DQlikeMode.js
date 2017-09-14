@@ -24,10 +24,10 @@
     'use strict'
     const pocketFunction = global.Mano_ItemPocket.pocketFunction;
     const PocketIndex = global.Mano_ItemPocket.PocketIndex;
-    
-    PocketIndex.prototype.addItem =function(itemId,amount){
+    const MA_itemPocket = global.Mano_ItemPocket.MA_itemPocket;
+    PocketIndex.prototype.addItem =function(item,amount){
         for(var i=0;i < amount; ++i){
-            this._data.push(pocketFunction.newItem(itemId,1));
+            this._data.push(MA_itemPocket.newItem(item,1));
         }
     };
     PocketIndex.prototype.capacity =function(itemId){
@@ -38,7 +38,6 @@
         return this.pocket().amountSumOfItem(this.item());
     };
     Window_Pocket.prototype.drawItemAmount =function(){};
-    const MA_itemPocket = global.Mano_ItemPocket.MA_itemPocket;
 
     MA_itemPocket.prototype.releaseItem =function(index,amount){
         const item = this.itemData(index);
