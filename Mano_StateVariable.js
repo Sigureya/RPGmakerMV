@@ -171,9 +171,9 @@ function createStateVariableParam(metaStr){
 }
 
 
-var zz_MA_StateVariable_Scene_Boot_loadSystemImages = Scene_Boot.loadSystemImages;
-Scene_Boot.loadSystemImages= function() {
-    zz_MA_StateVariable_Scene_Boot_loadSystemImages.apply(this,arguments);
+const  Scene_Boot_start= Scene_Boot.prototype.start;
+Scene_Boot.prototype.start= function() {
+    Scene_Boot_start.call(this);
     var state = $dataStates;
     for(var i=1; i < state.length; ++i){
         var s = state[i];
