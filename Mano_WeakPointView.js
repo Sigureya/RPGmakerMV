@@ -155,9 +155,9 @@ function createInfoBitmap(str_or_fileName) {
     return ImageManager.loadSystem(str_or_fileName);
 }
 
-var zz_MA_WeakPointView_Scene_Boot_loadSystemImages = Scene_Boot.loadSystemImages;
-Scene_Boot.loadSystemImages= function() {
-    zz_MA_WeakPointView_Scene_Boot_loadSystemImages.call(this);
+const Scene_Boot_start = Scene_Boot.prototype.start;
+Scene_Boot.prototype.start= function() {
+    Scene_Boot_start.call(this);
     if( weakPointView.textMode ){
         mano_weakPointView_Image.weak =createTextBitmap(weakPointView.WeakText,weakPointView.WeakTextColor);
         mano_weakPointView_Image.resistance =createTextBitmap(weakPointView.ResistanceText,weakPointView.ResistanceTextColor);
