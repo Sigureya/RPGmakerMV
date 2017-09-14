@@ -262,7 +262,7 @@
  * 現在のタスク
  * 
  * TODO
- * 装備品も一緒にする
+ * 装備品も一緒にする（ほぼ無理　アイテムのフリをする装備品を作ればあるいは？）
  * アイテム欄から持たせる処理(特定のボタンで呼び出す)
  * １ボタンで以下の機能の呼び出し
  * 呼び出し先は、変更できるように
@@ -340,19 +340,49 @@ MA_itemPocket.maxAmount =function(item){
 MA_itemPocket.weight =function(item){
     return $dataItems[itemId].weight_MA;
 };
-
+MA_itemPocket.TYPE_ITEM=0;
+MA_itemPocket.TYPE_WEAPON =1;
+MA_itemPocket.TYPE_ARMOR =2;
 
 /**
  * @param {RPG.Item} item
  * @param {Number} amount
  * @return {PokectItemData}
  */
-MA_itemPocket.newItem=function(item,amount_){
-    const id_= item ? item.id : 0;
-    return {
-        id:id_,amount:amount_||0};
-};
+MA_itemPocket.newItem=function(item,amount){
+//    item.
+//    DataManager.isItem()
 
+    const id_= item ? item.id : 0;
+    const result ={
+        id:id_,
+        amount:(amount||0)
+//        type:MA_itemPocket.TYPE_ITEM   
+    };
+    return result;
+};
+/**
+ * @param {RPG.Armor} armor
+ */
+MA_itemPocket.newArmor =function(armor){
+    const result ={
+        id:armor.id,
+        amount:1,
+        type:MA_itemPocket.TYPE_ARMOR
+    };
+    return result;
+};
+/**
+ * @param {RPG.Weapon} weapon
+ */
+MA_itemPocket.newArmor =function(weapon){
+    const result ={
+        id:weapon.id,
+        amount:1,
+        type:MA_itemPocket.TYPE_WEAPON
+    };
+    return result;
+};
 
 
 /**
@@ -568,16 +598,6 @@ MA_itemPocket.prototype.weightCapacity=function(){
 };
 
 
-// MA_itemPocket.prototype.itemCapacity =function(itemId){
-
-//     const index = this.indexOf(itemId);
-//     if(index ==-1){
-//         // TODO:アイテムごとの最大所持数を設定したら、ここを直す
-//         return pocketFunction.maxAmount(itemId);
-//     }
-    
-//     return pocketFunction.maxAmount( itemId ) -this.amount(index);
-// };
 
 
 /**
@@ -586,6 +606,8 @@ MA_itemPocket.prototype.weightCapacity=function(){
  */
 MA_itemPocket.prototype.isItemMax =function(index){
     const item =this._data[index];
+    console.log('isItemMAX:'+index);
+    console.log('itemId:'+item.id);
     return item.amount >= MA_itemPocket.maxAmount($dataItems[item.id]);
 };
 
@@ -1260,6 +1282,7 @@ Window_Pocket.prototype.initialize=function(x,y,w,h){
     this._actor =null;
     this._enableJudge = null;
     this._pushLastNull=false;
+    this._equips =[];
 };
 /**
  * @param {boolean}
@@ -1308,16 +1331,29 @@ Window_Pocket.prototype.isCurrentItemEnabled =function(){
 };
 Window_Pocket.prototype.itemList =function(){
     return this._pocket._data;
-
 };
-
+Window_Pocket.prototype.makeEquipList =function(){
+    this._equips =this.equips();
+};
 Window_Pocket.prototype.equips =function(){
-//    const actor = this.actor();
+    const actor = this.actor();
+//    actor.equipSlots()
+    var result =[];
+    if(actor){
+        const e = actor.equips();
+        for(var i=0; i < e.length; ++i){
+            if(e[i]){
 
+            }
+
+        }
+    }
+    return result;
 };
-
 Window_Pocket.prototype.makeItemList =function(){
-    this._data = this.itemList();
+//    const dummy = this.allItemList();
+//    this._data = dummy;
+    this._data = this._pocket._data;//  this.allItemList();
 };
 /**
  * @return {PokectItemData}
@@ -1332,6 +1368,16 @@ Window_Pocket.prototype.item =function(){
     const index =this.index();
     return  index>=0 ? this._pocket.itemData(index) :null;
 };
+Window_Pocket.prototype.equipsSize =function(){
+    return this._equips.length;
+};
+
+
+Window_Pocket.prototype.topItemIndex =function(){
+    return 0;
+};
+
+
 /**
  * @return {boolean}
  */
@@ -1522,6 +1568,11 @@ Window_Pocket.prototype.maxCols = function() {
 Window_Pocket.prototype.itemCountWidth =function(){
     return this.textWidth(':00');
 };
+
+Window_Pocket.prototype.selectTopItem =function(){
+    this.select(this.topItemIndex());
+
+};
 Window_Pocket.prototype.selectBack=function(){
     const shift = (this.needNullPush()? 0:1);
 
@@ -1535,12 +1586,22 @@ Window_Pocket.prototype.selectFrontItem =function(){
 Window_Pocket.prototype.selectFront =function(){
     this.select(0);
 };
+/**
+ * @return {RPG.Armor[]}  装備品一覧　nullは除外済み
+ */
 Window_Pocket.prototype.equipList =function(){
-    return [];
+    return this._equips;
 };
-Window_Pocket.prototype.itemList =function(){
-    return [];
 
+/**
+ * @return {RPG.Item[]} アイテムのみのリスト
+ */
+Window_Pocket.prototype.itemList =function(){
+    return this.pocket().array();
+};
+
+Window_Pocket.prototype.allItemList =function(){
+    return this.equipList().concat(this.itemList());
 };
 
 
@@ -2400,7 +2461,10 @@ Scene_ItemPocket.prototype.startPassMode =function(){
 Scene_ItemPocket.prototype.endPassMode =function(){
     
 };
+Scene_ItemPocket.prototype.passItem =function(){
     
+};
+
 
 Scene_ItemPocket.prototype.startSwapMode =function(){
     const actorA = this._pocketWindow.actor();
