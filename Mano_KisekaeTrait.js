@@ -85,12 +85,13 @@
  * 
  * 画像の変更は装備を切り替えた瞬間に行うので、
  * ゲーム開始時は実質無効です。
+ * 
  * var 0.9.0(2017/09/20) 仮公開
 */
 
 /*~struct~Kisekae:
  * @param armor
- * @desc 関連付けるためのキー文字列
+ * @desc 対応する装備を決めます
  * @type armor
  * 
  * @param characterIndex
@@ -209,7 +210,7 @@ function kisekaeRefresh(actor,armor){
         if(trait){
             requestKisekaeImage(trait);
             actor.setCharacterImage(trait.character,trait.index);
-            actor.setBattlerImage(trait.battle);
+            actor.setBattlerImage(trait.battler);
             return;
         }
     }
@@ -217,6 +218,19 @@ function kisekaeRefresh(actor,armor){
     actor.setCharacterImage(dataActor.characterName,dataActor.characterIndex);
     actor.setBattlerImage(dataActor.battlerName);
 }
+
+function kisekaeRefreshAll(){
+    $gameParty.members().forEach(function(actor){
+        actor.applyKiesekae();
+    });
+}
+
+const  Game_Actor_setup =Game_Actor.prototype.setup;
+Game_Actor.prototype.setup =function(actorId){
+    Game_Actor_setup.call(this,actorId);
+    this.applyKiesekae();
+};
+
 const Game_Actor_changeEquip = Game_Actor.prototype.changeEquip;
 Game_Actor.prototype.changeEquip =function(slotId, item){
     const lastItem = this._equips[slotId].object();
