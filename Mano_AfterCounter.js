@@ -42,12 +42,12 @@
  * 
  * パラメータは、デフォルトでは以下の形になっています。
  * <CounterExt:
- *    cond   = 'true'   #発動条件
- *    rate   = 100      #発動率
- *    prio   = 0        #優先度
- *    skill  = 1        #使用するスキル
- *    mode   = target   #攻撃対象にならなかった時に判定するか
- *    event  = 0        #判定直前に呼び出すコモンイベント
+ *  cond  = 'true'  #発動条件
+ *  rate  = 100     #発動率
+ *  prio  = 0       #優先度(複数のカウンターがあるとき、もっとも高い物だけ実行) 
+ *  skill = 1       #使用するスキル
+ *  mode  = target  #攻撃対象にならなかった時に判定するか
+ *  event = 0       #判定直前に呼び出すコモンイベント
  * >
  * 
  * 複数の条件を設定したい場合、「CounterExt3」など、
@@ -56,8 +56,6 @@
  * 
  * パラメータごとに改行してください。
  * <chain:※条件指定>で味方が行動した後に行動する連携攻撃が可能となります。
- * 条件指定の書き方はカウンターと同じです。
- * こちらもchain3など番号を書くと複数指定できます。
  * ■cond
  * JavaScriptによる条件文を定義します。
  * 比較演算子は以下のものが使用可能です。
@@ -70,7 +68,6 @@
  * 
  * 条件文内部では以下の変数が参照できます。
  * act      : Game_actionが格納されます。
- * result   : Game_actionResultが格納されます。
  * elementID: 属性番号が格納されます。
  * a        : カウンター使用者。
  * b        : 攻撃してきた相手。
@@ -183,6 +180,32 @@
  *    mode = use
  * >
  * 
+ * ■追撃設定
+ * 味方の行動後に、別のアクターが追撃するような設定ができます。
+ * 設定方法はカウンターと同様です。
+ * こちらもchain3など番号を書くと複数指定できます。
+ * aはスキルを使用するアクター、bは追撃元になるスキルを使ったアクターです。
+ * 
+ * 味方がスキル9を使ったときに、スキル5を使って追撃
+ * <chain:
+ *    cond = skillID ===9
+ *    skill=5
+ * >
+ * 味方が属性3のスキルを使ったときにスキル5で追撃
+ * <chain:
+ *    cond = elementID===3
+ *    skill=5
+ * >
+ * 
+ * 自身がステート6でない時に追撃
+ * <chain:
+ *    cond = !a.isStateAffected(6)
+ * >
+ * 味方がステート6の時に追撃
+ * <chain:
+ *    cond = b.isStateAffected(6)
+ * >
+ * 
  * ■その他
  * スキルやアイテムに<CanNotCounter>タグを指定することで、
  * カウンターされないスキルが作れます。
@@ -276,6 +299,10 @@ const INTERSECT_TYPE={
         message:String(params.chainMessage),
         tagName:String(params.chainTag),
     },
+    STATE:{
+        id:3
+        
+    },
 };
 
 //=============================================================================
@@ -297,7 +324,9 @@ IntersectCondition.prototype.initialize=function(type)
     this._state =[];
     this.setSkillID(0);
 };
-
+/**
+ * @return {string}
+ */
 IntersectCondition.prototype.typename =function(){
     return this._type.name;
 
@@ -326,7 +355,6 @@ IntersectCondition.prototype.setSkillVariable =function(id){
     this._id =id;
     this._getItemFunc = IntersectCondition.prototype.skillFromGameVariables;
 };
-
 IntersectCondition.prototype.skillCopy=function(opponentAction){
     return opponentAction.item()
 };
@@ -338,6 +366,10 @@ IntersectCondition.prototype.setSkill=function(value){
 IntersectCondition.prototype.item =function(){
     return this._getItemFunc.call(this);
 };
+
+/**
+ * @return {Number}
+ */
 IntersectCondition.prototype.rate =function(){
     return this._rate;
 };
@@ -364,7 +396,12 @@ IntersectCondition.prototype.setCondition =function(cond){
 IntersectCondition.prototype.setCommonEvent =function(eventId){
     this._commonEvent = Number( eventId);
 };
-
+/**
+ * @param {Game_Battler} subject
+ * @param {Game_Action} action
+ * @param {any} trait
+ * @return {boolean}
+ */
 IntersectCondition.prototype.evalCondition=function(subject,action,trait){
 
     const act       = action;
@@ -523,6 +560,7 @@ IntersectCondition.prototype.Judge =function(subject,opponentAction,trait){
 
     return result && this.canUse(subject);
 };
+
 IntersectCondition.prototype.createMessage=function(myAction){
     return this._type.message;
 };
@@ -548,7 +586,9 @@ Game_Action.prototype.canCounter=function(){
 Game_Action.prototype.isChainAttack =function(){
     return false;
 };
-
+/**
+ * @return {boolean}
+ */
 Game_Action.prototype.canChainAttack=function(){
     return false;
 };
@@ -593,6 +633,12 @@ class IntersectionVisitor{
 //=============================================================================
 // Game_Battler
 //=============================================================================
+
+
+/**
+ * @param {Game_Action} opponentAction
+ * @return {Game_Action}
+ */
 Game_Battler.prototype.findCounterAciton=function(opponentAction){
     const visitor =new IntersectionVisitor(this,opponentAction);
     this.acceptForCounter(function(counter,traitObj){
@@ -611,6 +657,11 @@ Game_Battler.prototype.acceptForCounter =function(func){
         }
     }
 };
+
+/**
+ * @param {Game_Action} opponentAction
+ * @return {Game_Action}
+ */
 Game_Battler.prototype.findChainAciton=function(opponentAction){
     const visitor =new IntersectionVisitor(this,opponentAction);
     this.acceptForChain(function(counter,traitObj){
@@ -623,7 +674,7 @@ Game_Battler.prototype.findChainAciton=function(opponentAction){
 Game_Battler.prototype.acceptForChain =function(func){
     const list = this.counterTraitObjects();
     for(var i=0; i <list.length;++i){
-        const obj = list[i];        
+        var obj = list[i];        
         if(obj.chain_MA){
             for(var j =0;j < obj.chain_MA.length;j+=1){
                 func(obj.chain_MA[j],obj);
@@ -631,8 +682,41 @@ Game_Battler.prototype.acceptForChain =function(func){
         }
     }
 };
+/**
+ * @param {Number} stateId
+ */
+Game_Battler.prototype.findStateCounterAction =function(stateId){
+    const list = this.counterTraitObjects();
+    for(var i=0; i <list.length;++i){
+        var obj = list[i];        
+        if(obj.stateCounter_MA){
+            for(var j =0;j < obj.chain_MA.length;j+=1){
+                func(obj.chain_MA[j],obj);
+            }
+        }
+    }
+    
+
+};
+
+Game_Battler.prototype.acceptForStateCounter =function(func){
+    const list = this.counterTraitObjects();
+    for(var i=0; i <list.length;++i){
+        var obj = list[i];
+        if(obj.stateCounter_MA){
+            for(var j =0;j < obj.stateCounter_MA.length;j+=1){
+                func(obj.stateCounter_MA[j],obj);
+            }
+        }
+    }
+};
 
 
+const Game_Battler_addNewState =Game_Battler.prototype.addNewState;
+Game_Battler.prototype.addNewState =function(stateId){
+    Game_Battler_addNewState.call(this,stateId);
+    
+};
 Game_Battler.prototype.counterTraitObjects=function(){
     return this.traitObjects();
 };
@@ -728,6 +812,7 @@ const BattleManager_startAction=BattleManager.startAction;
 BattleManager.startAction =function(){
     BattleManager_startAction.call(this);
     this._targetsCopy = this._targets.clone();
+
 
 };
 
