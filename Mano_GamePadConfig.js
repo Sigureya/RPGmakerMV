@@ -26,8 +26,6 @@
  * @value 0
  * @option MVデフォルト＋決定/キャンセル入れ替え
  * @value 1
- * @option カスタム
- * @value 2
  * @default 0
  * 
  * @param text
