@@ -166,27 +166,27 @@
  * @parent buttons
  * 
  * @param button4
- * @desc PS2コントローラ：R1
- * @type struct<ButtonInfo>
- * @default {"buttonName":"R1","action":""}
- * @parent buttons
- * 
- * @param button5
  * @desc PS2コントローラ：L1
  * @type struct<ButtonInfo>
  * @default {"buttonName":"L1","action":""}
  * @parent buttons
  * 
- * @param button6
- * @desc PS2コントローラ：R2
+ * @param button5
+ * @desc PS2コントローラ：R1
  * @type struct<ButtonInfo>
- * @default {"buttonName":"R2","action":""}
+ * @default {"buttonName":"R1","action":""}
  * @parent buttons
  * 
- * @param button7
+ * @param button6
  * @desc PS2コントローラ：L2
  * @type struct<ButtonInfo>
  * @default {"buttonName":"L2","action":""}
+ * @parent buttons
+ * 
+ * @param button7
+ * @desc PS2コントローラ：R2
+ * @type struct<ButtonInfo>
+ * @default {"buttonName":"R2","action":""}
  * @parent buttons
  * 
  * @param button8
@@ -238,6 +238,11 @@
  * ■symbolsについて
  * ボタン選択画面で決定を押した後の一覧で表示する順番を定義します。
  * 
+ * ■ボタンの第2パラメータ・actionについて
+ * 本来はsymbolになるはずだったデータです。
+ * デフォルトの設定に加えて、
+ * ここに設定した内容を上書きで追加した物が初期設定になります。
+ * 
  * ■新規シンボルの設定について
  * ゲーム固有の操作を設定する場合、ここで行います。
  * たとえば弾を発射するshotというシンボルを新たに設定したいとします。
@@ -275,15 +280,6 @@
 
 (function(){
     'use strict'
- 
-    /**
-     * @param {number} index 
-     * @param {any} param 
-     */
-    function fetchButtonParam(index,param){
-        const key = 'button'+index;
-        return buttonName = param[key];        
-    }
 
 /**
  * @return {}
@@ -729,10 +725,6 @@ Window_GamepadConfig_MA.prototype.drawExitCommand =function(){
 
 Window_GamepadConfig_MA.prototype.drawApplyCommand =function(){
     const ok =this.canApplySetting();
-
-    console.log("redrawApply:"+ok);
-    
-    
     const index = this.applyCommandIndex();
     this.changePaintOpacity(ok);
     const rect = this.itemRectForText(index);
@@ -941,24 +933,14 @@ Scene_GamepadConfigMA.prototype.loadDefautConfig =function(){
 };
 
 Scene_GamepadConfigMA.prototype.applyGamepadConfig =function(){
-    this;
     const test = this._gamepadWindow.canApplySetting();
-
-
     if(!test){
-        throw( new Error( 'データが不正'));
+        throw( new Error( 'GamepadConfigが不正です'));
 
     }
 
     Input.gamepadMapper =this._gamepadWindow.cloneGamepadMapper();
-//    this.setGamepadMapper();
     Input.clear();
-
-    ConfigManager.save();
-    console.log("apply");
-    console.log(Input.gamepadMapper);
-
-
     SceneManager.pop();
 };
 
