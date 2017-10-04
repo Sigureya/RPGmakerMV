@@ -26,6 +26,8 @@
  * @value 0
  * @option MVデフォルト＋決定/キャンセル入れ替え
  * @value 1
+ * @option カスタム
+ * @value 2
  * @default 0
  * 
  * @param text
@@ -143,44 +145,44 @@
  * 
  * @param button0
  * @desc PS2コントローラ：×
- * @default {"buttonName":"B","action":"cancel"} 
+ * @default {"buttonName":"B","action":""} 
  * @type struct<ButtonInfo>
  * @parent buttons
  * 
  * @param button1
  * @desc PS2コントローラ:〇
  * @type struct<ButtonInfo>
- * @default {"buttonName":"A","action":"ok"}
+ * @default {"buttonName":"A","action":""}
  * @parent buttons
  * 
  * @param button2
  * @desc PS2コントローラ：□
  * @type struct<ButtonInfo>
- * @default {"buttonName":"Y","action":"shift"}
+ * @default {"buttonName":"Y","action":""}
  * @parent buttons
  * 
  * @param button3
  * @desc PS2コントローラ：△
  * @type struct<ButtonInfo>
- * @default {"buttonName":"X","action":"menu"}
+ * @default {"buttonName":"X","action":""}
  * @parent buttons
  * 
  * @param button4
  * @desc PS2コントローラ：R1
  * @type struct<ButtonInfo>
- * @default {"buttonName":"R1","action":"pageup"}
+ * @default {"buttonName":"R1","action":""}
  * @parent buttons
  * 
  * @param button5
  * @desc PS2コントローラ：L1
  * @type struct<ButtonInfo>
- * @default {"buttonName":"L1","action":"pagedown"}
+ * @default {"buttonName":"L1","action":""}
  * @parent buttons
  * 
  * @param button6
  * @desc PS2コントローラ：R2
  * @type struct<ButtonInfo>
- * @default {"buttonName":"R2","action":"pageup"}
+ * @default {"buttonName":"R2","action":""}
  * @parent buttons
  * 
  * @param button7
@@ -285,9 +287,13 @@
         return buttonName = param[key];        
     }
 
+/**
+ * @return {}
+ * @param {*} param 
+ */
 function fetchButtonInfo(param){
     const p = JSON.parse(param);
-    return {buttonName:p.buttonName,b:p.action};
+    return {buttonName:String(p.buttonName),symbol:String(p.action)};
 }
 /**
  * @return {String[]}
@@ -319,7 +325,6 @@ function insertExtendAction(helpText,params){
 function createButtonList(params){
     return JSON.parse(params.buttons);
 }
-
 function makeConfigSamples(){
     const RPGmakerDefault =Object.assign({},  Input.gamepadMapper);
     const ab_swaped =Object.assign({},  Input.gamepadMapper);
@@ -363,6 +368,15 @@ function createSetting(){
         8:fetchButtonInfo(params.button8),
         9:fetchButtonInfo(params.button9),        
     };
+    const configSamples =makeConfigSamples(buttonInfo);
+    for(var key in buttonInfo){
+        const x = buttonInfo[key];
+        if(x.symbol){
+            configSamples.forEach(function(sample){
+                sample[key] =x.symbol;
+            });
+        }
+    }
 
     return {
         commandText:commandText,
@@ -373,7 +387,7 @@ function createSetting(){
         buttonList: createButtonList(params),
         mandatorySymbols:createMandatorySymbols(params),
         symbolAutoSelect:(params.symbolAutoSelect==='true'),
-        configSamples :makeConfigSamples(),
+        configSamples :configSamples,
         configIndex:Number(params.defaultGamepadMapper),
         windowSymbolListWidht:Number(params.windowSymbolListWidth),
         hookPoint:String(params.hookPoint),
@@ -416,6 +430,7 @@ function createGamepadMapper(){
     return setting.configSamples[index];
 };
 const setting = createSetting();
+Input.gamepadMapper = createGamepadMapper();
 
 const MA_GAMEPAD_CONFIG = 'GAMEPAD_CONFIG';
 function readGamePadConfig( config ){
@@ -457,8 +472,8 @@ Window_GamepadConfig_MA.prototype = Object.create(Window_GamepadConfig_MA.baseTy
 Window_GamepadConfig_MA.prototype.constructor = Window_GamepadConfig_MA;
 
 
-Window_GamepadConfig_MA.prototype.initialize=function(map,x,y,w){
-    this.setGamepadMapper(map);
+Window_GamepadConfig_MA.prototype.initialize=function(x,y,w){
+    this.setGamepadMapper(Input.gamepadMapper);
 
 //    this.makeItemList();
     Window_GamepadConfig_MA.baseType.prototype.initialize.call(this,x,y,w,this.windowHeight());
@@ -866,7 +881,7 @@ Scene_GamepadConfigMA.prototype.create=function(){
     this.createAllWindows();
 };
 Scene_GamepadConfigMA.prototype.createGamepadConfigWindow =function(){
-    const gcw = new Window_GamepadConfig_MA(Input.gamepadMapper,0,0,400);
+    const gcw = new Window_GamepadConfig_MA(0,0,400);
     gcw.select(0);
     gcw.setHandler('ok',this.onConfigOk.bind(this));
     gcw.setHandler('cancel',this.onConfigCancel.bind(this));
