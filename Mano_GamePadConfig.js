@@ -1,4 +1,18 @@
- /*:
+//=============================================================================
+// Mano_GamePadConfig.js
+// ----------------------------------------------------------------------------
+// Copyright (c) 2017-2017 Sigureya
+// This software is released under the MIT License.
+// http://opensource.org/licenses/mit-license.php
+// ----------------------------------------------------------------------------
+// Version
+// 0.9.0 2017/04/13 初版 
+// ----------------------------------------------------------------------------
+// [Twitter]: https://twitter.com/Sigureya/
+//=============================================================================
+
+
+/*:
  * @plugindesc ゲームパッドの設定を変更するプラグインです。
  * ユーザーが入力を拡張する場合の補助も行います
  * @author しぐれん
@@ -233,6 +247,9 @@
  * ゲーム中常に使うのであれば、mandatorySymbolsにも追加します。
  * これをすべて終えれば、input.pressed('shot')などで
  * 入力状態を取得できるようになります。
+ * 
+ * 更新履歴
+ * 2017/10/05 ver 1.0　公開
 */
 /**
  * TODO:適当にボタンを押させて、対応したボタンの部分にカーソル合わせる機能
@@ -302,25 +319,6 @@ function insertExtendAction(helpText,params){
 function createButtonList(params){
     return JSON.parse(params.buttons);
 }
-/**
- * @return {{[key: number]: string}}
- */
-function mano_osusume(){
-    return {
-        0: 'cancel',
-        1: 'ok',
-        2: 'shift',
-        3: 'menu',
-        
-        4: 'pageup',    
-        5: 'pagedown', 
-
-        12: 'up',
-        13: 'down',
-        14: 'left',
-        15: 'right', 
-    };
-}
 
 function makeConfigSamples(){
     const RPGmakerDefault =Object.assign({},  Input.gamepadMapper);
@@ -370,7 +368,7 @@ function createSetting(){
         commandText:commandText,
         emptySymbolText:String(params.textEmpty),
         actionKey:paramToActionKeys(params),
-        actionText:helpText,
+        symbolText:helpText,
         buttonInfo:buttonInfo,
         buttonList: createButtonList(params),
         mandatorySymbols:createMandatorySymbols(params),
@@ -383,9 +381,13 @@ function createSetting(){
     };
 };
 
-
-function actionKeyToText(actionKey){
-    return setting.actionText[actionKey];
+/**
+ * 
+ * @param {String} symbol 
+ * @return {string}
+ */
+function symbolToText(symbol){
+    return setting.symbolText[symbol];
 };
 
 /**
@@ -394,7 +396,6 @@ function actionKeyToText(actionKey){
  */
 function buttonName(buttonNumber){
     return setting.buttonInfo[buttonNumber].buttonName;
-//    return Input.gamepadMapper[buttonNumber];
 }
 /**
  * @return {string}
@@ -405,55 +406,17 @@ function buttonAction(buttonNumber){
     
 };
 
-
-
-// プラグイン作者が個人的に好んで使っている設定です
-function Mano_default(){
-    const result= {
-        0: 'cancel',
-        1: 'ok',
-        2: 'shift',
-        3: 'menu',
-        
-        4: 'pageup',    
-        5: 'pagedown', 
-
-        12: 'up',
-        13: 'down',
-        14: 'left',
-        15: 'right', 
-    };
-    return result;
-};
-
 //ツクールのデフォルトと同様の設定です
 function RPGmakerDefault(){
     return Object.assign({},setting.configSamples[setting.configIndex]);
 }
-function insetrCustomKeyMap(keymap){
-    const L2 = insertButtonMap.L2;
-    if(L2){
-        keymap['6']=L2;
-    }
-    const R2 = insertButtonMap.R2;
-    if(R2){
-        keymap['7']=L2;
-    }
-    return keymap;
-}
+
 function createGamepadMapper(){
     const index = setting.configIndex;
     return setting.configSamples[index];
 };
 const setting = createSetting();
 
-/**
- * @param {number} key 
- * @param {String} action 
- */
-function changeKeyMapper(key,action){
-    Input.gamepadMapper[String(key)]=action;
-}
 const MA_GAMEPAD_CONFIG = 'GAMEPAD_CONFIG';
 function readGamePadConfig( config ){
     const value = config[MA_GAMEPAD_CONFIG];
@@ -486,7 +449,6 @@ class ButtonActionItem {
     }
 };
 
-//キーの一覧が書いてあるところ
 function Window_GamepadConfig_MA(){
     this.initialize.apply(this,arguments);    
 }
@@ -589,11 +551,11 @@ Window_GamepadConfig_MA.prototype.configItems =function(){
     return this._list.length;
 };
 Window_GamepadConfig_MA.prototype.setGamepadMapper =function(map){
-    this._cancelSymbolCount=0;
-    this._okSymbolCount=0;
-    this._map =map;
-    this.makeMandatorySymbolTable();
+    this._map = Object.assign({}, map);
     this.makeItemList();
+};
+Window_GamepadConfig_MA.prototype.cloneGamepadMapper= function(){
+    return Object.assign({},  this._map);
 };
 /**
  * @param {string}  buttonNumber
@@ -603,41 +565,70 @@ Window_GamepadConfig_MA.prototype.getAction =function(buttonNumber){
     return this._map[buttonNumber];
 };
 Window_GamepadConfig_MA.prototype.currentSymbol =function(){
+    return this.symbol(this.index());
     return this._list[ this.index()].action;
 };
-
-Window_GamepadConfig_MA.prototype.setButtonItem =function(buttonNumber){
-    const action = this.getAction(buttonNumber);
-    const name =  buttonName(buttonNumber);
-    const text= actionKeyToText(action) || '';
-    this._list[Number(buttonNumber)] =( {
-        action:action,
-        name:name,
-        text,text
+/**
+ * @param {number} index
+ * @return {string} buttonNumber
+ */
+Window_GamepadConfig_MA.prototype.buttonNumber =function(index){
+    return this._list[index].buttonNumber;
+};
+/**
+ * @param {number} index
+ * @return {string} buttonName
+ */
+Window_GamepadConfig_MA.prototype.buttonName =function(index){
+    return this._list[index].name;
+};
+/**
+ * @param {number} index
+ * @return {string} symbol
+ */
+Window_GamepadConfig_MA.prototype.symbol =function(index){
+    const buttonNumber = this.buttonNumber(index);
+    return this._map[buttonNumber];
+};
+Window_GamepadConfig_MA.prototype.addCommand =function(buttonNumber_){
+    const index =this._list.length;
+    this._list.push({
+        name:buttonName(buttonNumber_),
+        buttonNumber:buttonNumber_
     });
+    this.setButtonItem(index,buttonNumber_);
+};
+
+Window_GamepadConfig_MA.prototype.setButtonItem =function(index,buttonNumber){
+    const action = this.getAction(buttonNumber);
+    const text= symbolToText(action) || '';
+    const item = this._list[index];
+    item.action = action;
+    item.text = text;
+
 };
 Window_GamepadConfig_MA.prototype.makeItemList =function(){
     this._list =[];
     const length = setting.buttonList.length;
     for(var i=0; i<length; i+=1 ){
         var buttonId =setting.buttonList[i];
-        this.setButtonItem(buttonId);
+        this.addCommand(buttonId);
     }
 };
 Window_GamepadConfig_MA.prototype.nameWidth =function(){
     return 100;
 };
-Window_GamepadConfig_MA.prototype.changeKeyMap =function(buttonNumber,newSymbol){
-    if(this._mandatorySymbols.hasOwnProperty( newSymbol )){
-        this._mandatorySymbols[newSymbol]+=1;
-    }
-    const lastSymbol =this._map[buttonNumber];
-    if(this._mandatorySymbols.hasOwnProperty(lastSymbol)){
-        this._mandatorySymbols[lastSymbol]-=1;
-    }
+/**
+ * @param {number} index
+ */
+Window_GamepadConfig_MA.prototype.changeKeyMap =function(index,newSymbol){
+    const buttonNumber= this.buttonNumber(index);
+    this._map[buttonNumber]=newSymbol;
+    this.redrawItem(index);
 
-    this._map[buttonNumber] = newSymbol;
-    this.setButtonItem(buttonNumber);
+    // this._map[buttonNumber] = newSymbol;
+    // const item = this.item(this.index());
+    // this.setButtonItem(this.index(),buttonNumber);
 
     this.redrawApplyCommand();
 };
@@ -661,30 +652,39 @@ Window_GamepadConfig_MA.prototype.drawItem =function(index){
     this.changeTextColor(this.normalColor());
     const item = this.item(index);
     const rect = this.itemRectForText(index);
-    this.drawText(item.name,rect.x,rect.y,rect.width);
-    this.drawText(item.text,rect.x +this.nameWidth(),rect.y,rect.width);
-};
-Window_GamepadConfig_MA.prototype.canApplySetting =function(){
-    for(var key in this._mandatorySymbols){
-        if(this._mandatorySymbols[key] <=0){
-            return false;
-        }
+    this.drawText(this.buttonName(index)  ,rect.x,rect.y,rect.width);
+    const symbol = this.symbol(index);
+    const text =symbolToText(symbol);
+    if(!text){
+        this;
     }
-    return true;
-
-
-    return this._okSymbolCount>0 && this._cancelSymbolCount>0;
-    var cancel =false;
-    var ok =false;
-    for(var i=0;i < this._list.length; ++i){
-        var symbol = this.currentSymbol();
-        cancel = cancel || (symbol ==='cancel');
-        ok = ok|| (symbol === 'ok');
-        if(cancel && ok){
+    this.drawText(text,rect.x +this.nameWidth(),rect.y,rect.width);
+};
+Window_GamepadConfig_MA.prototype.hasSymbol =function(symbol){
+    for(var key in this._map){
+        if(this._map[key]===symbol){
             return true;
         }
     }
     return false;
+
+
+    for(var i=0;i < this._list.length ;++i){
+        if(this.symbol(i)===symbol){
+            return true;
+        }
+    }
+    return false;
+};
+
+Window_GamepadConfig_MA.prototype.canApplySetting =function(){
+    for(var i=0; i < setting.mandatorySymbols.length;++i){
+        var symbol = setting.mandatorySymbols[i];
+        if(!this.hasSymbol(setting.mandatorySymbols[i])){
+            return false;
+        }
+    }
+    return true;
 };
 Window_GamepadConfig_MA.prototype.exitCommandIndex =function(){
     return this._list.length+2;
@@ -696,6 +696,7 @@ Window_GamepadConfig_MA.prototype.defaultCommandIndex =function(){
     return this._list.length;    
 };
 Window_GamepadConfig_MA.prototype.redrawApplyCommand =function(){
+
     this.clearItem(this.applyCommandIndex());
     this.drawApplyCommand();
 };
@@ -714,8 +715,13 @@ Window_GamepadConfig_MA.prototype.drawExitCommand =function(){
 };
 
 Window_GamepadConfig_MA.prototype.drawApplyCommand =function(){
+    const ok =this.canApplySetting();
+
+    console.log("redrawApply:"+ok);
+    
+    
     const index = this.applyCommandIndex();
-    this.changePaintOpacity(this.canApplySetting());
+    this.changePaintOpacity(ok);
     const rect = this.itemRectForText(index);
     this.drawText(setting.commandText.apply,rect.x,rect.y,rect.width);
     this.changePaintOpacity(true);
@@ -813,7 +819,7 @@ Window_SymbolList.prototype.makeCommandList =function(){
     this._list =[];
     for(var i=0; i <setting.actionKey.length; ++i){
         const actionKey = setting.actionKey[i];
-        this.addCommand( actionKeyToText(actionKey)||setting.emptySymbolText ,actionKey,'テスト'+i);
+        this.addCommand( symbolToText(actionKey)||setting.emptySymbolText ,actionKey,'テスト'+i);
     }
 };
 Window_SymbolList.prototype.actionName =function(index){
@@ -843,18 +849,13 @@ Scene_GamepadConfigMA.prototype.constructor = Scene_GamepadConfigMA;
 
 Scene_GamepadConfigMA.prototype.initialize =function(){
     Scene_GamepadConfigMA.baseType.initialize.apply(this,arguments);
-    this.setGamepadMapper();
 };
 /**
  * @param {object} [gamepadMapper=null] 読み込むコンフィグデータ 無指定の場合、現在の設定値を読み込む
  */
 Scene_GamepadConfigMA.prototype.setGamepadMapper =function(gamepadMapper){
-    if( !gamepadMapper||gamepadMapper===Input.gamepadMapper){
-        gamepadMapper = Object.assign( {}, Input.gamepadMapper);
-    }
-    this._gamepadMapper = gamepadMapper;//Object.assign( {}, Input.gamepadMapper);
     if( this._gamepadWindow){
-        this._gamepadWindow.setGamepadMapper(this._gamepadMapper);
+        this._gamepadWindow.setGamepadMapper(gamepadMapper);
         this._gamepadWindow.refresh();
     }
 };
@@ -865,7 +866,7 @@ Scene_GamepadConfigMA.prototype.create=function(){
     this.createAllWindows();
 };
 Scene_GamepadConfigMA.prototype.createGamepadConfigWindow =function(){
-    const gcw = new Window_GamepadConfig_MA(this._gamepadMapper,0,0,400);
+    const gcw = new Window_GamepadConfig_MA(Input.gamepadMapper,0,0,400);
     gcw.select(0);
     gcw.setHandler('ok',this.onConfigOk.bind(this));
     gcw.setHandler('cancel',this.onConfigCancel.bind(this));
@@ -886,7 +887,7 @@ Scene_GamepadConfigMA.prototype.SymbolListWindowRect=function(){
 Scene_GamepadConfigMA.prototype.createActionListWindow =function(){
     const rect = this.SymbolListWindowRect();
     const asw = new Window_SymbolList(rect.x,rect.y);
-    asw.setHandler('ok',this.onActionListOk.bind(this));
+    asw.setHandler('ok',this.onSymbolListOk.bind(this));
     asw.setHandler('cancel',this.endActionSelect.bind(this));
     asw.hide();
     asw.refresh();
@@ -897,12 +898,13 @@ Scene_GamepadConfigMA.prototype.createActionListWindow =function(){
 Scene_GamepadConfigMA.prototype.onActionListCancel =function(){
     this.endActionSelect();
 };
-Scene_GamepadConfigMA.prototype.onActionListOk =function(){
-    const index = this._gamepadWindow.index()
-    const buttonNumber = String(index);
-    const action = this._actionListWindow.currentSymbol();
-    this._gamepadWindow.changeKeyMap(buttonNumber,action);
-    this._gamepadWindow.redrawItem(index);
+Scene_GamepadConfigMA.prototype.onSymbolListOk =function(){
+    const index = this._gamepadWindow.index();
+
+//    const buttonNumber = String(index);
+    const symbol = this._actionListWindow.currentSymbol();
+    this._gamepadWindow.changeKeyMap(index,symbol);
+//    this._gamepadWindow.redrawItem(index);
     this.endActionSelect();
 };
 Scene_GamepadConfigMA.prototype.endActionSelect =function(){
@@ -926,12 +928,24 @@ Scene_GamepadConfigMA.prototype.loadDefautConfig =function(){
 };
 
 Scene_GamepadConfigMA.prototype.applyGamepadConfig =function(){
+    this;
+    const test = this._gamepadWindow.canApplySetting();
 
-    Input.gamepadMapper = this._gamepadMapper;
-    this.setGamepadMapper();
+
+    if(!test){
+        throw( new Error( 'データが不正'));
+
+    }
+
+    Input.gamepadMapper =this._gamepadWindow.cloneGamepadMapper();
+//    this.setGamepadMapper();
     Input.clear();
 
     ConfigManager.save();
+    console.log("apply");
+    console.log(Input.gamepadMapper);
+
+
     SceneManager.pop();
 };
 
@@ -948,11 +962,6 @@ Scene_GamepadConfigMA.prototype.createAllWindows =function(){
     this._gamepadWindow.activate();
 };
 
-Scene_GamepadConfigMA.prototype.onButtonActionOk=function(){
-    const action = this._buttonActionWindow.symbol();
-    const key    = this._gamepadWindow.index();
-    changeKeyMapper(key,action);
-};
 
 if(setting.hookPoint==='menu'){
     const Window_TitleCommand_makeCommandList = Window_TitleCommand.prototype.makeCommandList;
