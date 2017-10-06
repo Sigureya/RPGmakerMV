@@ -28,8 +28,6 @@
  * @value 1
  * @default 0
  * 
- * @param text
- * 
  * @param textApply
  * @desc 設定を適用するコマンドです。
  * 選択するとコンフィグが終了します。
@@ -50,27 +48,31 @@
  * 
  * @param textEmpty
  * @desc 何も割り当てられていない時の説明
+ * Explanation when no function is assigned
  * @default 設定を消去
  * @parent text
  * 
  * @param textOK
  * @desc okの機能の説明
+ * Description of ok's function
  * @default 決定
  * @parent text
  * 
  * @param textCancel
  * @desc cancelの機能の説明
+ * Description of cancel function
  * @default 取り消し
  * @parent text
  * 
  * @param textShift
  * @desc shiftの機能の説明
+ * Description of shift function
  * @default ダッシュ
  * @parent text
  * 
  * @param textMenu
  * @desc menuの機能の説明
- * @default メニューを開く
+ * @default メニュー
  * @parent text
  * 
  * @param textPageup
@@ -220,23 +222,24 @@
  * @param button_unknow
  * @desc 標準外のボタンです。
  * 
- * @type string
- * @parent buttons%1
- * 
- * @param windows
+ * @param windowPositonMode
+ * @desc ウィンドウの位置
+ * @type boolean
+ * @on 中央
+ * @off 数値指定
+ * @default true
  * 
  * @param windowPositionX
- * @desc ウィンドウのX位置です
- * @type select
- * @option left
- * @option center
- * 
- * @param windowSymbolListWidth
+ * @desc ウィンドウのX座標です。
  * @type number
- * @default 240
+ * @default 0
+ * @parent windowPositonMode
  * 
- * @param paddingWithNam
- * @text ボタンとシンボルの距離
+ * @param windowPositionY
+ * @desc ウィンドウのY座標です。
+ * @type number
+ * @default 0
+ * @parent windowPositonMode
  * 
  * @param symbolAutoSelect
  * @desc キーに対応するシンボルを切り替えるときに、
@@ -427,7 +430,12 @@ function createSetting(){
         windowSymbolListWidht:Number(params.windowSymbolListWidth),
         hookPoint:String(params.hookPoint),
         commandName:String(params.commandName),
-        windowCenet :(params.windowPositionX==='center'),
+
+        windowPostionMode :(params.windowPositionMode==='true'),
+        windowCustom:{
+            x:Number(params.windowPositionX),
+            y:Number(params.windowPositionY),
+        }
     };
 };
 
@@ -515,9 +523,13 @@ Window_GamepadConfig_MA.prototype.initialize=function(x,y){
 };
 Window_GamepadConfig_MA.prototype.moveCenter=function(){
     this.width = this._nameWidth + this._symbolTextWidth+this.textPadding()*2;
-    if(setting.windowCenet){
-    this.x = (Graphics.boxWidth - this.width) / 2;
-    this.y = (Graphics.boxHeight - this.height) / 2;
+
+    if(setting.windowPostionMode){
+        this.x = (Graphics.boxWidth - this.width) / 2;        
+        this.y = (Graphics.boxHeight - this.height) / 2;                
+    }else{
+        this.x =setting.windowCustom.x;
+        this.y = setting.windowCustom.y;        
     }
 };
 Window_GamepadConfig_MA.prototype._updateGamepadState =function(gamepad){
@@ -854,9 +866,6 @@ Window_InputSymbolList.prototype.initialize=function(mainWindow){
 Window_InputSymbolList.prototype.symbol=function(){
     return this.currentItem().symbol;
 };
-// Window_SymbolList.prototype.windowWidth = function() {
-//     return setting.windowSymbolListWidht;
-// };
 
 Window_InputSymbolList.prototype.windowHeight =function(){
     return this.fittingHeight(this.maxItems());
