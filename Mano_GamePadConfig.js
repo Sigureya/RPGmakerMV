@@ -222,7 +222,7 @@
  * @param button_unknow
  * @desc 標準外のボタンです。
  * 
- * @param windowPositonMode
+ * @param windowPositionMode
  * @desc ウィンドウの位置
  * @type boolean
  * @on 中央
@@ -528,7 +528,7 @@ Window_GamepadConfig_MA.prototype.moveCenter=function(){
         this.x = (Graphics.boxWidth - this.width) / 2;        
         this.y = (Graphics.boxHeight - this.height) / 2;                
     }else{
-        this.x =setting.windowCustom.x;
+        this.x = setting.windowCustom.x;
         this.y = setting.windowCustom.y;        
     }
 };
