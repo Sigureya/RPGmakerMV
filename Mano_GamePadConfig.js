@@ -75,12 +75,12 @@
  * 
  * @param textPageup
  * @desc pageupの機能の説明
- * @default 次
+ * @default 前
  * @parent text
  * 
  * @param textPagedown
  * @desc pagedownの機能の説明
- * @default 前
+ * @default 次
  * @parent text
  * 
  * @param textSymbol6
@@ -138,8 +138,7 @@
  * @desc 使用できるボタンの一覧です。
  * 並び順の制御を兼ねています。
  * @type number[]
- * @max 9
- * @default ["1","0","3","2","4","5","6","7","8"]
+ * @default ["1","0","3","2","4","5","6","7","8","9","10","11","16"]
  * 
  * @param button0
  * @desc PS2コントローラ：×
@@ -201,9 +200,43 @@
  * @default {"buttonName":"start","action":""}
  * @parent buttons
  * 
+ * @param button10
+ * @desc PS2コントローラ：
+ * @type struct<ButtonInfo>
+ * @default {"buttonName":"button10","action":""}
+ * @parent buttons
+ * 
+ * @param button11
+ * @desc PS2コントローラ：
+ * @type struct<ButtonInfo>
+ * @default {"buttonName":"button11","action":""}
+ * @parent buttons
+ * 
+ * @param button16
+ * @desc PS2コントローラ：
+ * @type struct<ButtonInfo>
+ * @default {"buttonName":"button16","action":""}
+ * @parent buttons
+ * @param button_unknow
+ * @desc 標準外のボタンです。
+ * 
+ * @type string
+ * @parent buttons%1
+ * 
+ * @param windows
+ * 
+ * @param windowPositionX
+ * @desc ウィンドウのX位置です
+ * @type select
+ * @option left
+ * @option center
+ * 
  * @param windowSymbolListWidth
  * @type number
  * @default 240
+ * 
+ * @param paddingWithNam
+ * @text ボタンとシンボルの距離
  * 
  * @param symbolAutoSelect
  * @desc キーに対応するシンボルを切り替えるときに、
@@ -238,6 +271,12 @@
  * ■symbolsについて
  * ボタン選択画面で決定を押した後の一覧で表示する順番を定義します。
  * 
+ * ■mandatorySymbolsについて
+ * ゲームを操作するうえで、必須となるボタンの一覧です。
+ * 決定や取り消しの設定を変更してゲームが動かなくなると困るので、
+ * 一部のボタンが欠けている状態では設定の保存ができません。
+ * 初期設定では決定・取り消し・メニューの3つが割り当てられています。
+ * 
  * ■ボタンの第2パラメータ・actionについて
  * 本来はsymbolになるはずだったデータです。
  * デフォルトの設定に加えて、
@@ -258,6 +297,7 @@
 */
 /**
  * TODO:適当にボタンを押させて、対応したボタンの部分にカーソル合わせる機能
+ * 仕様を変えて、ガチャガチャ押して入力状態を表示するヤツ
  * 
  */
 /*~struct~ButtonInfo:
@@ -282,7 +322,6 @@
     'use strict'
 
 /**
- * @return {}
  * @param {*} param 
  */
 function fetchButtonInfo(param){
@@ -361,6 +400,9 @@ function createSetting(){
         7:fetchButtonInfo(params.button7),
         8:fetchButtonInfo(params.button8),
         9:fetchButtonInfo(params.button9),        
+        10:fetchButtonInfo(params.button10),        
+        11:fetchButtonInfo(params.button11),        
+        16:fetchButtonInfo(params.button16),
     };
     const configSamples =makeConfigSamples(buttonInfo);
     for(var key in buttonInfo){
@@ -371,7 +413,6 @@ function createSetting(){
             });
         }
     }
-
     return {
         commandText:commandText,
         emptySymbolText:String(params.textEmpty),
@@ -386,6 +427,7 @@ function createSetting(){
         windowSymbolListWidht:Number(params.windowSymbolListWidth),
         hookPoint:String(params.hookPoint),
         commandName:String(params.commandName),
+        windowCenet :(params.windowPositionX==='center'),
     };
 };
 
@@ -410,8 +452,7 @@ function buttonName(buttonNumber){
  * @param {number} buttonNumber 
  */
 function buttonAction(buttonNumber){
-    return Input.gamepadMapper[buttonNumber];
-    
+    return Input.gamepadMapper[buttonNumber];    
 };
 
 //ツクールのデフォルトと同様の設定です
@@ -450,7 +491,6 @@ class ButtonActionItem {
     /**
      * @param {number} buttonNumber 
      */
-
     constructor(buttonNumber){
         this.actionKey =String(Input.gamepadMapper[buttonNumber]);
         this.name =String(buttonName(buttonNumber )||'');
@@ -465,13 +505,37 @@ Window_GamepadConfig_MA.baseType = Window_Selectable;
 Window_GamepadConfig_MA.prototype = Object.create(Window_GamepadConfig_MA.baseType.prototype);
 Window_GamepadConfig_MA.prototype.constructor = Window_GamepadConfig_MA;
 
-
-Window_GamepadConfig_MA.prototype.initialize=function(x,y,w){
+Window_GamepadConfig_MA.prototype.initialize=function(x,y){
     this.setGamepadMapper(Input.gamepadMapper);
-
-//    this.makeItemList();
-    Window_GamepadConfig_MA.baseType.prototype.initialize.call(this,x,y,w,this.windowHeight());
+    Window_GamepadConfig_MA.baseType.prototype.initialize.call(this,x,y,this.windowWidth(),this.windowHeight());
+    this.defineNameWidth();
+    this.defineSymbolTextWidth();
+    this.readGamePad();
+    this.moveCenter();
 };
+Window_GamepadConfig_MA.prototype.moveCenter=function(){
+    this.width = this._nameWidth + this._symbolTextWidth+this.textPadding()*2;
+    if(setting.windowCenet){
+    this.x = (Graphics.boxWidth - this.width) / 2;
+    this.y = (Graphics.boxHeight - this.height) / 2;
+    }
+};
+Window_GamepadConfig_MA.prototype._updateGamepadState =function(gamepad){
+
+};
+
+Window_GamepadConfig_MA.prototype.readGamePad =function(){
+    if (navigator.getGamepads) {
+        var gamepads = navigator.getGamepads();
+        if (gamepads) {
+            var gamepad = gamepads[1];
+            if (gamepad && gamepad.connected) {
+                this._updateGamepadState(gamepad);
+            }
+        }
+    }    
+};
+
 Window_GamepadConfig_MA.prototype.callExitHandler =function(){
     this.callHandler('exit');
 };
@@ -518,7 +582,6 @@ Window_GamepadConfig_MA.prototype.processOk =function(){
         this.callCancelHandler();
         return;
     }
-
     this.updateInputData();
     this.deactivate();
     this.playOkSound();
@@ -536,6 +599,10 @@ Window_GamepadConfig_MA.prototype.processCancel =function(){
         this.select(cancellationIndex);
     }
 };
+Window_GamepadConfig_MA.prototype.windowWidth =function(){
+    return 450;
+};
+
 Window_GamepadConfig_MA.prototype.windowHeight =function(){
     return this.fittingHeight(this.maxItems());
 };
@@ -599,6 +666,15 @@ Window_GamepadConfig_MA.prototype.symbol =function(index){
     const buttonNumber = this.buttonNumber(index);
     return this._map[buttonNumber];
 };
+/**
+ * @param {number} index
+ * @return {string} symbol
+ */
+Window_GamepadConfig_MA.prototype.symbolText =function(index){
+    return symbolToText(this.symbol(index));
+};
+
+
 Window_GamepadConfig_MA.prototype.addCommand =function(buttonNumber_){
     const index =this._list.length;
     this._list.push({
@@ -614,7 +690,6 @@ Window_GamepadConfig_MA.prototype.setButtonItem =function(index,buttonNumber){
     const item = this._list[index];
     item.action = action;
     item.text = text;
-
 };
 Window_GamepadConfig_MA.prototype.makeItemList =function(){
     this._list =[];
@@ -624,8 +699,32 @@ Window_GamepadConfig_MA.prototype.makeItemList =function(){
         this.addCommand(buttonId);
     }
 };
+Window_GamepadConfig_MA.prototype.defineSymbolTextWidth =function(){
+    var width =0;
+    for(var key in setting.symbolText){
+        width = Math.max(width,this.textWidth( setting.symbolText[key] ));
+    }
+    this._symbolTextWidth =width;
+};
+/**
+ * @return {number}
+ */
+Window_GamepadConfig_MA.prototype.symbolTextWidth =function(){
+    return this._symbolTextWidth;
+};
+
+Window_GamepadConfig_MA.prototype.defineNameWidth =function(){
+    var width =0;
+    for(var i=0; i < this._list.length;++i){
+        width = Math.max(width,this.textWidth(this.buttonName(i)));
+    }
+    this._nameWidth =width;
+};
+/**
+ * @return {number}
+ */
 Window_GamepadConfig_MA.prototype.nameWidth =function(){
-    return 100;
+    return this._nameWidth;
 };
 /**
  * @param {number} index
@@ -634,15 +733,9 @@ Window_GamepadConfig_MA.prototype.changeKeyMap =function(index,newSymbol){
     const buttonNumber= this.buttonNumber(index);
     this._map[buttonNumber]=newSymbol;
     this.redrawItem(index);
-
-    // this._map[buttonNumber] = newSymbol;
-    // const item = this.item(this.index());
-    // this.setButtonItem(this.index(),buttonNumber);
-
     this.redrawApplyCommand();
 };
 Window_GamepadConfig_MA.prototype.drawAllItems = function() {
-//    this.changeTextColor(this.normalColor());
     var topIndex = this.topIndex();
     for (var i = 0; i < this.maxPageItems(); i++) {
         var index = topIndex + i;
@@ -653,33 +746,20 @@ Window_GamepadConfig_MA.prototype.drawAllItems = function() {
     this.drawExitCommand();
     this.drawApplyCommand();
     this.drawDefaultCommand();
-
 };
-
 
 Window_GamepadConfig_MA.prototype.drawItem =function(index){
     this.changeTextColor(this.normalColor());
     const item = this.item(index);
     const rect = this.itemRectForText(index);
-    this.drawText(this.buttonName(index)  ,rect.x,rect.y,rect.width);
-    const symbol = this.symbol(index);
-    const text =symbolToText(symbol);
-    if(!text){
-        this;
-    }
-    this.drawText(text,rect.x +this.nameWidth(),rect.y,rect.width);
+    this.drawText(this.buttonName(index)  ,rect.x,rect.y);
+    const nameWidth =this.nameWidth();
+    const symbolWidth = rect.width -nameWidth;
+    this.drawText(this.symbolText(index)  ,rect.x +nameWidth + this.textPadding() ,rect.y,symbolWidth);
 };
 Window_GamepadConfig_MA.prototype.hasSymbol =function(symbol){
     for(var key in this._map){
         if(this._map[key]===symbol){
-            return true;
-        }
-    }
-    return false;
-
-
-    for(var i=0;i < this._list.length ;++i){
-        if(this.symbol(i)===symbol){
             return true;
         }
     }
@@ -709,7 +789,6 @@ Window_GamepadConfig_MA.prototype.redrawApplyCommand =function(){
     this.clearItem(this.applyCommandIndex());
     this.drawApplyCommand();
 };
-
 
 Window_GamepadConfig_MA.prototype.drawDefaultCommand =function(){
     const index= this.defaultCommandIndex();
@@ -748,39 +827,45 @@ Window_GamepadConfig_MA.prototype.item=function(index){
     return null;
 };
 
-function Window_SymbolList(){
+function Window_InputSymbolList(){
     this.initialize.apply(this,arguments);    
 }
-Window_SymbolList.baseType = Window_Selectable.prototype;
-Window_SymbolList.prototype = Object.create(Window_SymbolList.baseType);
-Window_SymbolList.prototype.constructor = Window_SymbolList;
-Window_SymbolList.prototype.initialize=function(x,y){
-    this.makeCommandList();
-    const w = this.windowWidth();
-    const h = this.windowHeight();
+Window_InputSymbolList.baseType = Window_Selectable.prototype;
+Window_InputSymbolList.prototype = Object.create(Window_InputSymbolList.baseType);
+Window_InputSymbolList.prototype.constructor = Window_InputSymbolList;
 
-    Window_SymbolList.baseType.initialize.call(this,x,y,w, h);
+/**
+ * @param {Window_GamepadConfig_MA} mainWidnow
+ */
+Window_InputSymbolList.prototype.initialize=function(mainWindow){
+    this.makeCommandList();
+    const x = mainWindow.x +mainWindow.width;
+    const y = mainWindow.y;
+    const width = mainWindow.symbolTextWidth() + this.textPadding()*2;
+    const height = this.windowHeight();
+    Window_InputSymbolList.baseType.initialize.call(this,x,y,width, height);
     this.deactivate();
     this.deselect();
 };
+
 /**
  * @return {String}
  */
-Window_SymbolList.prototype.symbol=function(){
+Window_InputSymbolList.prototype.symbol=function(){
     return this.currentItem().symbol;
 };
-Window_SymbolList.prototype.windowWidth = function() {
-    return setting.windowSymbolListWidht;
-};
+// Window_SymbolList.prototype.windowWidth = function() {
+//     return setting.windowSymbolListWidht;
+// };
 
-Window_SymbolList.prototype.windowHeight =function(){
+Window_InputSymbolList.prototype.windowHeight =function(){
     return this.fittingHeight(this.maxItems());
 };
-Window_SymbolList.prototype.maxItems =function(){
+Window_InputSymbolList.prototype.maxItems =function(){
     return this._list.length;
 
 };
-Window_SymbolList.prototype.findSymbol =function(symbol){
+Window_InputSymbolList.prototype.findSymbol =function(symbol){
     for(var i=0;i <this._list.length;++i ){
         if(this._list[i].symbol ===symbol){
             return i;
@@ -789,7 +874,7 @@ Window_SymbolList.prototype.findSymbol =function(symbol){
     return -1;
 };
 
-Window_SymbolList.prototype.selectSymbol =function(action){
+Window_InputSymbolList.prototype.selectSymbol =function(action){
     const index = this.findSymbol(action);
     if(this._list[index]){
         this.select(index);
@@ -798,7 +883,7 @@ Window_SymbolList.prototype.selectSymbol =function(action){
 
     }
 };
-Window_SymbolList.prototype.addCommand = function(name, symbol,  ext) {
+Window_InputSymbolList.prototype.addCommand = function(name, symbol,  ext) {
     if (ext === undefined) {
         ext = null;
     }
@@ -808,10 +893,10 @@ Window_SymbolList.prototype.addCommand = function(name, symbol,  ext) {
         ext: ext
     });
 };
-Window_SymbolList.prototype.symbol =function(index){
+Window_InputSymbolList.prototype.symbol =function(index){
     return this._list[index].symbol;
 };
-Window_SymbolList.prototype.currentSymbol =function(){
+Window_InputSymbolList.prototype.currentSymbol =function(){
     const index =this.index();
     if(index>=0){
         return this.symbol(index);
@@ -819,28 +904,28 @@ Window_SymbolList.prototype.currentSymbol =function(){
     return null;
 };
 
-
-Window_SymbolList.prototype.makeCommandList =function(){
+Window_InputSymbolList.prototype.makeCommandList =function(){
     this._list =[];
     for(var i=0; i <setting.actionKey.length; ++i){
         const actionKey = setting.actionKey[i];
         this.addCommand( symbolToText(actionKey)||setting.emptySymbolText ,actionKey,'テスト'+i);
     }
 };
-Window_SymbolList.prototype.actionName =function(index){
+/**
+ * @param {number} index
+ * @return {string}
+ */
+Window_InputSymbolList.prototype.symbolName =function(index){
     return this._list[index].name;
 };
 
-Window_SymbolList.prototype.drawItem =function(index){
+Window_InputSymbolList.prototype.drawItem =function(index){
     const rect =this.itemRectForText(index);
-//    const align = this.itemTextAlign();
-    this.drawText(this.actionName(index),rect.x,rect.y,rect.width)
+    this.drawText(this.symbolName(index),rect.x,rect.y,rect.width)
 };
 
-
-Window_SymbolList.prototype.callOkHandler =function(){
-
-    Window_SymbolList.baseType.callOkHandler.call(this);
+Window_InputSymbolList.prototype.callOkHandler =function(){
+    Window_InputSymbolList.baseType.callOkHandler.call(this);
 };
 
 //Scene_GamepadConfig
@@ -871,7 +956,7 @@ Scene_GamepadConfigMA.prototype.create=function(){
     this.createAllWindows();
 };
 Scene_GamepadConfigMA.prototype.createGamepadConfigWindow =function(){
-    const gcw = new Window_GamepadConfig_MA(0,0,400);
+    const gcw = new Window_GamepadConfig_MA(0,0);
     gcw.select(0);
     gcw.setHandler('ok',this.onConfigOk.bind(this));
     gcw.setHandler('cancel',this.onConfigCancel.bind(this));
@@ -889,9 +974,9 @@ Scene_GamepadConfigMA.prototype.SymbolListWindowRect=function(){
     const x= this._gamepadWindow.x+this._gamepadWindow.width;    
     return new Rectangle(x,this._gamepadWindow.y,0,0);
 };
-Scene_GamepadConfigMA.prototype.createActionListWindow =function(){
+Scene_GamepadConfigMA.prototype.createSymbolListWindow =function(){
     const rect = this.SymbolListWindowRect();
-    const asw = new Window_SymbolList(rect.x,rect.y);
+    const asw = new Window_InputSymbolList(this._gamepadWindow);
     asw.setHandler('ok',this.onSymbolListOk.bind(this));
     asw.setHandler('cancel',this.endActionSelect.bind(this));
     asw.hide();
@@ -906,10 +991,8 @@ Scene_GamepadConfigMA.prototype.onActionListCancel =function(){
 Scene_GamepadConfigMA.prototype.onSymbolListOk =function(){
     const index = this._gamepadWindow.index();
 
-//    const buttonNumber = String(index);
     const symbol = this._actionListWindow.currentSymbol();
     this._gamepadWindow.changeKeyMap(index,symbol);
-//    this._gamepadWindow.redrawItem(index);
     this.endActionSelect();
 };
 Scene_GamepadConfigMA.prototype.endActionSelect =function(){
@@ -953,7 +1036,7 @@ Scene_GamepadConfigMA.prototype.onConfigCancel =function(){
 };
 Scene_GamepadConfigMA.prototype.createAllWindows =function(){
     this.createGamepadConfigWindow();
-    this.createActionListWindow();
+    this.createSymbolListWindow();
     this._gamepadWindow.activate();
 };
 
