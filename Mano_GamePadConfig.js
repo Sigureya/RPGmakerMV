@@ -26,7 +26,7 @@
  * @value 0
  * @option MVデフォルト＋決定/キャンセル入れ替え
  * @value 1
- * @default 0
+ * @default 1
  * 
  * @param textApply
  * @desc 設定を適用するコマンドです。
@@ -111,6 +111,7 @@
  * @desc ユーザー拡張アクション8です。
  * Input.pressed('ここで設定した文字')で入力を取得できます。
  * @parent textSymbol8
+ * 
  * 
  * @param symbols
  * @desc コンフィグでの変更先の一覧です。
@@ -214,13 +215,63 @@
  * @default {"buttonName":"button11","action":""}
  * @parent buttons
  * 
+ * @param moveButtons
+ * @desc 十字キーをコンフィグ範囲に含めます。
+ * 自動的に上下左右が必須ボタンに追加されます。
+ * @type boolean
+ * @default false
+ * 
+ * @param button12
+ * @desc 上キー/UP_BUTTON
+ * @type struct<ButtonInfo>
+ * @default {"buttonName":"UP","action":""}
+ * @parent moveButtons
+ * 
+ * @param textUp
+ * @desc 上ボタンの説明
+ * @default ↑
+ * @parent moveButtons
+ * 
+ * @param button13
+ * @desc 下キー/DOWN_BUTTON
+ * @type struct<ButtonInfo>
+ * @default {"buttonName":"DOWN","action":""}
+ * @parent moveButtons
+ * 
+ * @param textDown
+ * @desc 下ボタンの説明
+ * Description of ok's function
+ * @default ↓
+ * @parent moveButtons
+ * 
+ * @param button14
+ * @desc 左キー/LEFT_BUTTON
+ * @type struct<ButtonInfo>
+ * @default {"buttonName":"LEFT","action":""}
+ * @parent moveButtons
+ * 
+ * @param textLeft
+ * @desc 左の説明
+ * @default ←
+ * @parent moveButtons
+ * 
+ * @param button15
+ * @desc 右キー/RIGHT_BUTTON
+ * @type struct<ButtonInfo>
+ * @default {"buttonName":"RIGHT","action":""}
+ * @parent moveButtons
+ * 
+ * @param textRight
+ * @desc 右の説明
+ * @default →
+ * @parent moveButtons
+ * 
  * @param button16
  * @desc PS2コントローラ：
  * @type struct<ButtonInfo>
  * @default {"buttonName":"button16","action":""}
  * @parent buttons
  * @param button_unknow
- * @desc 標準外のボタンです。
  * 
  * @param windowPositionMode
  * @desc ウィンドウの位置
@@ -240,6 +291,11 @@
  * @type number
  * @default 0
  * @parent windowPositonMode
+ * 
+ * @param numVisibleRows
+ * @desc 表示する縦方向の要素数です
+ * @type number
+ * @default 16
  * 
  * @param symbolAutoSelect
  * @desc キーに対応するシンボルを切り替えるときに、
@@ -339,11 +395,14 @@ function paramToActionKeys(params){
     array.push(null);
     return array;
 }
+
+const moveSymbols =['up','down','left','right']
 /**
  * @return {string[]}
  */
 function createMandatorySymbols(params){
     return JSON.parse(params.mandatorySymbols);
+    return array;
 }
 
 function insertExtendAction(helpText,params){
@@ -382,6 +441,10 @@ function createSetting(){
         symbol6 :String(params.textSymbol6),
         symbol7 :String(params.textSymbol7),
         symbol8 :String(params.textSymbol8),
+        up:String(params.textUp),
+        down:String(params.textDown),
+        left:String(params.textLeft),
+        right:String(params.textRight),        
     };
     const commandText={
         apply:String(params.textApply),
@@ -405,6 +468,10 @@ function createSetting(){
         9:fetchButtonInfo(params.button9),        
         10:fetchButtonInfo(params.button10),        
         11:fetchButtonInfo(params.button11),        
+        12:fetchButtonInfo(params.button12),
+        13:fetchButtonInfo(params.button13),
+        14:fetchButtonInfo(params.button14),
+        15:fetchButtonInfo(params.button15),
         16:fetchButtonInfo(params.button16),
     };
     const configSamples =makeConfigSamples(buttonInfo);
@@ -416,7 +483,7 @@ function createSetting(){
             });
         }
     }
-    return {
+    const result= {
         commandText:commandText,
         emptySymbolText:String(params.textEmpty),
         actionKey:paramToActionKeys(params),
@@ -431,12 +498,23 @@ function createSetting(){
         hookPoint:String(params.hookPoint),
         commandName:String(params.commandName),
 
+        moveButtonsConfig:(params.moveButtons ==='true'),
+
         windowPostionMode :(params.windowPositionMode==='true'),
         windowCustom:{
             x:Number(params.windowPositionX),
             y:Number(params.windowPositionY),
-        }
+        },
+        numVisibleRows:Number(params.numVisibleRows),
+
     };
+    if(result.moveButtonsConfig){
+        Array.prototype.push.apply( result.mandatorySymbols,moveSymbols); 
+        Array.prototype.push.apply( result.actionKey,moveSymbols);         
+        Array.prototype.push.apply(result.buttonList,['12','13','14','15']);
+    }
+
+    return result;
 };
 
 /**
@@ -599,7 +677,6 @@ Window_GamepadConfig_MA.prototype.processOk =function(){
     this.playOkSound();
     this.callOkHandler();
 };
-
 Window_GamepadConfig_MA.prototype.processCancel =function(){
     SoundManager.playCancel();
     this.updateInputData();
@@ -615,8 +692,12 @@ Window_GamepadConfig_MA.prototype.windowWidth =function(){
     return 450;
 };
 
+Window_GamepadConfig_MA.prototype.numVisibleRows = function() {
+    return setting.numVisibleRows;
+};
+
 Window_GamepadConfig_MA.prototype.windowHeight =function(){
-    return this.fittingHeight(this.maxItems());
+    return this.fittingHeight(this.numVisibleRows());
 };
 Window_GamepadConfig_MA.prototype.makeMandatorySymbolTable =function(){
     var table ={};
@@ -822,6 +903,10 @@ Window_GamepadConfig_MA.prototype.drawApplyCommand =function(){
     this.drawText(setting.commandText.apply,rect.x,rect.y,rect.width);
     this.changePaintOpacity(true);
 };
+//  Window_GamepadConfig_MA.prototype.maxRows =function(){
+//      return 8;
+//  };
+
     
 Window_GamepadConfig_MA.prototype.maxItems =function(){
     return this._list.length+3;    
@@ -889,9 +974,12 @@ Window_InputSymbolList.prototype.selectSymbol =function(action){
         this.select(index);
     }else{
         this.select(0);
-
     }
 };
+/**
+ * @param {string} name
+ * @param {string} symbol
+ */
 Window_InputSymbolList.prototype.addCommand = function(name, symbol,  ext) {
     if (ext === undefined) {
         ext = null;
