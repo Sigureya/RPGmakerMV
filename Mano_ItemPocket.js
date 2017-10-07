@@ -412,7 +412,6 @@ MA_itemPocket.TYPE_ARMOR =2;
  * @return {PokectItemData}
  */
 MA_itemPocket.newItem=function(item,amount){
-
     const id_= item ? item.id : 0;
     const result ={
         id:id_,
@@ -443,7 +442,13 @@ MA_itemPocket.newArmor =function(weapon){
     };
     return result;
 };
-
+/**
+ * @param {RPG.Item} item 
+ * @return {boolean}
+ */
+MA_itemPocket.canPutInPocket =function(item){
+    return DataManager.isItem(item) && item.occasion<=1 ;    
+};
 
 /**
  * @param {PokectItemData[]} dataArray
@@ -712,13 +717,13 @@ MA_itemPocket.prototype.setData =function(index,item,amount){
     obj.amount = amount;
 };
 /**
- * @param {Number} itemId
+ * @param {RPG.Item} item
  * @param {Number} [start = 0]
  */
-MA_itemPocket.prototype.indexOf =function(itemId,start){
+MA_itemPocket.prototype.indexOf =function(item,start){
     for(var i=start||0;i <this._data.length;i+=1){
         if(this._data[i]){
-            if(this._data[i].id ===itemId){
+            if(this._data[i].id ===item.id){
                 return i;
             }
         }
@@ -732,7 +737,7 @@ MA_itemPocket.prototype.indexOf =function(itemId,start){
  * @return {PokectItemData}
  */
 MA_itemPocket.prototype.findItem=function(item){
-    const index = this.indexOf(item.id);
+    const index = this.indexOf(item);
     if(index !==-1){
         return this._data[index];
     }
@@ -744,7 +749,7 @@ MA_itemPocket.prototype.findItem=function(item){
  */
 MA_itemPocket.prototype.addItem=function(item,amount){
 
-    const lastIndex = this.indexOf(item.id);
+    const lastIndex = this.indexOf(item);
 
     return MA_itemPocket._addItemImple(this._data,item,amount,lastIndex);
 };
@@ -754,7 +759,7 @@ MA_itemPocket.prototype.addItem=function(item,amount){
  * @return {number} lastIndex
  */
 MA_itemPocket.prototype.loseItem =function(item, amount){
-    const lastIndex = this.indexOf(item.id);
+    const lastIndex = this.indexOf(item);
     if(lastIndex !==-1){
         return MA_itemPocket._addItemImple(this._data,item,-amount,lastIndex);
     }
@@ -788,11 +793,12 @@ MA_itemPocket.prototype.canUse = function(index){
 };
 
 MA_itemPocket.prototype.releaseItem=function(index,amount){
-    const item =this._data[index]; 
-    const am = Math.min(amount,item.amount);
-    item.amount -= am;
+    const item = this.item(index);
+    const itemData =this._data[index]; 
+    const am = Math.min(amount,itemData.amount);
+    itemData.amount -= am;
 
-    $gameParty.gainItem(this.item(index) ,am);
+    $gameParty.gainItem( item,am);
 };
 
 MA_itemPocket.prototype.releaseAllItem =function(){
@@ -828,7 +834,8 @@ MA_itemPocket.prototype.loadMyset =function(myset){
 
 (function (global) {
     'use strict';
-        const param = PluginManager.parameters('Mano_ItemPocket');
+function createSetting(){
+    const param = PluginManager.parameters('Mano_ItemPocket');
     MA_itemPocket.pocketSize =Number(param.pocketSize);
 
     const xxx={
@@ -881,6 +888,9 @@ MA_itemPocket.prototype.loadMyset =function(myset){
             weight:'Weight'
         },
     };
+    return xxx;
+}
+const setting = createSetting();
     const Mano_ItemPocket_State={
         includeParty:false,
         includeAll:false,
@@ -907,18 +917,9 @@ function maxAmount(itemId){
 /**
  * 
  * @param {RPG.Item} item 
- * @return {boolean}
- */
-
-function canPutInPocket(item){
-    return DataManager.isItem(item) && item.occasion<=1 ;
-}
-/**
- * 
- * @param {RPG.Item} item 
  */
 function hasItem(item){
-    if(pocketFunction.canPutInPocket(item)){
+    if(MA_itemPocket.canPutInPocket(item)){
         const actors = $gameParty.members();
         return actors.some(function(actor){
             return actor.isInPocket( item.id );
@@ -930,13 +931,19 @@ function hasItem(item){
 function isAutoPocketAdd(item){
     return false;
 }
-
+/**
+ * @return {MA_itemPocket}
+ * @param {Game_Actor} actor 
+ */
+function actorToPocket(actor){
+    return actor.itemPocket();
+}
 
 const pocketFunction={
     includeMembers:pocket_includeMembers,
 //    maxAmount:maxAmount,
     pocketSize :function(){
-        return xxx.pocketSize;
+        return setting.pocketSize;
     },
     createDummyData:function(){
         return [
@@ -951,27 +958,26 @@ const pocketFunction={
      * @param {RPG.Item} item
      */
     bootEachItem:function(item){
-        if(!canPutInPocket(item) ){
+        if(!MA_itemPocket.canPutInPocket(item) ){
             item.maxAmount_MA =0;
             item.weight_MA =Number.MAX_SAFE_INTEGER;
             return;
         }
-        const capa = item.meta[xxx.tag.maxAmount];
-        if(capa){
-            item.maxAmount_MA =Number(capa);
+        const capacity = item.meta[setting.tag.maxAmount];
+        if(capacity){
+            item.maxAmount_MA =Number(capacity);
         }else{
-            item.maxAmount_MA = xxx.maxAmount;
+            item.maxAmount_MA = setting.maxAmount;
         }
-        if(xxx.usingWeight){
-            const  weight=item.meta[ xxx.tag.weight];
+        if(setting.usingWeight){
+            const  weight=item.meta[ setting.tag.weight];
             if(weight){
                 item.weight_MA = Number(weight);
             }else{
-                item.weight_MA = xxx.weight;
+                item.weight_MA = setting.weight;
             }
         }
     },
-    canPutInPocket:canPutInPocket ,
     hasItem:hasItem,
     playSaveMysetSound:function(){
         SoundManager.playSave();
@@ -1096,18 +1102,7 @@ MA_itemPocket.prototype.createIndexTable=function(){
 
 MA_itemPocket.PocketIndex = PocketIndex;
 
-function test(cond){
-    console.log(cond ?"Success":'fauled');
-}
-const PocketTestSuite={
-    pokectClass:function(){
-        const pocket = new MA_itemPocket(pocketFunction.createDummyData());
-        const indexTable = pocket.createIndexTable();
-        for(var i=0;i <10;++i){
-            test (indexTable.indexOf(i)=== pocket.indexOf(i) );
-        }
-    },
-};
+
 
 //Window_ShopNumberを参考に作成する
 function Window_PocketNumber() {
@@ -1151,7 +1146,7 @@ Window_PocketNumber.prototype.refresh=function(){
         this.drawItemName(this._item,0,itemY);
         this.drawMultiplicationSign();
         this.drawNumber(numberX,itemY);
-        if(xxx.usingWeight){
+        if(setting.usingWeight){
             this.drawItemWeight(numberX);
             this.drawWeightText();
         }
@@ -1180,7 +1175,7 @@ Window_PocketNumber.prototype.updateCursor =function(){
 Window_PocketNumber.prototype.drawNumber=function(x,y){
     const width = this.numberWidth();
     if(this._number>=this._max){
-        this.changeTextColor( this.textColor(xxx.color.max) );
+        this.changeTextColor( this.textColor(setting.color.max) );
     }else{
         this.resetTextColor();
     }
@@ -1191,7 +1186,7 @@ Window_PocketNumber.prototype.weightY =function(){
     return 1 *this.lineHeight();
 };
 Window_PocketNumber.prototype.weightText =function(){
-    return xxx.weightText;
+    return setting.weightText;
 };
 Window_PocketNumber.prototype.itemWeight =function(){
     return MA_itemPocket.weight(this.item());
@@ -1264,48 +1259,48 @@ Window_PocketNumber.prototype.number=function(){
     return this._number;
 };
 
-function Window_ModeSelect(){
+function Window_PocketModeSelect(){
     this.initialize.apply(this,arguments);
 };
-Window_ModeSelect.prototype = Object.create(Window_Command.prototype);
-Window_ModeSelect.prototype.constructor = Window_ModeSelect;
+Window_PocketModeSelect.prototype = Object.create(Window_Command.prototype);
+Window_PocketModeSelect.prototype.constructor = Window_PocketModeSelect;
 
-Window_ModeSelect.prototype.initialize=function(x,y){
+Window_PocketModeSelect.prototype.initialize=function(x,y){
     Window_HorzCommand.prototype.initialize.call(this,x,y);
     this.deactivate();
     this.deselect();
 };
-Window_ModeSelect.prototype.windowWidth = function() {
+Window_PocketModeSelect.prototype.windowWidth = function() {
     return Graphics.boxWidth;
 };
 
-Window_ModeSelect.prototype.maxCols = function() {
+Window_PocketModeSelect.prototype.maxCols = function() {
      return 4;
 };
 
-Window_ModeSelect.prototype.addUseCommand =function(){
-    this.addCommand(xxx.wordUse, xxx.symbolUse );    
+Window_PocketModeSelect.prototype.addUseCommand =function(){
+    this.addCommand(setting.wordUse, setting.symbolUse );    
 };
-Window_ModeSelect.prototype.addRemoveCommand =function(){
-    this.addCommand(xxx.wordRemove, xxx.symbolRemove );    
+Window_PocketModeSelect.prototype.addRemoveCommand =function(){
+    this.addCommand(setting.wordRemove, setting.symbolRemove );    
 };
-Window_ModeSelect.prototype.addSwapCommand =function(){
-    this.addCommand(xxx.wordSwap, xxx.symbolSwap );    
+Window_PocketModeSelect.prototype.addSwapCommand =function(){
+    this.addCommand(setting.wordSwap, setting.symbolSwap );    
 };
-Window_ModeSelect.prototype.addAddCommand =function(){
-    this.addCommand(xxx.wordAdd, xxx.symbolAdd );    
+Window_PocketModeSelect.prototype.addAddCommand =function(){
+    this.addCommand(setting.wordAdd, setting.symbolAdd );    
 };
-Window_ModeSelect.prototype.addPassCommand =function(){
-    this.addCommand(xxx.wordPass,xxx.symbolPass);
+Window_PocketModeSelect.prototype.addPassCommand =function(){
+    this.addCommand(setting.wordPass,setting.symbolPass);
 };
 
-Window_ModeSelect.prototype.addMysetCommand =function(){
-    if(xxx.usingMyset){
-        this.addCommand(xxx.wordMyset,xxx.symbolMyset);
+Window_PocketModeSelect.prototype.addMysetCommand =function(){
+    if(setting.usingMyset){
+        this.addCommand(setting.wordMyset,setting.symbolMyset);
     }
 };
 
-Window_ModeSelect.prototype.makeCommandList =function(){
+Window_PocketModeSelect.prototype.makeCommandList =function(){
     this.addUseCommand();
     this.addPassCommand();
     this.addSwapCommand();
@@ -1314,12 +1309,12 @@ Window_ModeSelect.prototype.makeCommandList =function(){
     this.addMysetCommand();
 };
 
-Window_ModeSelect.prototype.processPageup =function(){
+Window_PocketModeSelect.prototype.processPageup =function(){
     SoundManager.playCursor();
     this.updateInputData();
     this.callHandler('pageup');
 };
-Window_ModeSelect.prototype.processPagedown =function(){
+Window_PocketModeSelect.prototype.processPagedown =function(){
     SoundManager.playCursor();
     this.updateInputData();
     this.callHandler('pagedown');
@@ -1488,7 +1483,7 @@ Window_Pocket.prototype.selectedObject=function(){
  * @return {number}
  */
 Window_Pocket.prototype.indexOf=function(item,start){
-    return this.pocket().indexOf( item.id,start );
+    return this.pocket().indexOf( item,start );
 };
 /**
  * @param {RPG.Item} item
@@ -1604,7 +1599,7 @@ Window_Pocket.prototype.drawItemWeight =function(){
     const weightMax_X =x -weightMaxWidth;
 
     if(totalWeight >= maxWeight){
-        this.changeTextColor(this.textColor(xxx.color.max));
+        this.changeTextColor(this.textColor(setting.color.max));
     }else{
         this.resetTextColor();
     }
@@ -1626,7 +1621,7 @@ Window_Pocket.prototype.drawItemWeight =function(){
 Window_Pocket.prototype.drawAllItems =function(){
     Window_Selectable.prototype.drawAllItems.call(this);
     this.drawActorName();
-    if(xxx.usingWeight){
+    if(setting.usingWeight){
         this.drawItemWeight();
     }
 };
@@ -1694,7 +1689,7 @@ Window_Pocket.prototype.drawItemAmount =function(index,rect){
     
     this.drawText(':',rect.x,rect.y,rect.width -this.textWidth('00'),'right');
     if(this._pocket.isItemMax(index )){
-        this.changeTextColor( this.textColor(xxx.color.max) );
+        this.changeTextColor( this.textColor(setting.color.max) );
     }
 
     this.drawText( item.amount,rect.x,rect.y,rect.width ,'right');
@@ -1846,13 +1841,13 @@ Window_MysetCommand.prototype.initialize =function(x,y,w,h){
     this.move(x,y,w,h);
 };
 Window_MysetCommand.prototype.addSaveCommand =function(){
-    this.addCommand(xxx.saveMyset,Window_MysetCommand.SYMBOL_SAVE);
+    this.addCommand(setting.saveMyset,Window_MysetCommand.SYMBOL_SAVE);
 };
 Window_MysetCommand.prototype.addLoadCommand =function(){
-    this.addCommand(xxx.loadMyset,Window_MysetCommand.SYMBOL_LOAD);
+    this.addCommand(setting.loadMyset,Window_MysetCommand.SYMBOL_LOAD);
 };
 Window_MysetCommand.prototype.addRenameCommand =function(){
-    this.addCommand(xxx.renameMyset ,Window_MysetCommand.SYMBOL_RENAME);
+    this.addCommand(setting.renameMyset ,Window_MysetCommand.SYMBOL_RENAME);
 };
 
 Window_MysetCommand.prototype.processPageup=function(){
@@ -2096,7 +2091,9 @@ Window_AddItem.prototype.setEnabledFunc=function(func){
 };
 
 Window_AddItem.prototype.makeItemList=function(){
-    this._data = $gameParty.items().filter(pocketFunction.canPutInPocket);
+    this._data = $gameParty.items().filter(
+        MA_itemPocket.canPutInPocket
+    );
 };
 Window_AddItem.prototype.deselect =function(){
     this.updateHelp();
@@ -2179,7 +2176,7 @@ class  PocketTemporary{
      * @param {RPG.Item} item
      */
     canAddWithWeight(item){
-        if(!xxx.usingWeight){
+        if(!setting.usingWeight){
             return true;
         }
         return this.remainingWeight() >=MA_itemPocket.weight(item);
@@ -2268,7 +2265,7 @@ Scene_ItemPocket.prototype.pocketTemporary=function(actor){
      return this._pocketTemporary[actorId];
 };
 Scene_ItemPocket.prototype.refreshWeight =function(){
-    if(xxx.usingWeight){
+    if(setting.usingWeight){
         const tmp =this.pocketTemporary(this.actor());
         tmp.needWeightReset();
     }
@@ -2306,7 +2303,7 @@ Scene_ItemPocket.prototype.destoryPocketIndex=function(){
 };
 
 Scene_ItemPocket.prototype.isUsingMyset =function(){
-    return xxx.usingMyset;
+    return setting.usingMyset;
 };
 Scene_ItemPocket.prototype.createAllWindow=function(){
 
@@ -2344,7 +2341,7 @@ Scene_ItemPocket.prototype.subWindowRect=function(){
     return new Rectangle( 
         Graphics.boxWidth/2,
         this._modeSelectWindow.y+this._modeSelectWindow.height,
-        xxx.pocketWindow.w(),
+        setting.pocketWindow.w(),
         this._pocketWindow.height
     );
 };
@@ -2412,7 +2409,7 @@ Scene_ItemPocket.prototype.finalCapacityWithWeight =function(actor,item){
     );
 };
 
-if(xxx.usingWeight){
+if(setting.usingWeight){
     Scene_ItemPocket.prototype.finalCapacity =Scene_ItemPocket.prototype.finalCapacityWithWeight;
 }
 
@@ -3241,7 +3238,7 @@ Scene_ItemPocket.prototype.createAddMode =function(){
     mode.setHandler('end',this.endAddMode.bind(this));
     mode.setHandler('numberOk',this.executeAddItem.bind(this));
     mode.setHandler('numberCancel',this.modeAddNumberCancel.bind(this));
-    this._modeTable[xxx.symbolAdd]=mode;
+    this._modeTable[setting.symbolAdd]=mode;
 };
 Scene_ItemPocket.prototype.createSwapMode =function(){
     const mode =new ModeObject();
@@ -3253,7 +3250,7 @@ Scene_ItemPocket.prototype.createSwapMode =function(){
     mode.setEnableJudge(function(item){return true;});
     mode.needNullPush =true;
     mode.usingSubWindow =true;
-    this._modeTable[xxx.symbolSwap]=mode;
+    this._modeTable[setting.symbolSwap]=mode;
 };
 Scene_ItemPocket.prototype.createRemoveMode =function(){
     const mode =new ModeObject();
@@ -3263,7 +3260,7 @@ Scene_ItemPocket.prototype.createRemoveMode =function(){
     mode.setHandler('numberCancel',this.modeRemoveNumberCancel.bind(this));
     mode.setHandler('pocketOk',this.removeItem.bind(this));
     mode.setEnableJudge(this.isRemoveabelItem.bind(this));
-    this._modeTable[xxx.symbolRemove]=mode;
+    this._modeTable[setting.symbolRemove]=mode;
 };
 
 Scene_ItemPocket.prototype.createModeUse =function(){
@@ -3275,7 +3272,7 @@ Scene_ItemPocket.prototype.createModeUse =function(){
     mode.setEnableJudge(this.isUseableItem.bind(this));
     // mode.needDestoryIndex =true;
 
-    this._modeTable[xxx.symbolUse] =mode;
+    this._modeTable[setting.symbolUse] =mode;
 //    this._modeSelectWindow.addCommand(xxx.worduse,addMode);
 };
 Scene_ItemPocket.prototype.createModeMyset =function(){
@@ -3283,7 +3280,7 @@ Scene_ItemPocket.prototype.createModeMyset =function(){
     mode.setHandler('start',this.startMysetMode.bind(this));
     mode.setHandler('end',this.endMysetMode.bind(this));
 
-    this._modeTable[xxx.symbolMyset]=mode;
+    this._modeTable[setting.symbolMyset]=mode;
 };
 function isPassableItem(item){
     return true;
@@ -3300,7 +3297,7 @@ Scene_ItemPocket.prototype.createModePass =function(){
 //    mode.needNullPush=true;
 
     mode.usingSubWindow =true;
-    this._modeTable[xxx.symbolPass]=mode;
+    this._modeTable[setting.symbolPass]=mode;
 };
 
 //TODO:こっちの方が新しい　あとでこっちに切り替え
@@ -3316,7 +3313,7 @@ Scene_ItemPocket.prototype.createModeObjects =function(){
 
 
 Scene_ItemPocket.prototype.createModeSelectWindow =function(){
-    var a = new Window_ModeSelect(0,this._helpWindow.y +this._helpWindow.height );
+    var a = new Window_PocketModeSelect(0,this._helpWindow.y +this._helpWindow.height );
     this._modeSelectWindow=a;
     a.setHandler('cancel',this.onModeCancel.bind(this));
     a.setHandler('ok',this.onModeOk.bind(this));
@@ -3524,7 +3521,7 @@ Scene_ItemPocket.prototype.createPocketPreviewWindow=function(){
 Scene_ItemPocket.prototype.pocketWindowRect=function(){
     return new Rectangle(
         0,this._modeSelectWindow.y + this._modeSelectWindow.height,
-        xxx.pocketWindow.w(),
+        setting.pocketWindow.w(),
         this.defaultPocketHeight()
     );
 };
@@ -3661,13 +3658,13 @@ Scene_ItemPocket.prototype.actorSetCursorAll =function(selectAll){
 };
 
 Window_MenuCommand.prototype.addPocketCommand =function(){
-    this.addCommand( xxx.commandName,xxx.commandKey,true);    
+    this.addCommand( setting.commandName,setting.commandKey,true);    
 };
 //個別所持用のコマンドを登録してる
 //#if のように使っている
 const Window_MenuCommand_addMainCommands = Window_MenuCommand.prototype.addMainCommands;
 const Window_MenuCommand_paddOriginalCommands=Window_MenuCommand.prototype.addOriginalCommands;
-if(xxx.menuCommandPostion===1){
+if(setting.menuCommandPostion===1){
     Window_MenuCommand.prototype.addMainCommands =function(){
         this.addPocketCommand();
         Window_MenuCommand_addMainCommands.call(this);
@@ -3683,12 +3680,12 @@ if(xxx.menuCommandPostion===1){
 const zz_Scene_Menu_prototype_createCommandWindow=Scene_Menu.prototype.createCommandWindow;
 Scene_Menu.prototype.createCommandWindow = function() {
     zz_Scene_Menu_prototype_createCommandWindow.call(this);
-    this._commandWindow.setHandler(xxx.commandKey, this.commandPersonal.bind(this) );
+    this._commandWindow.setHandler(setting.commandKey, this.commandPersonal.bind(this) );
 };
 
 const zz_MA_scene_Scene_Menu_onPersonalOk=Scene_Menu.prototype.onPersonalOk;
 Scene_Menu.prototype.onPersonalOk =function(){
-    if( this._commandWindow.currentSymbol() ===xxx.commandKey  ){
+    if( this._commandWindow.currentSymbol() ===setting.commandKey  ){
         SceneManager.push(Scene_ItemPocket  );
     }else{
         zz_MA_scene_Scene_Menu_onPersonalOk.call(this);
@@ -3767,7 +3764,7 @@ Game_Party.prototype.hasItem =function(item){
 function createDefaultMyset(len){
     var result =[];
     for(var i=0; i < len ; i+=1){
-        result[i]= new MysetListItem(xxx.mysetFormat.format(i),new MA_itemPocket([]));
+        result[i]= new MysetListItem(setting.mysetFormat.format(i),new MA_itemPocket([]));
     }
     return result;
 }
@@ -3779,7 +3776,7 @@ Game_Party.prototype.initialize =function(){
 };
 Game_Party.prototype.setupPocketMyset=function(){
     if(!this._pocketMyset){
-        this._pocketMyset =  createDefaultMyset(xxx.mysetSize);
+        this._pocketMyset =  createDefaultMyset(setting.mysetSize);
     }
 };
 
@@ -3958,6 +3955,44 @@ Scene_Battle.prototype.commandItem =function(){
     this._itemWindow.setActor(BattleManager.actor());
     zz_MA_ItemPocket_Scene_Battle_commandItem.call(this);
 };
+
+const Window_ShopStatus_refresh=Window_ShopStatus.prototype.refresh;
+Window_ShopStatus.prototype.refresh =function(){
+    Window_ShopStatus_refresh.call(this);
+    if(MA_itemPocket.canPutInPocket(  this._item)){
+        const x = this.textPadding();
+        this.drawPocketInfo(x,this.lineHeight()*2)
+    
+    }
+
+};
+Window_ShopStatus.prototype.drawActorItemAmount =function(x, y, actor){
+    const width = this.contents.width - this.textPadding() - x;
+    const pocket =actorToPocket(actor);
+    const index= pocket.indexOf(this._item);
+    const amount = pocket.amount(index);
+    if( amount >=  MA_itemPocket.maxAmount( this._item  ) ){
+        this.changeTextColor(this.deathColor());
+    }
+    this.drawText(amount, x, y, width, 'right');
+    
+};
+
+Window_ShopStatus.prototype.drawActorPocketInfo =function(x, y, actor){
+    this.drawText(actor.name(), x, y, 168);
+    this.drawActorItemAmount(x,y,actor);
+};
+
+Window_ShopStatus.prototype.drawPocketInfo =function(x,y){
+    const members = this.statusMembers();
+    const line = this.lineHeight();
+    for (var i = 0; i < members.length; i++) {
+        this.drawActorPocketInfo(x, y + line* (i*2.4) , members[i]);
+    }
+};
+
+
+
 Game_Interpreter.prototype.pocket_SetIncludeMode =function(mode){
     this._pocketIncludeMode =mode;
 };
