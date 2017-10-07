@@ -283,19 +283,25 @@
  * @param windowPositionX
  * @desc ウィンドウのX座標です。
  * @type number
- * @default 0
+ * @default 100
  * @parent windowPositonMode
  * 
  * @param windowPositionY
  * @desc ウィンドウのY座標です。
  * @type number
- * @default 0
+ * @default 100
  * @parent windowPositonMode
  * 
  * @param numVisibleRows
  * @desc 表示する縦方向の要素数です
  * @type number
  * @default 16
+ * 
+ * @param cols
+ * @desc 横方向の要素数です
+ * @type number
+ * @min 1
+ * @default 2
  * 
  * @param symbolAutoSelect
  * @desc キーに対応するシンボルを切り替えるときに、
@@ -312,12 +318,18 @@
  * 
  * @param hookPoint
  * @desc ゲームパッドコンフィグの開き方を設定します。
+ * プラグイン導入順によって前後することがあります。
  * @type select
- * @option オプション画面から開く
+ * @option オプション画面の一番後ろ
  * @value option
+ * @option 音量設定の前
+ * @value beforeVolume
+ * @option 音量設定の後ろ
+ * @value afterVolume
  * @option タイトル/メニューから開く
  * @value menu
  * @default option
+ * 
  * 
  * @help
  * プラグインで設定したデータをデフォルトとして使います。
@@ -377,7 +389,7 @@
  */
 
 
-(function(){
+(function(global){
     'use strict'
 
 /**
@@ -391,9 +403,7 @@ function fetchButtonInfo(param){
  * @return {String[]}
  */
 function paramToActionKeys(params){
-    const array =JSON.parse(params.symbols);
-    array.push(null);
-    return array;
+    return JSON.parse(params.symbols);
 }
 
 const moveSymbols =['up','down','left','right']
@@ -427,6 +437,20 @@ function makeConfigSamples(){
     ab_swaped[1] = RPGmakerDefault[0];
     return [RPGmakerDefault,ab_swaped];
 }
+
+function symbolToButtonNumber(symbol){
+    for(var key in Input.gamepadMapper){
+        if(Input.gamepadMapper[key]===symbol){
+            return key;
+        }
+    }
+    return ''
+}
+
+function symbolToButtonName(symbol){
+    return buttonName(symbolToButtonNumber(symbol));
+}
+
 
 function createSetting(){
     
@@ -506,13 +530,15 @@ function createSetting(){
             y:Number(params.windowPositionY),
         },
         numVisibleRows:Number(params.numVisibleRows),
-
+        cols:Number(params.cols),
     };
     if(result.moveButtonsConfig){
         Array.prototype.push.apply( result.mandatorySymbols,moveSymbols); 
         Array.prototype.push.apply( result.actionKey,moveSymbols);         
         Array.prototype.push.apply(result.buttonList,['12','13','14','15']);
     }
+
+    result.actionKey.push(null);
 
     return result;
 };
@@ -600,7 +626,7 @@ Window_GamepadConfig_MA.prototype.initialize=function(x,y){
     this.moveCenter();
 };
 Window_GamepadConfig_MA.prototype.moveCenter=function(){
-    this.width = this._nameWidth + this._symbolTextWidth+this.textPadding()*2;
+    this.width = ( this._nameWidth + this._symbolTextWidth)*2+this.textPadding()*2;
 
     if(setting.windowPostionMode){
         this.x = (Graphics.boxWidth - this.width) / 2;        
@@ -689,16 +715,19 @@ Window_GamepadConfig_MA.prototype.processCancel =function(){
     }
 };
 Window_GamepadConfig_MA.prototype.windowWidth =function(){
-    return 450;
+    return 300 * this.maxCols();
 };
-
-Window_GamepadConfig_MA.prototype.numVisibleRows = function() {
-    return setting.numVisibleRows;
+Window_GamepadConfig_MA.prototype.maxCols =function(){
+    return setting.cols;
+};
+ Window_GamepadConfig_MA.prototype.numVisibleRows = function() {
+    return Math.ceil(this.maxItems() / this.maxCols());
 };
 
 Window_GamepadConfig_MA.prototype.windowHeight =function(){
-    return this.fittingHeight(this.numVisibleRows());
+    return this.fittingHeight( Math.min( setting.numVisibleRows,this.numVisibleRows()));
 };
+
 Window_GamepadConfig_MA.prototype.makeMandatorySymbolTable =function(){
     var table ={};
     for(var i=0; i< setting.mandatorySymbols.length; ++i){
@@ -903,10 +932,6 @@ Window_GamepadConfig_MA.prototype.drawApplyCommand =function(){
     this.drawText(setting.commandText.apply,rect.x,rect.y,rect.width);
     this.changePaintOpacity(true);
 };
-//  Window_GamepadConfig_MA.prototype.maxRows =function(){
-//      return 8;
-//  };
-
     
 Window_GamepadConfig_MA.prototype.maxItems =function(){
     return this._list.length+3;    
@@ -1025,8 +1050,6 @@ Window_InputSymbolList.prototype.callOkHandler =function(){
     Window_InputSymbolList.baseType.callOkHandler.call(this);
 };
 
-//Scene_GamepadConfig
-//    Window_GamepadConfig_MA.
 function Scene_GamepadConfigMA(){
     this.initialize.apply(this,arguments);
 }
@@ -1047,7 +1070,6 @@ Scene_GamepadConfigMA.prototype.setGamepadMapper =function(gamepadMapper){
     }
 };
 
-
 Scene_GamepadConfigMA.prototype.create=function(){
     Scene_GamepadConfigMA.baseType.create.call(this);
     this.createAllWindows();
@@ -1061,7 +1083,6 @@ Scene_GamepadConfigMA.prototype.createGamepadConfigWindow =function(){
     gcw.setHandler('default',this.loadDefautConfig.bind(this));
     this._gamepadWindow =gcw;
     gcw.refresh();
-
     this.addWindow(gcw);
 };
 /**
@@ -1116,7 +1137,6 @@ Scene_GamepadConfigMA.prototype.applyGamepadConfig =function(){
     const test = this._gamepadWindow.canApplySetting();
     if(!test){
         throw( new Error( 'GamepadConfigが不正です'));
-
     }
 
     Input.gamepadMapper =this._gamepadWindow.cloneGamepadMapper();
@@ -1154,12 +1174,39 @@ if(setting.hookPoint==='menu'){
         this._commandWindow.close();
         SceneManager.push(Scene_GamepadConfigMA);
     };
-}else if(setting.hookPoint ==='option'){
+}else{
 
     Window_Options.prototype.addGamepadOptions_MA =function(){
         this._gamepadOptionIndex = this._list.length;
         this.addCommand(setting.commandName,MA_GAMEPAD_CONFIG);
     };
+    const Window_Options_addGeneralOptions=Window_Options.prototype.addGeneralOptions;
+    const Window_Options_addVolumeOptions=Window_Options.prototype.addVolumeOptions;
+
+    const Window_Options_makeCommandList = Window_Options.prototype.makeCommandList
+    if(setting.hookPoint==='beforeVolume'){
+        Window_Options.prototype.addVolumeOptions=function(){
+            this.addGamepadOptions_MA();
+            Window_Options_addVolumeOptions.call(this);
+        }
+    }else if(setting.hookPoint==='afterVolume'){
+        Window_Options.prototype.addVolumeOptions=function(){
+            Window_Options_addVolumeOptions.call(this);
+            this.addGamepadOptions_MA();
+        }
+    }else{
+        Window_Options.prototype.makeCommandList =function(){
+            Window_Options_makeCommandList.call(this);
+            this.addGamepadOptions_MA();
+        };
+    }
+    const Window_Options_statusText=Window_Options.prototype.statusText;
+    Window_Options.prototype.statusText =function(index){
+        if(index ===this._gamepadOptionIndex){
+            return '';
+        }
+        return Window_Options_statusText.call(this,index);
+    }    
     const Window_Options_processOk = Window_Options.prototype.processOk;
     Window_Options.prototype.processOk =function(){
         const index = this.index();
@@ -1170,17 +1217,24 @@ if(setting.hookPoint==='menu'){
             Window_Options_processOk.call(this);
         }
     };
-    const Window_Options_makeCommandList = Window_Options.prototype.makeCommandList
-    Window_Options.prototype.makeCommandList =function(){
-        Window_Options_makeCommandList.call(this);
-        this.addGamepadOptions_MA();
-    };
-    const Window_Options_statusText=Window_Options.prototype.statusText;
-    Window_Options.prototype.statusText =function(index){
-        if(index ===this._gamepadOptionIndex){
-            return '';
-        }
-        return Window_Options_statusText.call(this,index);
-    }
 }
-})();
+/**
+ * @return {[key =string]: Function}
+ */
+function createExportFunction(){
+    const exportList=[
+        symbolToButtonName,
+    ];
+    var result ={};
+    for(var i =0; i< exportList.length;++i){
+        var func = exportList[i];
+        result[func.name] = func;
+    }
+    return result;
+}
+
+const exportFuntion= createExportFunction();
+global.mano = global.mano||{};
+//global.mano = Object.assign()
+
+})(this);
