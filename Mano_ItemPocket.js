@@ -3932,8 +3932,10 @@ Window_BattlePocket.prototype.isEnabled =function(item){
 
 Scene_Battle.prototype.onBattlePocketOk=function(){
     const action = BattleManager.inputtingAction();
-    const pocketPtr = this._itemWindow.selectedObject();
-    action._pocketPtr = pocketPtr;
+    if(action){
+        const pocketPtr = this._itemWindow.selectedObject();
+        action._pocketPtr = pocketPtr;
+    }
 };
 const zz_MA_ItemPocket_Scene_Battle_onItemOk=Scene_Battle.prototype.onItemOk;
  Scene_Battle.prototype.onItemOk= function(){
@@ -3979,6 +3981,7 @@ Window_ShopStatus.prototype.drawActorItemAmount =function(x, y, actor){
 };
 
 Window_ShopStatus.prototype.drawActorPocketInfo =function(x, y, actor){
+    this.changeTextColor(this.normalColor());
     this.drawText(actor.name(), x, y, 168);
     this.drawActorItemAmount(x,y,actor);
 };
