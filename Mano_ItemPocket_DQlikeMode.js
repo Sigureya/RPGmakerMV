@@ -41,18 +41,19 @@
 
     MA_itemPocket.prototype.releaseItem =function(index,amount){
         const item = this.itemObject(index);
-        var released = amount;
+        var released = 0;
         const len =this.length();
         for(var i=0;i <len;i+=1){
-            if(released<=0){
+            if(released>=amount){
                 break;
             }
             if(this._data[i].id ===item.id){
-                released -=this._data[i].amount;
-                this._data[i].amount -=1;
+                var releaseCount=Math.min (this._data[i].amount,amount);
+                released +=releaseCount;
+                this._data[i].amount -=releaseCount;;
             }
         }
-        $gameParty.gainItem(item,amount);
+        $gameParty.gainItem(item,released);
     };
 
 
