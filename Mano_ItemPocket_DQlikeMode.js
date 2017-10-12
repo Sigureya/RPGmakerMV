@@ -22,6 +22,15 @@
 
 (function(global){
     'use strict'
+
+    if(!global.Mano_ItemPocket){
+        const Scene_Boot_start= Scene_Boot.prototype.start;
+        Scene_Boot.prototype.start =function(){
+            throw Error(
+                'Mano_ItemPocket_DQlikeModeを使用する場合、これより上にMano_itemPocketを入れてください'
+            );
+        }
+    }
     const pocketFunction = global.Mano_ItemPocket.pocketFunction;
     const PocketIndex = global.Mano_ItemPocket.PocketIndex;
     const MA_itemPocket = global.Mano_ItemPocket.MA_itemPocket;
