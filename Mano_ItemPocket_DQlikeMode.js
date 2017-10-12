@@ -40,7 +40,7 @@
     Window_Pocket.prototype.drawItemAmount =function(){};
 
     MA_itemPocket.prototype.releaseItem =function(index,amount){
-        const item = this.itemData(index);
+        const item = this.itemObject(index);
         var released = amount;
         const len =this.length();
         for(var i=0;i <len;i+=1){
@@ -49,7 +49,7 @@
             }
             if(this._data[i].id ===item.id){
                 released -=this._data[i].amount;
-                this._data[i].amount =0;
+                this._data[i].amount -=1;
             }
         }
         $gameParty.gainItem(item,amount);
