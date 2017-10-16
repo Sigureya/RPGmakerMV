@@ -945,15 +945,6 @@ const pocketFunction={
     pocketSize :function(){
         return setting.pocketSize;
     },
-    createDummyData:function(){
-        return [
-            // {id:1,amount:3},
-            // {id:3,amount:100},
-            // {id:4,amount:4},
-            // {id:5,amount:23},
-            // {id:6,amount:1},
-        ];
-    },
     /**
      * @param {RPG.Item} item
      */
@@ -1619,11 +1610,19 @@ Window_Pocket.prototype.drawItemWeight =function(){
 
 
 Window_Pocket.prototype.drawAllItems =function(){
-    Window_Selectable.prototype.drawAllItems.call(this);
+    this.changePaintOpacity(true);
     this.drawActorName();
     if(setting.usingWeight){
         this.drawItemWeight();
     }
+
+
+    const topIndex = this.topIndex();
+    const last = Math.min(this.maxPageItems(),this.pocket().length());
+    for (var i = topIndex; i < last; i++) {
+        this.drawItem(i);
+    }
+
 };
 Window_Pocket.prototype.deselect =function(){
     this.updateHelp();
@@ -1694,10 +1693,15 @@ Window_Pocket.prototype.drawItemAmount =function(index,rect){
 
     this.drawText( item.amount,rect.x,rect.y,rect.width ,'right');
 };
+
+/**
+ * @param {number} index
+ */
 Window_Pocket.prototype.drawItemImple =function(index,item){
     var numberWidth = this.itemCountWidth();
     var rect = this.itemRect(index);
     rect.width -= this.textPadding();
+    this.changePaintOpacity(this.isEnabled(this.pocket().item(index) ) );
     this.drawItemName($dataItems[ item.id], rect.x, rect.y, rect.width );
     this.drawItemAmount(index,rect);
 };
@@ -1708,6 +1712,7 @@ Window_Pocket.prototype.drawItem =function(index){
         this.drawItemImple(index,item);
     }
 };
+
 function Window_PocketSub(){
     this.initialize.apply(this,arguments);    
 }
@@ -1943,14 +1948,20 @@ class ModeObject{
     static get subPocketOk(){return 'subPocketOk';}
     static get subPocketCancel(){return 'subPocketCancel'}
 
+    static  defaultEnebledJudge(item){
+        return !!item;
+    }
+
 
 
     constructor(){
         this._table ={};
-        this._enableJudge =function(item){return !!item;}
+        this._enableJudge =ModeObject.defaultEnebledJudge;
         this.needNullPush =false;
         this.usingSubWindow=false;
     }
+
+
     /**
      * 
      * @param {String} key 
@@ -1970,13 +1981,6 @@ class ModeObject{
             throw new Error(key +':not handling');
         }
     }
-    /**
-     * @return {Function}
-     */
-    pocketCancelFunction(){
-        const func = this._table['pocketCancel'];
-        return func;
-    }
 
 
     pocketOk(){
@@ -1994,6 +1998,9 @@ class ModeObject{
     }
     subPocketCancel(){
         this.callHandler(ModeObject.subPocketCancel);
+    }
+    needRefreshOnModeChange(){
+        return this._enableJudge !==ModeObject.defaultEnebledJudge;
     }
 
 
@@ -2242,12 +2249,13 @@ Scene_ItemPocket.prototype.constructor = Scene_ItemPocket;
 
 Scene_ItemPocket.prototype.initialize =function(){
     Scene_MenuBase.prototype.initialize.call(this);
-    this._mode ='non';
+    this._mode =null;
     this._itemUser =null;
     this._modeTable={};
     
     this._pocketTemporary=[];
     //    this.passAmount=0;
+    this.createModeObjects();
 };
 Scene_ItemPocket.prototype.nextActor =function(){
     Scene_ItemPocket.baseType.prototype.nextActor.call(this);
@@ -2912,13 +2920,25 @@ Scene_ItemPocket.prototype.executeSwap =function(){
 Scene_ItemPocket.prototype.startItemUseMode =function(){
     this._pocketWindow.activate();
     this._pocketWindow.select(0);
+    this._pocketWindow.refresh();
 };
 Scene_ItemPocket.prototype.endItemUseMode =function(){
     this._pocketWindow.deselect();
     this._modeSelectWindow.activate();
 };
+
+/**
+ * @param {RPG.Item} item
+ */
+function itemOccasionOk(item){
+    return item.occasion === 0 || item.occasion === 2;    
+}
+/**
+ * @param {RPG.Item} item
+ */
 Scene_ItemPocket.prototype.isUseableItem =function(item){
-    return !!item;
+    //戦闘中限定のチェックを行う
+    return !!item && itemOccasionOk(item);
 };
 
 /**
@@ -3231,6 +3251,13 @@ Scene_ItemPocket.prototype.startSortMode =function(){
 
 };
 
+Scene_ItemPocket.prototype.createModeSelectMode =function(){
+    const mode =new ModeObject();
+    this._nullMode =mode;
+    this._mode =mode;
+
+};
+
 // TODO:あとでこっちのモードに切り替える
 Scene_ItemPocket.prototype.createAddMode =function(){
     const mode =new ModeObject();
@@ -3303,6 +3330,9 @@ Scene_ItemPocket.prototype.createModePass =function(){
 //TODO:こっちの方が新しい　あとでこっちに切り替え
 // 並びをユーザーで制御できるようにする
 Scene_ItemPocket.prototype.createModeObjects =function(){
+    this.createModeSelectMode();
+
+
     this.createModeUse();
     this.createModePass();
     this.createAddMode();
@@ -3319,8 +3349,9 @@ Scene_ItemPocket.prototype.createModeSelectWindow =function(){
     a.setHandler('ok',this.onModeOk.bind(this));
     a.setHandler('pagedown', this.nextActor.bind(this));
     a.setHandler('pageup',   this.previousActor.bind(this));
+//    a.select(0);//
 
-    this.createModeObjects();
+//    this.createModeObjects();
     this.addWindow(a); 
     a.refresh(); 
 };
@@ -3446,27 +3477,10 @@ Scene_ItemPocket.prototype.onPocketOk =function(){
     mode.pocketOk();
 };
 
-Scene_ItemPocket.prototype.endMode =function(){
-    const mode = this.currentModeObject();
-    mode.end();    
-    this.destoryPocketIndex();
-    this._pocketWindow.setLastNull(false);
-    this._pocketWindow2.setLastNull(false);    
-};
 
 Scene_ItemPocket.prototype.onPocketCancel =function(){
-    const mode = this.currentModeObject();
-    const func = mode.pocketCancelFunction();
-    if(func){
-//        PluginManager.parameters()
-
-
-    }else{
-        this.endMode();
-        this.closeSubPocketWindow();
-        this._pocketWindow.deselect();
-        this._modeSelectWindow.activate();
-    }
+//    const mode = this.currentModeObject();
+    this.endMode();
 };
 
 Scene_ItemPocket.prototype.onSubPocketWidnowCancel =function(){
@@ -3583,7 +3597,17 @@ Scene_ItemPocket.prototype.onPocketItemSelect =function(){
 //=============================================================================
 
 Scene_ItemPocket.prototype.onModeOk=function(){
+    const symbol = this._modeSelectWindow.currentSymbol();
+    const mode = this.fetchMode(symbol);
+    if(mode){
+        this.startMode(mode);
+    }
+    return;
+
+
     this._mode = this._modeSelectWindow.currentSymbol();
+    
+
     const modeObj =this.currentModeObject();
     if(modeObj.usingSubWindow){
         this.openSubPocketWindow();
@@ -3592,6 +3616,9 @@ Scene_ItemPocket.prototype.onModeOk=function(){
 
 
     modeObj.start();
+    // if(modeObj.needRefreshOnModeChange()){
+    //     this._pocketWindow.refresh();
+    // }
 };
 
 Scene_ItemPocket.prototype.onModeCancel =function(){
@@ -3599,11 +3626,50 @@ Scene_ItemPocket.prototype.onModeCancel =function(){
 };
 
 /**
+ * @param {ModeObject} mode
+ */
+Scene_ItemPocket.prototype.startMode =function(mode){
+    this._mode =mode;
+    mode.start();
+    if(mode.usingSubWindow){
+        this.openSubPocketWindow();
+    }
+
+    this._pocketWindow.setLastNull(mode.needNullPush);    
+    this._pocketWindow.refresh();
+};
+Scene_ItemPocket.prototype.endMode =function(){
+    const mode = this.currentModeObject();
+    mode.end();
+    this._mode = this._nullMode;
+    
+
+    this.destoryPocketIndex();
+    this._pocketWindow.setLastNull(false);
+    this._pocketWindow2.setLastNull(false);
+
+    this.closeSubPocketWindow();
+    this._pocketWindow.refresh();
+    this._pocketWindow.deselect();
+    this._modeSelectWindow.activate();
+};
+/**
+ * @param {string} mode
+ * @return {ModeObject}
+ */
+Scene_ItemPocket.prototype.fetchMode =function(symbol){
+    return this._modeTable [symbol];
+};
+/**
  * @return {ModeObject}
  */
 Scene_ItemPocket.prototype.currentModeObject =function(){
+    return this._mode;
    const mode=  this._modeSelectWindow.currentData();
-   return this._modeTable [mode.symbol];
+   if(mode){
+      return  this._modeTable [mode.symbol];
+    }
+   return this._nullMode;
 };
 
 Scene_ItemPocket.prototype.selectNumberSelection=function(){
