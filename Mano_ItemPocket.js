@@ -3907,7 +3907,7 @@ Game_Actor.prototype.setupPocket =function(){
     }
 
     var actorData =$dataActors[this._actorId];
-    const reg =/PocketItem\[(\d)\]/;
+    const reg =/PocketItem\[(\d{1,4})\]/;
     var matched=false;
     var pocket =new MA_itemPocket([]);
     for(var key in actorData.meta){
