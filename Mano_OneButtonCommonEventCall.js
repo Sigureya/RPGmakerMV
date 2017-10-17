@@ -64,7 +64,7 @@
  * 12から15は十字キーなので不可。
  * 元から機能が割り当てられている0~5への割り当ては、自己責任でお願いします。
  * 
- * var 1.0(2017/10/07) 公開
+ * var 1.0(2017/10/17) 公開
  */
 
 /*~struct~CommonDefine:
@@ -130,7 +130,6 @@
  * @value 4
  * @option button5(pagedown)
  * @value 5
- * 
  */
 /*~
  * @param description
@@ -154,7 +153,7 @@ function fetchCommonEvent(CommonDefine){
     }
     return {
 //        enabled:(obj.enabled==='true'),
-        enableSwitch:Number(obj.enableSwitch),
+        enableSwitch:Number(obj.enableSwitch ||0 ),
         symbol:String(obj.symbol),
         text:String(obj.text),
         eventId:Number(obj.event),
@@ -184,12 +183,6 @@ function createSetting(){
 }
 
 const setting = createSetting();
-// var setting =null;
-// const Scene_Boot_start =Scene_Boot.prototype.start;
-// Scene_Boot.prototype.start= function() {
-//     Scene_Boot_start.apply(this,arguments);
-//     setting =createSetting();
-// };
 
 function setMapper(){
 
@@ -199,7 +192,6 @@ function setMapper(){
             Input.keyMapper[data.keycode ] =data.symbol;
         }
         if( (  data.padButtonNumber)>=0){
-            console.log("set:"+data.symbol);
             Input.gamepadMapper[ data.padButtonNumber]=data.symbol;
         }
 
@@ -212,9 +204,6 @@ function setMapper(){
 }
 
 setMapper();
-// OneButtonCommonEvent.baseType =Game_CommonEvent.prototype;
-// OneButtonCommonEvent.prototype = Object.create( OneButtonCommonEvent.baseType);
-// OneButtonCommonEvent.prototype.constructor=OneButtonCommonEvent;
 /**
  * @param {Number} settingId
  */
@@ -244,14 +233,20 @@ MA_OneButtonCommonEvent.prototype.event =function(){
 MA_OneButtonCommonEvent.prototype.list = function() {
     return this.event().list;
 };
+MA_OneButtonCommonEvent.prototype.isSwitchOk =function(){
+    return this._enableSwitch ===0||$gameSwitches.value(this._enableSwitch);
+};
+
 MA_OneButtonCommonEvent.prototype.isCalled=function(){
     return Input.isTriggered(this._symbol);
 };
 
 MA_OneButtonCommonEvent.prototype.update=function(){
     if (this._interpreter) {
-        if (!this._interpreter.isRunning() && this.isCalled() ) {
-            this._interpreter.setup(this.list());
+        if (!this._interpreter.isRunning()  && this.isCalled() ) {
+            if(this.isSwitchOk()){
+                this._interpreter.setup(this.list());
+            }
         }
         this._interpreter.update();
     }
@@ -270,7 +265,6 @@ function createOneButtonEvents(){
     }
     return result;
 }
-
 
 const Game_Map_initialize=Game_Map.prototype.initialize;
 Game_Map.prototype.initialize =function(){
@@ -295,31 +289,13 @@ Game_Map.prototype.updateEvents =function(){
     });
     Game_Map_updateEvents.call(this);
 };
+
 const Scene_Load_reloadMapIfUpdated =Scene_Load.prototype.reloadMapIfUpdated;
 Scene_Load.prototype.reloadMapIfUpdated =function (){
     Scene_Load_reloadMapIfUpdated.call(this);
     if($gameMap._oneButtonEvents){
         $gameMap.setupOneButtonEvents();
     }
-
-
 } ;
-// const Scene_Map_updateScene =Scene_Map.prototype.updateScene;
-// Scene_Map.prototype.updateScene = function(){
-//     Scene_Map_updateScene.call(this);
-//     for(var i=0; i < setting.eventList; ++i){
-//         if(!SceneManager.isSceneChanging()){
-//             if(Input.isTriggered('time')){
-//                 $gameMessage.add('')
-//             }
-//         }
-//     }
-// };
-
-    
-
-//Scene_Map.prototype.startWalk
-
-
 
 })();
