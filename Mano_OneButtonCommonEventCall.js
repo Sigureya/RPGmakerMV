@@ -17,35 +17,35 @@
  * 
  * @param commonA
  * @type Struct<CommonDefine>
- * @default {"enabled":"false","enableSwitch":"","event":"0","symbol":"event1","description":"イベント1","text":"テキスト1","keycode":"","padButton":"-1"}
+ * @default {"enabled":"false","enableSwitch":"0","event":"0","symbol":"event1","description":"イベント1","text":"テキスト1","keycode":"","padButton":"-1"}
  * 
  * @param commonB
  * @type Struct<CommonDefine>
- * @default {"enabled":"false","enableSwitch":"","event":"0","symbol":"event2","description":"イベント2","text":"テキスト2","keycode":"","padButton":"-1"}
+ * @default {"enabled":"false","enableSwitch":"0","event":"0","symbol":"event2","description":"イベント2","text":"テキスト2","keycode":"","padButton":"-1"}
  * 
  * @param commonC
  * @type Struct<CommonDefine>
- * @default {"enabled":"false","enableSwitch":"","event":"0","symbol":"event3","description":"イベント3","text":"テキスト3","keycode":"","padButton":"-1"}
+ * @default {"enabled":"false","enableSwitch":"0","event":"0","symbol":"event3","description":"イベント3","text":"テキスト3","keycode":"","padButton":"-1"}
  * 
  * @param commonD
  * @type Struct<CommonDefine>
- * @default {"enabled":"false","enableSwitch":"","event":"0","symbol":"event4","description":"イベント4","text":"テキスト4","keycode":"","padButton":"-1"}
+ * @default {"enabled":"false","enableSwitch":"0","event":"0","symbol":"event4","description":"イベント4","text":"テキスト4","keycode":"","padButton":"-1"}
  * 
  * @param commonE
  * @type Struct<CommonDefine>
- * @default {"enabled":"false","enableSwitch":"","event":"0","symbol":"event5","description":"イベント5","text":"テキスト5","keycode":"","padButton":"-1"}
+ * @default {"enabled":"false","enableSwitch":"0","event":"0","symbol":"event5","description":"イベント5","text":"テキスト5","keycode":"","padButton":"-1"}
  * 
  * @param commonF
  * @type Struct<CommonDefine>
- * @default {"enabled":"false","enableSwitch":"","event":"0","symbol":"event6","description":"イベント6","text":"テキスト6","keycode":"","padButton":"-1"}
+ * @default {"enabled":"false","enableSwitch":"0","event":"0","symbol":"event6","description":"イベント6","text":"テキスト6","keycode":"","padButton":"-1"}
  * 
  * @param commonG
  * @type Struct<CommonDefine>
- * @default {"enabled":"false","enableSwitch":"","event":"0","symbol":"event7","description":"イベント7","text":"テキスト7","keycode":"","padButton":"-1"}
+ * @default {"enabled":"false","enableSwitch":"0","event":"0","symbol":"event7","description":"イベント7","text":"テキスト7","keycode":"","padButton":"-1"}
  * 
  * @param commonH
  * @type Struct<CommonDefine>
- * @default {"enabled":"false","enableSwitch":"","event":"0","symbol":"event8","description":"イベント8","text":"テキスト8","keycode":"","padButton":"-1"}
+ * @default {"enabled":"false","enableSwitch":"0","event":"0","symbol":"event8","description":"イベント8","text":"テキスト8","keycode":"","padButton":"-1"}
  *
  * @help
  * 1ボタンでコモンイベントを呼び出せるようになります。
@@ -57,12 +57,18 @@
  * 
  * 呼び出しのタイミングは、通常のコモンイベントの実行が終了したあとです。
  * 
- * 
  * ゲームパッドのボタンですが、割り当てはGamepadAPIで調べてください。
  * 16は意図的に割り当て不能にしています。
  * 存在しない場合もあるためです。
  * 12から15は十字キーなので不可。
  * 元から機能が割り当てられている0~5への割り当ては、自己責任でお願いします。
+ * 
+ * Mano_InputConfigよりも上に入れることで、
+ * Mano_InputConfig用の設定を自動で用意します。
+ * 
+ * Mano_InputConfigと一緒に入れている状態で動かない場合、
+ * オプション画面を開いて初期設定に戻すを選択してください。
+ * 解決するかもしれません。
  * 
  * var 1.0(2017/10/17) 公開
  */
@@ -75,8 +81,9 @@
  *  
  * @param enableSwitch
  * @desc 指定したスイッチがONの時だけ、呼びだしを行います。
- * ゲームの進行で機能が追加される場合を想定しています。
+ * 指定がない場合、チェックしません。
  * @type switch
+ * @default 0
  * 
  * @param event
  * @desc 呼びだされるコモンイベント
@@ -118,13 +125,13 @@
  * @value 10
  * @option button11
  * @value 11
- * @option button1(ok/決定)
+ * @option button0(ok/決定)
  * @value 0
- * @option button2(cancel/キャンセル)
+ * @option button1(cancel/キャンセル)
  * @value 1
  * @option button2(shift/ダッシュ)
  * @value 2
- * @option button3(メニュー)
+ * @option button3(menu/メニュー)
  * @value 3
  * @option button4(pageup)
  * @value 4
@@ -258,7 +265,7 @@ function createOneButtonEvents(){
     const result =[];
     const len =setting.eventList.length
     for(var i=0; i < len; ++i){
-        let e =setting.eventList[i]
+        var e =setting.eventList[i]
         if(e && e.eventId !==0 ){
             result.push( new MA_OneButtonCommonEvent(i));
         }
