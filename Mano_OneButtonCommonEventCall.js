@@ -17,35 +17,35 @@
  * 
  * @param commonA
  * @type Struct<CommonDefine>
- * @default {"enabled":"false","enableSwitch":"0","event":"0","symbol":"event1","description":"イベント1","text":"テキスト1","keycode":"","padButton":"-1"}
+ * @default {"enabled":"false","enableSwitch":"0","event":"0","symbol":"event1","description":"イベント1","text":"イベント1","keycode":"","padButton":"-1"}
  * 
  * @param commonB
  * @type Struct<CommonDefine>
- * @default {"enabled":"false","enableSwitch":"0","event":"0","symbol":"event2","description":"イベント2","text":"テキスト2","keycode":"","padButton":"-1"}
+ * @default {"enabled":"false","enableSwitch":"0","event":"0","symbol":"event2","description":"イベント2","text":"イベント2","keycode":"","padButton":"-1"}
  * 
  * @param commonC
  * @type Struct<CommonDefine>
- * @default {"enabled":"false","enableSwitch":"0","event":"0","symbol":"event3","description":"イベント3","text":"テキスト3","keycode":"","padButton":"-1"}
+ * @default {"enabled":"false","enableSwitch":"0","event":"0","symbol":"event3","description":"イベント3","text":"イベント3","keycode":"","padButton":"-1"}
  * 
  * @param commonD
  * @type Struct<CommonDefine>
- * @default {"enabled":"false","enableSwitch":"0","event":"0","symbol":"event4","description":"イベント4","text":"テキスト4","keycode":"","padButton":"-1"}
+ * @default {"enabled":"false","enableSwitch":"0","event":"0","symbol":"event4","description":"イベント4","text":"イベント4","keycode":"","padButton":"-1"}
  * 
  * @param commonE
  * @type Struct<CommonDefine>
- * @default {"enabled":"false","enableSwitch":"0","event":"0","symbol":"event5","description":"イベント5","text":"テキスト5","keycode":"","padButton":"-1"}
+ * @default {"enabled":"false","enableSwitch":"0","event":"0","symbol":"event5","description":"イベント5","text":"イベント5","keycode":"","padButton":"-1"}
  * 
  * @param commonF
  * @type Struct<CommonDefine>
- * @default {"enabled":"false","enableSwitch":"0","event":"0","symbol":"event6","description":"イベント6","text":"テキスト6","keycode":"","padButton":"-1"}
+ * @default {"enabled":"false","enableSwitch":"0","event":"0","symbol":"event6","description":"イベント6","text":"イベント6","keycode":"","padButton":"-1"}
  * 
  * @param commonG
  * @type Struct<CommonDefine>
- * @default {"enabled":"false","enableSwitch":"0","event":"0","symbol":"event7","description":"イベント7","text":"テキスト7","keycode":"","padButton":"-1"}
+ * @default {"enabled":"false","enableSwitch":"0","event":"0","symbol":"event7","description":"イベント7","text":"イベント7","keycode":"","padButton":"-1"}
  * 
  * @param commonH
  * @type Struct<CommonDefine>
- * @default {"enabled":"false","enableSwitch":"0","event":"0","symbol":"event8","description":"イベント8","text":"テキスト8","keycode":"","padButton":"-1"}
+ * @default {"enabled":"false","enableSwitch":"0","event":"0","symbol":"event8","description":"イベント8","text":"イベント8","keycode":"","padButton":"-1"}
  *
  * @help
  * 1ボタンでコモンイベントを呼び出せるようになります。
