@@ -1,5 +1,5 @@
 //=============================================================================
-// Mano_GamePadConfig.js
+// Mano_InputConfig.js
 // ----------------------------------------------------------------------------
 // Copyright (c) 2017-2017 Sigureya
 // This software is released under the MIT License.
@@ -17,6 +17,10 @@
  * ユーザーが入力を拡張する場合の補助も行います
  * @author しぐれん
  * 
+ * @param overwriteWarning
+ * @desc このプラグインで割り当てたボタン設定が、既存の入力に対して上書きしている場合にconsoleへ警告を出します
+ * @type boolean
+ * @default true
  *
  * @param defaultGamepadMapper
  * @desc ゲーム初期時のボタン配置です。
@@ -27,6 +31,7 @@
  * @option MVデフォルト＋決定/キャンセル入れ替え
  * @value 1
  * @default 1
+ * @param text
  * 
  * @param textApply
  * @desc 設定を適用するコマンドです。
@@ -37,14 +42,17 @@
  * @param textRollback
  * @desc コンフィグ開始前の状態に戻すコマンドです。
  * @default 変更前に戻す
+ * @parent text
  * 
  * @param textDefault
  * @desc 初期設定に戻すコマンドです。
  * @default 初期設定に戻す
+ * @parent text
  * 
  * @param textExit
  * @desc コンフィグを終了するときのコマンドです。
  * @default やめる
+ * @parent text
  * 
  * @param textEmpty
  * @desc 何も割り当てられていない時の説明
@@ -121,7 +129,7 @@
  * @param symbols
  * @desc コンフィグでの変更先の一覧です。
  * ユーザー定義のコマンドも混ぜることができます。
- * @default ["ok","cancel","shift","menu","pageup","pagedown"]
+ * @default ["ok","cancel","shift","menu","pageup","pagedown","escape"]
  * @type combo[]
  * @option ok
  * @option cancel
@@ -129,6 +137,7 @@
  * @option menu
  * @option pageup
  * @option pagedown
+ * @option escape
  * 
  * @param mandatorySymbols
  * @desc 必須シンボルです。
@@ -278,24 +287,36 @@
  * @parent buttons
  * @param button_unknow
  * 
- * @param windowPositionMode
+ * @param gamepadConfigPositionMode
  * @desc ウィンドウの位置
- * @type boolean
- * @on 中央
- * @off 数値指定
- * @default true
+ * @type select
+ * @option 中央
+ * @value center
+ * @option 数値指定
+ * @value custom
+ * @default center
  * 
- * @param windowPositionX
+ * @param gamepadConfigPositionX
  * @desc ウィンドウのX座標です。
  * @type number
  * @default 100
- * @parent windowPositonMode
+ * @parent gamepadConfigPositionMode
  * 
- * @param windowPositionY
+ * @param gamepadConfigPositionY
  * @desc ウィンドウのY座標です。
  * @type number
  * @default 100
- * @parent windowPositonMode
+ * @parent gamepadConfigPositionMode
+ * 
+ * @param gamepadSymbolPositionMode
+ * @desc ウィンドウの位置
+ * @option 右
+ * @value right 
+ * @type select
+ * @option 中央
+ * @value center
+ * @default right
+ * 
  * 
  * @param gamepadWindowItemWitdh
  * @desc 描画領域です。
@@ -343,6 +364,16 @@
  * @off 先頭に合わせる
  * @default true
  * 
+ * @param gamepadConfigEnabled
+ * @desc ゲームパッドコンフィグの有効化設定です
+ * @type boolean
+ * @default true
+ * 
+ * @param keyboardConfigEnabled
+ * @desc キーボードコンフィグの有効化設定です
+ * @type boolean
+ * @default true
+ * 
  * @param commandName
  * @desc ゲームパッドコンフィグを開くコマンドの名前です
  * @type string
@@ -373,6 +404,10 @@
  * このプラグインよりも早く、
  * Input.gamepadMapperが変更されていた場合、
  * それを初期値として扱います。
+ * 
+ * このプラグインで設定したコンフィグデータは、ファイルに記録されます。
+ * 新しいプラグインを入れた場合、
+ * ゲーム起動後にコンフィグを「初期設定に戻す」でリセットしてください。
  * 
  * ■extendActions
  * 定義することで、新たなアクションを定義できます。
@@ -408,7 +443,12 @@
  * 入力状態を取得できるようになります。
  * 
  * 更新履歴
- * 2017/10/13 ver 1.9　公開
+ * 
+ * 2017/10/18 ver 2.1　更新
+ * キーボードで目立ったバグの報告がなかったため、2.0に。
+ * 外部からコンフィグを改造できる機能を導入。
+ * 
+ * 2017/10/13 ver 1.9　更新
  * キーボードのコンフィグにも対応。
  * 仕様が固まっていないので、1.9とします。
  * 2017/10/05 ver 1.0　公開
@@ -442,6 +482,7 @@
  * @default 
  */
 
+var  MA_InputSymbols = MA_InputSymbols ||[];
 
 (function(global){
     'use strict'
@@ -461,12 +502,29 @@ function paramToActionKeys(params){
 }
 
 const moveSymbols =['up','down','left','right']
+
+function MA_InputSymbolsEx_Import(){
+    if(!MA_InputSymbols){return;}
+
+    for(var i =0; i <MA_InputSymbols.length; ++i){
+        var elem =MA_InputSymbols[i];
+        var symbol = elem.symbol;
+        if(elem.mandatory){
+            setting.mandatorySymbols.push(symbol);
+        }
+        setting.symbolText[symbol] =elem.text;
+        setting.symbolList.push(symbol);
+    }
+
+}
+
 /**
  * @return {string[]}
  */
 function createMandatorySymbols(params){
-    return JSON.parse(params.mandatorySymbols);
-    return array;
+    const result =JSON.parse(params.mandatorySymbols);
+
+    return result;
 }
 
 function insertExtendAction(helpText,params){
@@ -511,7 +569,7 @@ function symbolToButtonName(symbol){
     return buttonName(symbolToButtonNumber(symbol));
 }
 
-
+//function 
 function createSetting(){
     
     const params =PluginManager.parameters('Mano_InputConfig');
@@ -566,21 +624,27 @@ function createSetting(){
         right:String(params.textKeyRight),
         left:String(params.textKeyLeft),        
     };
+    const overwriteWarning=(params.overwriteWarning==='true');
     const configSamples =makeConfigSamples(buttonInfo);
     for(var key in buttonInfo){
         const x = buttonInfo[key];
         if(x.symbol){
             configSamples.forEach(function(sample){
+                const preSymbor =sample[key];
+                if(overwriteWarning && preSymbor){
+                    console.log('overwriteWarning \ngamepadMapper['+key+']('+preSymbor+')='+x.symbol);
+                }
                 sample[key] =x.symbol;
             });
         }
     }
+
     const keyConfigSamples = makeKeyboardSamples();
     const result= {
         keyText:keyText,
         commandText:commandText,
         emptySymbolText:String(params.textEmpty),
-        actionKey:paramToActionKeys(params),
+        symbolList:paramToActionKeys(params),
         symbolText:helpText,
         buttonInfo:buttonInfo,
         buttonList: createButtonList(params),
@@ -597,19 +661,31 @@ function createSetting(){
         
         moveButtonsConfig:(params.moveButtons ==='true'),
 
-        windowPostionMode :(params.windowPositionMode==='true'),
+        gamepadConfigPosition :{
+            mode:String(params.gamepadConfigPositionMode),
+            x:Number(params.gamepadConfigPositionX),
+            y:Number(params.gamepadConfigPositionY),
+        },
+        gamepadSymbolPosition :{
+            mode:String(params.gamepadSymbolPositionMode),
+//            x:Number(params.gamepadSymbolPositionX),
+//            y:Number(params.gamepadSymbolPositionY),
+        },
+
         windowCustom:{
-            x:Number(params.windowPositionX),
-            y:Number(params.windowPositionY),
+            // x:Number(params.windowPositionX),
+            // y:Number(params.windowPositionY),
             gamepadWidth :Number(params.gamepadWindowItemWitdh),
             symbolWidth:Number(params.symbolWindowWidth),
         },
         numVisibleRows:Number(params.numVisibleRows),
         cols:Number(params.cols),
+        gamepadConfigEnabled:(params.gamepadConfigEnabled==='true'),
+        keyboardConfigEnabled:(params.keyboardConfigEnabled==='true'),
     };
     if(result.moveButtonsConfig){
         Array.prototype.push.apply( result.mandatorySymbols,moveSymbols); 
-        Array.prototype.push.apply( result.actionKey,moveSymbols);         
+        Array.prototype.push.apply( result.symbolList,moveSymbols);         
         Array.prototype.push.apply(result.buttonList,['12','13','14','15']);
     }
 
@@ -656,6 +732,9 @@ function createGamepadMapper(){
     return setting.configSamples[index];
 };
 const setting = createSetting();
+
+MA_InputSymbolsEx_Import();
+
 Input.gamepadMapper = createGamepadMapper();
 const MA_KEYBOARD_CONFIG ='KEYBOARD_CONFIG';
 const MA_GAMEPAD_CONFIG = 'GAMEPAD_CONFIG';
@@ -688,16 +767,16 @@ ConfigManager.applyData =function(config){
     Input.keyMapper =readKeyboardConfig(config);
     Input.clear();
 };
-class ButtonActionItem {
-    /**
-     * @param {number} buttonNumber 
-     */
-    constructor(buttonNumber){
-        this.actionKey =String(Input.gamepadMapper[buttonNumber]);
-        this.name =String(buttonName(buttonNumber )||'');
-        this.buttonNumber = buttonNumber;
-    }
-};
+// class ButtonActionItem {
+//     /**
+//      * @param {number} buttonNumber 
+//      */
+//     constructor(buttonNumber){
+//         this.actionKey =String(Input.gamepadMapper[buttonNumber]);
+//         this.name =String(buttonName(buttonNumber )||'');
+//         this.buttonNumber = buttonNumber;
+//     }
+// };
 function createNormalizedInputMapper(mapper){
     var result={};
     for(var key in mapper){
@@ -742,11 +821,8 @@ Window_InputSymbolList.baseType = Window_Selectable.prototype;
 Window_InputSymbolList.prototype = Object.create(Window_InputSymbolList.baseType);
 Window_InputSymbolList.prototype.constructor = Window_InputSymbolList;
 
-/**
- * @param {Window_GamepadConfig_MA} mainWidnow
- */
-Window_InputSymbolList.prototype.initialize=function(x,y,useEscape){
-    this._usingEscape=!!useEscape;
+
+Window_InputSymbolList.prototype.initialize=function(x,y){
     this.makeCommandList();
     
     const width  =setting.windowCustom.symbolWidth;// (Graphics.boxWidth -x).clamp(148,180);
@@ -767,14 +843,12 @@ Window_InputSymbolList.prototype.moveCenter =function(){
     const x = Graphics.boxWidth/2 - this.width/2;
     const y = Graphics.boxHeight/2 -this.height/2
     this.move(x,y,this.width,this.height);
-
 };
 Window_InputSymbolList.prototype.windowHeight =function(){
     return this.fittingHeight(this.maxItems());
 };
 Window_InputSymbolList.prototype.maxItems =function(){
     return this._list.length;
-
 };
 Window_InputSymbolList.prototype.findSymbol =function(symbol){
     for(var i=0;i <this._list.length;++i ){
@@ -820,8 +894,8 @@ Window_InputSymbolList.prototype.currentSymbol =function(){
 
 Window_InputSymbolList.prototype.makeCommandList =function(){
     this._list =[];
-    for(var i=0; i <setting.actionKey.length; ++i){
-        const actionKey = setting.actionKey[i];
+    for(var i=0; i <setting.symbolList.length; ++i){
+        const actionKey = setting.symbolList[i];
         this.addCommand( symbolToText(actionKey)||setting.emptySymbolText ,actionKey,'テスト'+i);
     }
     this.addCommand(setting.emptySymbolText,null);
@@ -854,17 +928,21 @@ Window_GamepadConfig_MA.prototype.initialize=function(){
     this.setGamepadMapper(Input.gamepadMapper);
     const h = this.windowHeight();
     const w = this.windowWidth();
-    const x =setting.windowPostionMode ? (Graphics.boxWidth - w) / 2:setting.windowCustom.x;
-    const y = setting.windowPostionMode?(Graphics.boxHeight - h) / 2:setting.windowCustom.y;
+    var x =0;
+    var y =0;
+    if(setting.gamepadConfigPosition.mode==='center'){
+//    if(setting.gamepadConfigPosition){
+        x =(Graphics.boxWidth - w) / 2;///:setting.windowCustom.x;
+        y =(Graphics.boxHeight - h) / 2;//:setting.windowCustom.y;
+    }else{
+        x = setting.gamepadConfigPosition.x;
+        y = setting.gamepadConfigPosition.y;
+    }
 
     Window_GamepadConfig_MA.baseType.prototype.initialize.call(this,x,y,w,h);
     this.defineNameWidth();
     this.defineSymbolTextWidth();
     this.readGamePad();
-//    this.moveCenter();
-};
-Window_GamepadConfig_MA.prototype._updateGamepadState =function(gamepad){
-
 };
 
 Window_GamepadConfig_MA.prototype.readGamePad =function(){
@@ -1122,6 +1200,7 @@ Window_GamepadConfig_MA.prototype.changeKeyMap =function(index,newSymbol){
     this.redrawApplyCommand();
 };
 Window_GamepadConfig_MA.prototype.drawAllItems = function() {
+    
     var topIndex = this.topIndex();
     for (var i = 0; i < this.maxPageItems(); i++) {
         var index = topIndex + i;
@@ -1249,17 +1328,27 @@ Scene_InputConfigBase_MA.prototype.endActionSelect =function(){
     this.mainWidnow().activate();
 };
 
+Scene_InputConfigBase_MA.prototype.symbolListWindowPostion =function(){
+    return {x:0,y:0};
+};
+Scene_InputConfigBase_MA.prototype.symbolCenter =function(){
+    return false;
+};
+Scene_InputConfigBase_MA.prototype.createSymbolListWindow =function(x,y){
+    //    const mainWidnow = this.mainWidnow();
+    // const x = mainWidnow.x +mainWidnow.width;
+    // const y = mainWidnow.y;
 
-Scene_InputConfigBase_MA.prototype.createSymbolListWindow =function(){
-    const mainWidnow = this.mainWidnow();
-    const x = mainWidnow.x +mainWidnow.width;
-    const y = mainWidnow.y;
+    const pos = this.symbolListWindowPostion();
 
-    const asw = new Window_InputSymbolList(x,y);
+    const asw = new Window_InputSymbolList(pos.x,pos.y);
     asw.setHandler('ok',this.onSymbolListOk.bind(this));
     asw.setHandler('cancel',this.onSymbolListCancel.bind(this));
     asw.hide();
     asw.refresh();
+    if(this.symbolCenter()){
+        asw.moveCenter();
+    }
     this.addWindow(asw);
 
     this._symbolListWindow =asw;
@@ -1283,6 +1372,19 @@ Scene_GamepadConfigMA.prototype.constructor = Scene_GamepadConfigMA;
 
 Scene_GamepadConfigMA.prototype.initialize =function(){
     Scene_GamepadConfigMA.baseType.initialize.apply(this,arguments);
+};
+Scene_GamepadConfigMA.prototype.symbolListWindowPostion=function(){
+    if(setting.gamepadSymbolPosition.mode==='right'){
+        return {
+            x:this._gamepadWindow.x +this._gamepadWindow.width,
+            y:this._gamepadWindow.y
+        };
+    }
+    return {x:0,y:0};
+//    return {x:setting.gamepadSymbolPosition.x,y:setting.gamepadSymbolPosition.y};
+};
+Scene_GamepadConfigMA.prototype.symbolCenter=function(){
+    return setting.gamepadSymbolPosition.mode ==='center';
 };
 /**
  * @param {object} [gamepadMapper=null] 読み込むコンフィグデータ 無指定の場合、現在の設定値を読み込む
@@ -1356,7 +1458,18 @@ Scene_GamepadConfigMA.prototype.onConfigCancel =function(){
 };
 Scene_GamepadConfigMA.prototype.createAllWindows =function(){
     this.createGamepadConfigWindow();
-    this.createSymbolListWindow();
+    if(setting.gamepadConfigPosition){
+        this.createSymbolListWindow(
+            setting.gamepadConfigPosition.x,
+            setting.gamepadConfigPosition.y
+        );
+    }else{
+        this.createSymbolListWindow(
+            0,0
+        );
+
+        this._symbolListWindow.moveCenter();
+    }
     this._gamepadWindow.activate();
 };
 
@@ -1374,11 +1487,12 @@ Window_KeyConfig_MA.prototype.initialize =function(){
     this.activate();
     this.select(0);
 };
-function keyinfoEX(char,keycord,special,widthEX,heightEX){
+function keyinfoEX(char,keycord,special,locked){
     return {
         char:char,
         keycord:String(keycord),
         isLink:Boolean(  !!special||false ),
+        locked:Boolean( locked),
         // widthEX:Number(widthEX||  1),
         // heightEX:Number( heightEX|| 1),
     };
@@ -1388,12 +1502,17 @@ function keyinfoEX(char,keycord,special,widthEX,heightEX){
  * @param {number} keycord 
  */
 function keyinfo(char,keycord){
-    return keyinfoEX(char,keycord,false);
+    return keyinfoEX(char,keycord,false,false);
 }
-Window_KeyConfig_MA.KEY_NULL= keyinfoEX('NULL',0,true);
-const KEY_ENTER = keyinfoEX('enter',13,true,2,2);
-const KEY_TENKEY_ZERO=keyinfoEX('0',96,true,2);
-const KEY_SPACE = keyinfoEX('Space',32,true,4);
+Window_KeyConfig_MA.KEY_NULL= keyinfoEX('NULL',0,true,true);
+const KEY_ENTER = keyinfoEX('enter',13,true,true);
+const KEY_TENKEY_ZERO=keyinfoEX('0',96,true,true);
+const KEY_SPACE = keyinfoEX('Space',32,true);
+
+const KEY_UP =keyinfoEX(setting.keyText.up,38,false,true);
+const KEY_DOWN =keyinfoEX(setting.keyText.down,40,false,true);
+const KEY_LEFT =keyinfoEX(setting.keyText.left,37,false,true);
+const KEY_RIGHT =keyinfoEX(setting.keyText.right,39,false,true);
 
 Window_KeyConfig_MA.COMMAND_DEFAULT =keyinfoEX(setting.commandText.default_,0,true);
 Window_KeyConfig_MA.COMMAND_APPLY =keyinfoEX(setting.commandText.apply,0,true);
@@ -1403,7 +1522,6 @@ Window_KeyConfig_MA.COMMAND_EXIT =keyinfoEX(setting.commandText.exit,0,true);
 //大きいボタンを作るための機能です
 Window_KeyConfig_MA.keyLayout=[
     // line0
-//    Window_KeyConfig_MA.KEY_NULL,
     keyinfo('esc',27),
     keyinfo('1',49),
     keyinfo('2',50),
@@ -1476,8 +1594,9 @@ Window_KeyConfig_MA.keyLayout=[
     keyinfo('.',190),
     keyinfo('/',191), 
     keyinfo('\\',220), 
-    keyinfo('Shift',16),    
-    keyinfo(setting.keyText.up,38),    
+    keyinfo('Shift',16),
+    KEY_UP,    
+//    keyinfo(setting.keyText.up,38),    
     Window_KeyConfig_MA.KEY_NULL,
     
     keyinfo('1',97),
@@ -1497,9 +1616,9 @@ Window_KeyConfig_MA.keyLayout=[
     Window_KeyConfig_MA.KEY_NULL,
     Window_KeyConfig_MA.KEY_NULL,
     Window_KeyConfig_MA.KEY_NULL,
-    keyinfo(setting.keyText.left,37),
-    keyinfo(setting.keyText.down,40),
-    keyinfo(setting.keyText.right,39),
+    KEY_LEFT,
+    KEY_DOWN,
+    KEY_RIGHT,
     KEY_TENKEY_ZERO,
     KEY_TENKEY_ZERO,
     Window_KeyConfig_MA.KEY_NULL,
@@ -1549,6 +1668,12 @@ Window_KeyConfig_MA.prototype.canApplySetting =function(){
 Window_KeyConfig_MA.prototype.cloneMapper= function(){
     return createNormalizedInputMapper(this._map);
 };
+Window_KeyConfig_MA.prototype.itemTextAlign = function() {
+    return 'center';
+};
+
+
+
 Window_KeyConfig_MA.prototype.processCancel =function(){
     SoundManager.playCancel();
     this.updateInputData();
@@ -1569,20 +1694,6 @@ Window_KeyConfig_MA.prototype.processApply =function(){
     SoundManager.playEquip();
 
     this.callHandler('apply');
-
-
-    // if(this.canApplySetting()){
-    //     this.updateInputData();
-    //     this.deactivate();    
-    //     SoundManager.playEquip();
-
-    //     this.callHandler('apply');
-    // }else{
-    //     this.playBuzzerSound();
-        
-    // }
-
-
 };
 
 Window_KeyConfig_MA.prototype.processDefault =function(){
@@ -1609,10 +1720,15 @@ Window_KeyConfig_MA.prototype.processOk =function(){
         this.callCancelHandler();
         return;
     }
-    if (item===Window_KeyConfig_MA.KEY_NULL || item ===KEY_ENTER) {
+    if(item.locked){
         this.playBuzzerSound();
         return;
+        
     }
+    // if (item===Window_KeyConfig_MA.KEY_NULL || item ===KEY_ENTER) {
+    //     this.playBuzzerSound();
+    //     return;
+    // }
     this.playOkSound();
     this.updateInputData();
     this.deactivate();
@@ -1813,6 +1929,7 @@ Window_KeyConfig_MA.prototype.redrawItem =function(index){
 };
 
 Window_KeyConfig_MA.prototype.drawAllItems =function(){
+
     const last =this.maxPageItems();
     for (var i = 0; i < last; i++) {
         var index =  i;
@@ -1829,10 +1946,14 @@ Window_KeyConfig_MA.prototype.drawAllItems =function(){
     this.drawexitCommand();
 };
 
+
 Window_KeyConfig_MA.prototype.drawItemText =function(keyName,symobolText,x,y,width){
+    
+//    this.resetFontSettings();0
+//    this.contents.fontSize -= 8;
 
     this.changeTextColor(this.normalColor());
-    this.drawText(keyName,x ,y,width,'center');
+    this.drawText(keyName,x ,y,width,'center');//,this.itemTextAlign());
     this.changeTextColor(this.textColor(4));
     if(symobolText){
         this.drawText(symobolText,x,y+this.lineHeight() ,width,'center'); 
@@ -1993,11 +2114,14 @@ Scene_KeyConfig_MA.prototype.constructor = Scene_KeyConfig_MA;
 Scene_KeyConfig_MA.prototype.initialize = function() {
     Scene_KeyConfig_MA.baseType.initialize.call(this);
 };
+
+Scene_KeyConfig_MA.prototype.symbolCenter=function(){
+    return true;
+};
 Scene_KeyConfig_MA.prototype.create = function() {
     Scene_MenuBase.prototype.create.call(this);
     this.createKeyboradConfigWindow();
     this.createSymbolListWindow();
-    this._symbolListWindow.moveCenter();
 };
 Scene_KeyConfig_MA.prototype.onConfigCancel =function(){
     SceneManager.pop();
@@ -2028,13 +2152,6 @@ Scene_KeyConfig_MA.prototype.applyKeyboardConfig =function(){
     this.popScene();
 };
 
-// Scene_KeyConfig_MA.prototype.createSymbolListWindow =function(){
-//     Scene_KeyConfig_MA.baseType.createSymbolListWindow.call(this);
-//     const esc ='escape';
-//     this._symbolListWindow.addCommand( symbolToText(esc),esc  );
-//     this._symbolListWindow.height =this._symbolListWindow.fittingHeight(this._symbolListWindow.maxItems());
-//     this._symbolListWindow.refresh();
-// };
 
 Scene_KeyConfig_MA.prototype.createKeyboradConfigWindow =function(){
     const kcw = new Window_KeyConfig_MA();
@@ -2069,12 +2186,16 @@ if(setting.hookPoint==='menu'){
 }else{
 
     Window_Options.prototype.addGamepadOptions_MA =function(){
-        this._gamepadOptionIndex = this._list.length;
-        this.addCommand(setting.commandName,MA_GAMEPAD_CONFIG);
+        if(setting.gamepadConfigEnabled){
+            this._gamepadOptionIndex = this._list.length;
+            this.addCommand(setting.commandName,MA_GAMEPAD_CONFIG);
+        }
     };
     Window_Options.prototype.addKeyboardConfig_MA=function(){
-        this._keyboardConfigIndex = this._list.length;
-        this.addCommand(setting.keyConfigCommandName,MA_KEYBOARD_CONFIG);
+        if(setting.keyboardConfigEnabled){
+            this._keyboardConfigIndex = this._list.length;
+            this.addCommand(setting.keyConfigCommandName,MA_KEYBOARD_CONFIG);
+        }
     };
 
 
