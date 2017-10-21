@@ -31,7 +31,9 @@
  * @option MVデフォルト＋決定/キャンセル入れ替え
  * @value 1
  * @default 1
+ * 
  * @param text
+ * @param CommandWidth
  * 
  * @param textApply
  * @desc 設定を適用するコマンドです。
@@ -47,6 +49,11 @@
  * @param textDefault
  * @desc 初期設定に戻すコマンドです。
  * @default 初期設定に戻す
+ * @parent text
+ * 
+ * @param textChangeLayout
+ * @desc JIS/USでキー配置を切り替えるコマンドです。
+ * @default JIS/US
  * @parent text
  * 
  * @param textExit
@@ -280,6 +287,31 @@
  * @default →
  * @parent moveButtons
  * 
+ * 
+ * @param CommandDefaultWidth
+ * @type number
+ * @min 1
+ * @default 4
+ * @parent CommandWidth
+ * 
+ * @param CommandApplyWidth
+ * @type number
+ * @min 1
+ * @default 4
+ * @parent CommandWidth
+ * 
+ * @param CommandLayoutWidth
+ * @type number
+ * @min 1
+ * @default 4
+ * @parent CommandWidth
+ * 
+ * @param CommandExitWidth
+ * @type number
+ * @min 1
+ * @default 4
+ * @parent CommandWidth
+ * 
  * @param button16
  * @desc PS2コントローラ：
  * @type struct<ButtonInfo>
@@ -288,6 +320,7 @@
  * @param button_unknow
  * 
  * @param gamepadConfigPositionMode
+ * @text ゲームパッドコンフィグの位置
  * @desc ウィンドウの位置
  * @type select
  * @option 中央
@@ -309,6 +342,7 @@
  * @parent gamepadConfigPositionMode
  * 
  * @param gamepadSymbolPositionMode
+ * @text シンボルリストの位置
  * @desc ウィンドウの位置
  * @option 右
  * @value right 
@@ -316,6 +350,8 @@
  * @option 中央
  * @value center
  * @default right
+ * 
+ * 
  * 
  * 
  * @param gamepadWindowItemWitdh
@@ -442,7 +478,18 @@
  * これをすべて終えれば、input.pressed('shot')などで
  * 入力状態を取得できるようになります。
  * 
+ * 謝辞
+ * KeyBoradConfig部分の作成に当たって、YEP_KeyboardConfig.jsを参考にしました。
+ * Yanfly様、素敵なプラグインの作成、ありがとうございます。
+ * 
+ * I made it as KeyBoradConfig part and looked at YEP_KeyboardConfig.js.
+ * Yanfly.Thank you for creating a nice plugin!
+ * 
  * 更新履歴
+ * 
+ * 2017/10/21 ver 2.2　更新
+ * 外部から追加したシンボルがsymbolsと重複していた場合、追加しないようにした。
+ * USキー配列に仮対応。
  * 
  * 2017/10/18 ver 2.1　更新
  * キーボードで目立ったバグの報告がなかったため、2.0に。
@@ -453,16 +500,16 @@
  * 仕様が固まっていないので、1.9とします。
  * 2017/10/05 ver 1.0　公開
  * 
- * 謝辞
- * KeyBoradConfig部分の作成に当たって、YEP_KeyboardConfig.jsを参考にしました。
- * Yanfly様、素敵なプラグインの作成、ありがとうございます。
- * 
- * I made it as KeyBoradConfig part and looked at YEP_KeyboardConfig.js.
- * Yanfly.Thank you for creating a nice plugin!
  */
 /**
  * TODO:適当にボタンを押させて、対応したボタンの部分にカーソル合わせる機能
  * 仕様を変えて、ガチャガチャ押して入力状態を表示するヤツ
+ * US配列への切り替え機能
+ * 「やめる」周辺のスペースを利用
+ * symbolsに重複があった場合の警告機能
+ * 重複がある場合に、登録をしない機能
+ * 重複するけど、並び順の制御というパターンがありうる
+ * 一時的にインデックスを作成する
  * 
  */
 /*~struct~ButtonInfo:
@@ -486,6 +533,7 @@ var  MA_InputSymbols = MA_InputSymbols ||[];
 
 (function(global){
     'use strict'
+
 
 /**
  * @param {*} param 
@@ -513,9 +561,10 @@ function MA_InputSymbolsEx_Import(){
             setting.mandatorySymbols.push(symbol);
         }
         setting.symbolText[symbol] =elem.text;
-        setting.symbolList.push(symbol);
+        if(!setting.symbolList.contains(symbol)){
+            setting.symbolList.push(symbol);
+        }
     }
-
 }
 
 /**
@@ -523,7 +572,6 @@ function MA_InputSymbolsEx_Import(){
  */
 function createMandatorySymbols(params){
     const result =JSON.parse(params.mandatorySymbols);
-
     return result;
 }
 
@@ -556,20 +604,7 @@ function makeConfigSamples(){
     return [RPGmakerDefault,ab_swaped];
 }
 
-function symbolToButtonNumber(symbol){
-    for(var key in Input.gamepadMapper){
-        if(Input.gamepadMapper[key]===symbol){
-            return key;
-        }
-    }
-    return ''
-}
 
-function symbolToButtonName(symbol){
-    return buttonName(symbolToButtonNumber(symbol));
-}
-
-//function 
 function createSetting(){
     
     const params =PluginManager.parameters('Mano_InputConfig');
@@ -594,6 +629,7 @@ function createSetting(){
         rollback:String(params.textRollback),
         default_:String(params.textDefault),
         exit:String(params.textExit),
+        changeLayout:String(params.textChangeLayout),
     };
 
     insertExtendAction(helpText,params);
@@ -608,9 +644,9 @@ function createSetting(){
         6:fetchButtonInfo(params.button6),
         7:fetchButtonInfo(params.button7),
         8:fetchButtonInfo(params.button8),
-        9:fetchButtonInfo(params.button9),        
-        10:fetchButtonInfo(params.button10),        
-        11:fetchButtonInfo(params.button11),        
+        9:fetchButtonInfo(params.button9),
+        10:fetchButtonInfo(params.button10),
+        11:fetchButtonInfo(params.button11),
         12:fetchButtonInfo(params.button12),
         13:fetchButtonInfo(params.button13),
         14:fetchButtonInfo(params.button14),
@@ -622,7 +658,7 @@ function createSetting(){
         up:String(params.textKeyUp),
         down:String(params.textKeyDown),
         right:String(params.textKeyRight),
-        left:String(params.textKeyLeft),        
+        left:String(params.textKeyLeft),
     };
     const overwriteWarning=(params.overwriteWarning==='true');
     const configSamples =makeConfigSamples(buttonInfo);
@@ -631,8 +667,9 @@ function createSetting(){
         if(x.symbol){
             configSamples.forEach(function(sample){
                 const preSymbor =sample[key];
+                // 警告機能
                 if(overwriteWarning && preSymbor){
-                    console.log('overwriteWarning \ngamepadMapper['+key+']('+preSymbor+')='+x.symbol);
+                    console.log('overwriteWarning\ngamepadMapper['+key+']('+preSymbor+')='+x.symbol);
                 }
                 sample[key] =x.symbol;
             });
@@ -668,12 +705,14 @@ function createSetting(){
         },
         gamepadSymbolPosition :{
             mode:String(params.gamepadSymbolPositionMode),
-//            x:Number(params.gamepadSymbolPositionX),
-//            y:Number(params.gamepadSymbolPositionY),
         },
-
+        commandWidth:{
+            DEFAULT:Number(params.CommandDefaultWidth),
+            APPLY:Number(params.CommandApplyWidth),
+            LAYOUT:Number(params.CommandLayoutWidth),
+            EXIT:Number(params.CommandExitWidth),
+        },
         windowCustom:{
-            // x:Number(params.windowPositionX),
             // y:Number(params.windowPositionY),
             gamepadWidth :Number(params.gamepadWindowItemWitdh),
             symbolWidth:Number(params.symbolWindowWidth),
@@ -684,8 +723,8 @@ function createSetting(){
         keyboardConfigEnabled:(params.keyboardConfigEnabled==='true'),
     };
     if(result.moveButtonsConfig){
-        Array.prototype.push.apply( result.mandatorySymbols,moveSymbols); 
-        Array.prototype.push.apply( result.symbolList,moveSymbols);         
+        Array.prototype.push.apply( result.mandatorySymbols,moveSymbols);
+        Array.prototype.push.apply( result.symbolList,moveSymbols);
         Array.prototype.push.apply(result.buttonList,['12','13','14','15']);
     }
 
@@ -693,6 +732,38 @@ function createSetting(){
 
     return result;
 };
+
+
+//ツクールのデフォルトと同様の設定です
+function RPGmakerDefault(){
+    return Object.assign({},setting.configSamples[setting.configIndex]);
+}
+
+function createKeyboradMapper(){
+    return setting.keyConfigSamples[0];
+}
+
+function createGamepadMapper(){
+    const index = setting.configIndex;
+    return setting.configSamples[index];
+};
+const setting = createSetting();
+
+MA_InputSymbolsEx_Import();
+
+
+function symbolToButtonNumber(symbol){
+    for(var key in Input.gamepadMapper){
+        if(Input.gamepadMapper[key]===symbol){
+            return key;
+        }
+    }
+    return ''
+}
+
+function symbolToButtonName(symbol){
+    return buttonName(symbolToButtonNumber(symbol));
+}
 
 /**
  * 
@@ -715,29 +786,18 @@ function buttonName(buttonNumber){
  * @param {number} buttonNumber 
  */
 function buttonAction(buttonNumber){
-    return Input.gamepadMapper[buttonNumber];    
+    return Input.gamepadMapper[buttonNumber];
 };
 
-//ツクールのデフォルトと同様の設定です
-function RPGmakerDefault(){
-    return Object.assign({},setting.configSamples[setting.configIndex]);
-}
-
-function createKeyboradMapper(){
-    return setting.keyConfigSamples[0];
-}
-
-function createGamepadMapper(){
-    const index = setting.configIndex;
-    return setting.configSamples[index];
-};
-const setting = createSetting();
-
-MA_InputSymbolsEx_Import();
 
 Input.gamepadMapper = createGamepadMapper();
 const MA_KEYBOARD_CONFIG ='KEYBOARD_CONFIG';
 const MA_GAMEPAD_CONFIG = 'GAMEPAD_CONFIG';
+const MA_KEYBOARD_LAYOUT ='KEYBOARD_LAYOUT';
+// const MA_KEYBOARD_LAYOUT_JIS ='KEYBOARD_LAYOUT_JIS';
+// const MA_KEYBOARD_LAYOUT_JIS ='KEYBOARD_LAYOUT_US';
+
+
 function readGamePadConfig( config ){
     const value = config[MA_GAMEPAD_CONFIG];
     if(value){
@@ -752,12 +812,15 @@ function readKeyboardConfig(config){
     }
     return createKeyboradMapper();
 }
-
+ConfigManager.setKeyLayoutMA =function(layout){
+    ConfigManager.keyLayout_MA =layout;
+};
 const  ConfigManager_makeData = ConfigManager.makeData;
 ConfigManager.makeData =function(){
     const result = ConfigManager_makeData.call(this);
     result[MA_GAMEPAD_CONFIG] =Input.gamepadMapper;
     result[MA_KEYBOARD_CONFIG] = Input.keyMapper;
+    result[MA_KEYBOARD_LAYOUT] = ConfigManager.keyLayout_MA ||'JIS';
     return result;
 };
 const ConfigManager_applyData = ConfigManager.applyData;
@@ -765,6 +828,7 @@ ConfigManager.applyData =function(config){
     ConfigManager_applyData.call(this,config);
     Input.gamepadMapper = readGamePadConfig(config);
     Input.keyMapper =readKeyboardConfig(config);
+    ConfigManager.setKeyLayoutMA(config[MA_KEYBOARD_LAYOUT]||'JIS');
     Input.clear();
 };
 // class ButtonActionItem {
@@ -815,7 +879,7 @@ function isValidMapper(mapper){
 }
 
 function Window_InputSymbolList(){
-    this.initialize.apply(this,arguments);    
+    this.initialize.apply(this,arguments);
 }
 Window_InputSymbolList.baseType = Window_Selectable.prototype;
 Window_InputSymbolList.prototype = Object.create(Window_InputSymbolList.baseType);
@@ -918,7 +982,7 @@ Window_InputSymbolList.prototype.callOkHandler =function(){
 };
 
 function Window_GamepadConfig_MA(){
-    this.initialize.apply(this,arguments);    
+    this.initialize.apply(this,arguments);
 }
 Window_GamepadConfig_MA.baseType = Window_Selectable;
 Window_GamepadConfig_MA.prototype = Object.create(Window_GamepadConfig_MA.baseType.prototype);
@@ -954,7 +1018,7 @@ Window_GamepadConfig_MA.prototype.readGamePad =function(){
                 this._updateGamepadState(gamepad);
             }
         }
-    }    
+    }
 };
 
 Window_GamepadConfig_MA.prototype.callExitHandler =function(){
@@ -966,7 +1030,7 @@ Window_GamepadConfig_MA.prototype.callApplyHandler =function(){
 Window_GamepadConfig_MA.prototype.processApply =function(){
     if(this.canApplySetting() && this.active){
         this.updateInputData();
-        this.deactivate();    
+        this.deactivate();
         SoundManager.playEquip();
         this.callApplyHandler();
     }else{
@@ -1240,7 +1304,7 @@ Window_GamepadConfig_MA.prototype.applyCommandIndex =function(){
     return this._list.length+1;
 };
 Window_GamepadConfig_MA.prototype.defaultCommandIndex =function(){
-    return this._list.length;    
+    return this._list.length;
 };
 Window_GamepadConfig_MA.prototype.redrawApplyCommand =function(){
 
@@ -1270,7 +1334,7 @@ Window_GamepadConfig_MA.prototype.drawApplyCommand =function(){
 };
     
 Window_GamepadConfig_MA.prototype.maxItems =function(){
-    return this._list.length+3;    
+    return this._list.length+3;
 };
 
 /**
@@ -1286,7 +1350,7 @@ Window_GamepadConfig_MA.prototype.item=function(index){
 };
 
 function Scene_InputConfigBase_MA(){
-    this.initialize.apply(this,arguments);    
+    this.initialize.apply(this,arguments);
 }
 Scene_InputConfigBase_MA.baseType = Scene_MenuBase.prototype;
 Scene_InputConfigBase_MA.prototype = Object.create(Scene_InputConfigBase_MA.baseType);
@@ -1415,7 +1479,7 @@ Scene_GamepadConfigMA.prototype.createGamepadConfigWindow =function(){
  * @return {Rectangle}
  */
 Scene_GamepadConfigMA.prototype.SymbolListWindowRect=function(){
-    const x= this._gamepadWindow.x+this._gamepadWindow.width;    
+    const x= this._gamepadWindow.x+this._gamepadWindow.width;
     return new Rectangle(x,this._gamepadWindow.y,0,0);
 };
 Scene_GamepadConfigMA.prototype.changeSymbol =function(symbol){
@@ -1473,28 +1537,12 @@ Scene_GamepadConfigMA.prototype.createAllWindows =function(){
     this._gamepadWindow.activate();
 };
 
-function Window_KeyConfig_MA() {
-    this.initialize.apply(this, arguments);
-};
-Window_KeyConfig_MA.baseType =Window_Selectable.prototype;
-Window_KeyConfig_MA.prototype = Object.create(Window_KeyConfig_MA.baseType);
-Window_KeyConfig_MA.prototype.constructor = Window_KeyConfig_MA;
-Window_KeyConfig_MA.prototype.initialize =function(){
-    this.setKeyboradMapper(Input.keyMapper);
-    const height =this.fittingHeight( 12 );
-    Window_KeyConfig_MA.baseType.initialize.call(this,0,0,Graphics.boxWidth,height );
-    this.refresh();
-    this.activate();
-    this.select(0);
-};
 function keyinfoEX(char,keycord,special,locked){
     return {
         char:char,
         keycord:String(keycord),
         isLink:Boolean(  !!special||false ),
         locked:Boolean( locked),
-        // widthEX:Number(widthEX||  1),
-        // heightEX:Number( heightEX|| 1),
     };
 }
 /**
@@ -1504,162 +1552,392 @@ function keyinfoEX(char,keycord,special,locked){
 function keyinfo(char,keycord){
     return keyinfoEX(char,keycord,false,false);
 }
-Window_KeyConfig_MA.KEY_NULL= keyinfoEX('NULL',0,true,true);
-const KEY_ENTER = keyinfoEX('enter',13,true,true);
-const KEY_TENKEY_ZERO=keyinfoEX('0',96,true,true);
-const KEY_SPACE = keyinfoEX('Space',32,true);
 
-const KEY_UP =keyinfoEX(setting.keyText.up,38,false,true);
-const KEY_DOWN =keyinfoEX(setting.keyText.down,40,false,true);
-const KEY_LEFT =keyinfoEX(setting.keyText.left,37,false,true);
-const KEY_RIGHT =keyinfoEX(setting.keyText.right,39,false,true);
+const KEYS ={
+
+    SPACE:keyinfoEX('Space',32,true),
+    NULL:keyinfoEX('NULL',0,true,true),
+    UP:keyinfoEX(setting.keyText.up,38,false,true),
+    DOWN:keyinfoEX(setting.keyText.down,40,false,true),
+    LEFT:keyinfoEX(setting.keyText.left,37,false,true),
+    RIGHT :keyinfoEX(setting.keyText.right,39,false,true),
+    ENTER:keyinfoEX('enter',13,true,true),
+    TENKEY0:keyinfoEX('0',96,true),
+    TENKEY1:keyinfo('1',97),
+    TENKEY2:keyinfo('2',98),
+    TENKEY3:keyinfo('3',99),
+    TENKEY4:keyinfo('4',100),
+    TENKEY5:keyinfo('5',101),
+    TENKEY6:keyinfo('6',102),
+    TENKEY7:keyinfo('7',103),
+    TENKEY8:keyinfo('8',104),
+    TENKEY9:keyinfo('9',105),
+    TENKEY_DOT:keyinfo('.',110),
+
+    _0:keyinfo('0',48),
+    _1:keyinfo('1',49),
+    _2:keyinfo('2',50),
+    _3:keyinfo('3',51),
+    _4:keyinfo('4',52),
+    _5:keyinfo('5',53),
+    _6:keyinfo('6',54),
+    _7:keyinfo('7',55),
+    _8:keyinfo('8',56),
+    _9:keyinfo('9',57),
+
+    A:keyinfo('A',65),
+    B:keyinfo('B',66),
+    C:keyinfo('C',67),
+    D:keyinfo('D',68),
+    E:keyinfo('E',69),
+    F:keyinfo('F',70),
+    G:keyinfo('G',71),
+    H:keyinfo('H',72),
+    I:keyinfo('I',73),
+    J:keyinfo('J',74),
+    K:keyinfo('K',75),
+    L:keyinfo('L',76),
+    M:keyinfo('M',77),
+    N:keyinfo('N',78),
+    O:keyinfo('O',79),
+    P:keyinfo('P',80),
+    Q:keyinfo('Q',81),
+    R:keyinfo('R',82),
+    S:keyinfo('S',83),
+    T:keyinfo('T',84),
+    U:keyinfo('U',85),
+    V:keyinfo('V',86),
+    W:keyinfo('W',87),
+    X:keyinfo('X',88),
+    Y:keyinfo('Y',89),
+    Z:keyinfo('Z',90),
+
+    SHIFT:keyinfo('Shift',16),
+    CTRL:keyinfo('CTRL',17),
+    INSERT:keyinfo('Ins',45),
+    BACK:keyinfo('Back',8),
+    HOME:keyinfo('Home',36),
+    END:keyinfo('End',35),
+    PAGEUP:keyinfo('PgUp',33),
+    PAGEDOWN:keyinfo('PgDn',34),
+    ESC:keyinfoEX('esc',27,false,true),
+
+    ATMARK:keyinfo("@", 192),
+
+    TENKEY_MINUS :keyinfo('-',109),
+    TENKEY_PLUS :keyinfo('+',107),
+    MINUS :keyinfo('-',189),
+    COMMA :keyinfo(',',188),
+    SEMICOLON:keyinfo(';',186),
+    COLON:keyinfo(':',58),
+
+    CARET:keyinfo('^',222),
+
+    SQUARE_BRACKETS_OPEN :keyinfo('[',219),
+    SQUARE_BRACKETS_CLOSE :keyinfo(']',221),
+    SLASH:keyinfo('/',191),
+    BACKSLASH:keyinfo('\\',226),
+    DOT :keyinfo('.',190),
+};
+const KEYLAYOUT_JIS =[
+    KEYS.ESC,
+    KEYS._1 ,
+    KEYS._2 ,
+    KEYS._3 ,
+    KEYS._4, 
+    KEYS._5, 
+    KEYS._6, 
+    KEYS._7, 
+    KEYS._8, 
+    KEYS._9, 
+    KEYS._0, 
+    KEYS.MINUS,
+    KEYS.CARET,
+    KEYS.INSERT ,
+    KEYS.BACK ,
+    KEYS.HOME ,
+    KEYS.END ,
+    KEYS.PAGEUP ,
+    KEYS.PAGEDOWN ,
+
+    KEYS.NULL,
+
+    KEYS.Q ,
+    KEYS.W ,
+    KEYS.E ,
+    KEYS.R ,
+    KEYS.T ,
+    KEYS.Y ,
+    KEYS.U ,
+    KEYS.I ,
+    KEYS.O ,
+    KEYS.P ,
+    KEYS.ATMARK,
+    KEYS.SQUARE_BRACKETS_OPEN,
+    KEYS.ENTER,
+    KEYS.ENTER,
+    KEYS.TENKEY7 ,
+    KEYS.TENKEY8 ,
+    KEYS.TENKEY9 ,
+    KEYS.TENKEY_MINUS,
+    KEYS.NULL,
+    KEYS.A ,
+    KEYS.S ,
+    KEYS.D ,
+    KEYS.F ,
+    KEYS.G ,
+    KEYS.H ,
+    KEYS.J ,
+    KEYS.K ,
+    KEYS.L ,
+    KEYS.SEMICOLON,
+    KEYS.COLON,
+    KEYS.SQUARE_BRACKETS_CLOSE, 
+    KEYS.ENTER,
+    KEYS.ENTER,
+    KEYS.TENKEY4 ,
+    KEYS.TENKEY5 ,
+    KEYS.TENKEY6 ,
+    KEYS.TENKEY_PLUS,
+
+    KEYS.SHIFT ,
+    KEYS.Z ,
+    KEYS.X ,
+    KEYS.C ,
+    KEYS.V ,
+    KEYS.B ,
+    KEYS.N ,
+    KEYS.M ,
+    KEYS.COMMA,
+    KEYS.DOT,
+    KEYS.SLASH,
+    
+    KEYS.BACKSLASH,
+    KEYS.SHIFT,
+    KEYS.UP,
+    KEYS.NULL,
+    
+    KEYS.TENKEY1 ,
+    KEYS.TENKEY2 ,
+    KEYS.TENKEY3 ,
+    KEYS.NULL,
+
+    KEYS.CTRL  ,
+    KEYS.NULL,
+    KEYS.NULL,
+    KEYS.NULL,
+    KEYS.SPACE,
+    KEYS.SPACE,
+    KEYS.SPACE,
+    KEYS.SPACE,
+    KEYS.NULL,
+    KEYS.NULL,
+    KEYS.NULL,
+    KEYS.NULL,
+    KEYS.LEFT,
+    KEYS.DOWN,
+    KEYS.RIGHT,
+    KEYS.TENKEY0,
+    KEYS.TENKEY0,
+    KEYS.TENKEY_DOT,
+    KEYS.NULL,
+];
+const KEYLAYOUT_US =[
+    KEYS.ESC,
+    KEYS._1 ,
+    KEYS._2 ,
+    KEYS._3 ,
+    KEYS._4, 
+    KEYS._5, 
+    KEYS._6, 
+    KEYS._7, 
+    KEYS._8, 
+    KEYS._9, 
+    KEYS._0, 
+    KEYS.MINUS,
+    KEYS.CARET,
+    KEYS.INSERT ,
+    KEYS.BACK ,
+    KEYS.HOME ,
+    KEYS.END ,
+    KEYS.PAGEUP ,
+    KEYS.PAGEDOWN ,
+
+    KEYS.NULL,
+    KEYS.Q ,
+    KEYS.W ,
+    KEYS.E ,
+    KEYS.R ,
+    KEYS.T ,
+    KEYS.Y ,
+    KEYS.U ,
+    KEYS.I ,
+    KEYS.O ,
+    KEYS.P ,
+    KEYS.SQUARE_BRACKETS_OPEN,
+    KEYS.SQUARE_BRACKETS_CLOSE, 
+    KEYS.ENTER,
+    KEYS.ENTER,
+    KEYS.TENKEY7 ,
+    KEYS.TENKEY8 ,
+    KEYS.TENKEY9 ,
+    KEYS.TENKEY_MINUS,
+    KEYS.NULL,
+    KEYS.A ,
+    KEYS.S ,
+    KEYS.D ,
+    KEYS.F ,
+    KEYS.G ,
+    KEYS.H ,
+    KEYS.J ,
+    KEYS.K ,
+    KEYS.L ,
+    KEYS.SEMICOLON,
+    KEYS.COLON,
+    KEYS.BACKSLASH,
+    KEYS.ENTER,
+    KEYS.ENTER,
+    KEYS.TENKEY4 ,
+    KEYS.TENKEY5 ,
+    KEYS.TENKEY6 ,
+    KEYS.TENKEY_PLUS,
+
+    KEYS.SHIFT ,
+    KEYS.Z ,
+    KEYS.X ,
+    KEYS.C ,
+    KEYS.V ,
+    KEYS.B ,
+    KEYS.N ,
+    KEYS.M ,
+    KEYS.COMMA,
+    KEYS.DOT,
+    KEYS.SLASH,
+    
+    KEYS.NULL,
+    KEYS.SHIFT,
+    KEYS.UP,
+    KEYS.NULL,
+    
+    KEYS.TENKEY1 ,
+    KEYS.TENKEY2 ,
+    KEYS.TENKEY3 ,
+    KEYS.NULL,
+    
+    KEYS.CTRL  ,
+    KEYS.NULL,
+    KEYS.NULL,
+    KEYS.NULL,
+    KEYS.SPACE,
+    KEYS.SPACE,
+    KEYS.SPACE,
+    KEYS.SPACE,
+    KEYS.NULL,
+    KEYS.NULL,
+    KEYS.NULL,
+    KEYS.NULL,
+    KEYS.LEFT,
+    KEYS.DOWN,
+    KEYS.RIGHT,
+    KEYS.TENKEY0,
+    KEYS.TENKEY0,
+    KEYS.TENKEY_DOT,
+    KEYS.NULL,
+    
+];
+
+const KEYCONFIG_COMMAND={
+
+};
+function Window_KeyConfig_MA() {
+    this.initialize.apply(this, arguments);
+};
+Window_KeyConfig_MA.baseType =Window_Selectable.prototype;
+Window_KeyConfig_MA.prototype = Object.create(Window_KeyConfig_MA.baseType);
+Window_KeyConfig_MA.prototype.constructor = Window_KeyConfig_MA;
+Window_KeyConfig_MA.prototype.initialize =function(){
+    this.setKeyboradMapper(Input.keyMapper);
+    this.setKeyLayout(ConfigManager.keyLayout_MA);
+    const height =this.fittingHeight( 12 );
+    Window_KeyConfig_MA.baseType.initialize.call(this,0,0,Graphics.boxWidth,height );
+    this.refresh();
+    this.activate();
+    this.select(0);
+    this.moveCenter();
+};
 
 Window_KeyConfig_MA.COMMAND_DEFAULT =keyinfoEX(setting.commandText.default_,0,true);
 Window_KeyConfig_MA.COMMAND_APPLY =keyinfoEX(setting.commandText.apply,0,true);
 Window_KeyConfig_MA.COMMAND_EXIT =keyinfoEX(setting.commandText.exit,0,true);
+Window_KeyConfig_MA.COMMAND_CHANGE_LAYOUT =keyinfoEX(setting.commandText.changeLayout,0,true);
 
-//重複するデータがあっても削除しないように
-//大きいボタンを作るための機能です
-Window_KeyConfig_MA.keyLayout=[
-    // line0
-    keyinfo('esc',27),
-    keyinfo('1',49),
-    keyinfo('2',50),
-    keyinfo('3',51),
-    keyinfo('4',52),
-    keyinfo('5',53),
-    keyinfo('6',54),
-    keyinfo('7',55),
-    keyinfo('8',56),
-    keyinfo('9',57),
-    keyinfo('0',48),
-    keyinfo('-',189),
-    keyinfo('^',222),
-    keyinfo('Ins',45),
-    keyinfo('Back',8),
-    keyinfo('Home',36),
-    keyinfo('End',35),
-    keyinfo('PgUp',33),
-    keyinfo('PgDn',34),
-    //line1
-    Window_KeyConfig_MA.KEY_NULL,
-    keyinfo('Q',81),
-    keyinfo('W',87),
-    keyinfo('E',69),
-    keyinfo('R',82),
-    keyinfo('T',84),
-    keyinfo('Y',89),
-    keyinfo('U',85),
-    keyinfo('I',73),
-    keyinfo('O',79),
-    keyinfo('P',80),
-    keyinfo("@", 192), 
-    keyinfo('[',219),
-    KEY_ENTER,
-    KEY_ENTER,
-    keyinfo('7',103),
-    keyinfo('8',104),
-    keyinfo('9',105),
-    keyinfo('-',109),
-// line2
-    Window_KeyConfig_MA.KEY_NULL,
-    keyinfo('A',65),
-    keyinfo('S',83),
-    keyinfo('D',68),
-    keyinfo('F',70),
-    keyinfo('G',71),
-    keyinfo('H',72),
-    keyinfo('J',74),
-    keyinfo('K',75),
-    keyinfo('L',76),
-    keyinfo(';',186),
-    keyinfo(':',58),
-    keyinfo(']',221),
-    KEY_ENTER,
-    KEY_ENTER,
-    keyinfo('4',100),
-    keyinfo('5',101),
-    keyinfo('6',102),
-    Window_KeyConfig_MA.KEY_NULL,    
-    //line3
-    keyinfo('Shift',16),    
-    keyinfo('Z',90), 
-    keyinfo('X',88),
-    keyinfo('C',67),
-    keyinfo('V',86), 
-    keyinfo('B',66),
-    keyinfo('N',78),
-    keyinfo('M',77),
-    keyinfo(',',188), 
-    keyinfo('.',190),
-    keyinfo('/',191), 
-    keyinfo('\\',220), 
-    keyinfo('Shift',16),
-    KEY_UP,    
-//    keyinfo(setting.keyText.up,38),    
-    Window_KeyConfig_MA.KEY_NULL,
-    
-    keyinfo('1',97),
-    keyinfo('2',98),
-    keyinfo('3',99),
-    Window_KeyConfig_MA.KEY_NULL,
-// line4
-    keyinfo('CTRL',17),
-    Window_KeyConfig_MA.KEY_NULL,
-    Window_KeyConfig_MA.KEY_NULL,
-    Window_KeyConfig_MA.KEY_NULL,
-    KEY_SPACE,
-    KEY_SPACE,
-    KEY_SPACE,
-    KEY_SPACE,
-    Window_KeyConfig_MA.KEY_NULL,
-    Window_KeyConfig_MA.KEY_NULL,
-    Window_KeyConfig_MA.KEY_NULL,
-    Window_KeyConfig_MA.KEY_NULL,
-    KEY_LEFT,
-    KEY_DOWN,
-    KEY_RIGHT,
-    KEY_TENKEY_ZERO,
-    KEY_TENKEY_ZERO,
-    Window_KeyConfig_MA.KEY_NULL,
-    Window_KeyConfig_MA.KEY_NULL,
+(function(){
 
-    Window_KeyConfig_MA.COMMAND_DEFAULT,
-    Window_KeyConfig_MA.COMMAND_DEFAULT,
-    Window_KeyConfig_MA.COMMAND_DEFAULT,
-    Window_KeyConfig_MA.COMMAND_DEFAULT,
-    Window_KeyConfig_MA.COMMAND_DEFAULT,
-    Window_KeyConfig_MA.COMMAND_DEFAULT,
+function pushKeyconfigCommand(data,count){
+    for(var i=0; i< count;++i){
+        KEYLAYOUT_US.push(data);
+        KEYLAYOUT_JIS.push(data);        
+    }
+}
 
-    Window_KeyConfig_MA.COMMAND_APPLY,
-    Window_KeyConfig_MA.COMMAND_APPLY,
-    Window_KeyConfig_MA.COMMAND_APPLY,
-    Window_KeyConfig_MA.COMMAND_APPLY,
-    Window_KeyConfig_MA.COMMAND_APPLY,
-    Window_KeyConfig_MA.COMMAND_APPLY,
-    
-    Window_KeyConfig_MA.COMMAND_EXIT,
-    Window_KeyConfig_MA.COMMAND_EXIT,
-    Window_KeyConfig_MA.KEY_NULL,
-    Window_KeyConfig_MA.KEY_NULL,
-    Window_KeyConfig_MA.KEY_NULL,
-    Window_KeyConfig_MA.KEY_NULL,
-    Window_KeyConfig_MA.KEY_NULL,
-];
-Window_KeyConfig_MA.INDEX_ENTER = Window_KeyConfig_MA.keyLayout.indexOf(KEY_ENTER);
-Window_KeyConfig_MA.INDEX_SPACE = Window_KeyConfig_MA.keyLayout.indexOf(KEY_SPACE);
-Window_KeyConfig_MA.INDEX_DEFAULT_COMMAND = Window_KeyConfig_MA.keyLayout.indexOf(Window_KeyConfig_MA.COMMAND_DEFAULT);
-Window_KeyConfig_MA.INDEX_APPLY_COMMAND = Window_KeyConfig_MA.keyLayout.indexOf(Window_KeyConfig_MA.COMMAND_APPLY);
-Window_KeyConfig_MA.INDEX_EXIT_COMMAND = Window_KeyConfig_MA.keyLayout.indexOf(Window_KeyConfig_MA.COMMAND_EXIT);
+pushKeyconfigCommand(Window_KeyConfig_MA.COMMAND_DEFAULT,  setting.commandWidth.DEFAULT);
+pushKeyconfigCommand(Window_KeyConfig_MA.COMMAND_APPLY,  setting.commandWidth.APPLY);
+pushKeyconfigCommand(Window_KeyConfig_MA.COMMAND_CHANGE_LAYOUT,  setting.commandWidth.LAYOUT);
+pushKeyconfigCommand(Window_KeyConfig_MA.COMMAND_EXIT,  setting.commandWidth.EXIT);
+
+for(var i =KEYLAYOUT_JIS.length ; i<114;++i){
+    KEYLAYOUT_JIS.push(KEYS.NULL);
+}
+for(var i =KEYLAYOUT_US.length ; i<114;++i){
+    KEYLAYOUT_US.push(KEYS.NULL);
+}
+})();
+
+
+/**
+ * 
+ * @param {[]} keyLayout 
+ */
+function makeKeylayoutIndex(keyLayout){
+    return {
+        ENTER:keyLayout.indexOf(KEYS.ENTER),
+        SPACE:keyLayout.indexOf(KEYS.SPACE),
+        COMMAND_DEFAULT:keyLayout.indexOf(Window_KeyConfig_MA.COMMAND_DEFAULT),
+        COMMAND_APPLY:keyLayout.indexOf(Window_KeyConfig_MA.COMMAND_APPLY),
+        COMMAND_EXIT:keyLayout.indexOf(Window_KeyConfig_MA.COMMAND_EXIT),
+        COMMAND_LAYOUT:keyLayout.indexOf(Window_KeyConfig_MA.COMMAND_CHANGE_LAYOUT),
+    };
+};
+const KEY_INDEX_JIS = makeKeylayoutIndex(KEYLAYOUT_JIS);
+const KEY_INDEX_US = makeKeylayoutIndex(KEYLAYOUT_US);
+
 Window_KeyConfig_MA.prototype.changeKeyMap =function(index,symbol){
     const keyNumber = this.keyNumber(index);
     this._map[keyNumber] = symbol;
     this.redrawItem(index);
     this.redrawApplyCommand();
 };
+/**
+ * @param {String} layoutText
+ */
+Window_KeyConfig_MA.prototype.setKeyLayout =function(layoutText){
+    if(this._layoutText ===layoutText){return;}
+    this._layoutText =layoutText;
+    if(layoutText==='JIS'){
+        this._extraIndex =KEY_INDEX_JIS;
+        this._list = KEYLAYOUT_JIS;
+    }else{
+        this._extraIndex = KEY_INDEX_US;
+        this._list = KEYLAYOUT_US;
+    }
+};
+Window_KeyConfig_MA.prototype.getKeyLayout =function(){
+    return this._layoutText;
+};
+
+
 Window_KeyConfig_MA.prototype.setKeyboradMapper =function(mapper){
     this._map = Object.assign({}, mapper);
-    this.makeItemList();
 };
 Window_KeyConfig_MA.prototype.canApplySetting =function(){
     return isValidMapper(this._map);
@@ -1671,26 +1949,29 @@ Window_KeyConfig_MA.prototype.cloneMapper= function(){
 Window_KeyConfig_MA.prototype.itemTextAlign = function() {
     return 'center';
 };
-
+Window_KeyConfig_MA.prototype.moveCenter =function(){
+    const x = Graphics.boxWidth/2 - this.width/2;
+    const y = Graphics.boxHeight/2 -this.height/2
+    this.move(x,y,this.width,this.height);
+};
 
 
 Window_KeyConfig_MA.prototype.processCancel =function(){
     SoundManager.playCancel();
     this.updateInputData();
     const index = this.index();
-    if(index ===Window_KeyConfig_MA.INDEX_EXIT_COMMAND){
+    const exitIndex = this._extraIndex.COMMAND_EXIT;
+    if(index ===exitIndex){
         this.callCancelHandler();
     }else{
-        this.select(Window_KeyConfig_MA.INDEX_EXIT_COMMAND);
+        this.select(exitIndex);
     }
-
-
 };
 
 
 Window_KeyConfig_MA.prototype.processApply =function(){
     this.updateInputData();
-    this.deactivate();    
+    this.deactivate();
     SoundManager.playEquip();
 
     this.callHandler('apply');
@@ -1701,12 +1982,24 @@ Window_KeyConfig_MA.prototype.processDefault =function(){
     this.callHandler('default');
 };
 
+Window_KeyConfig_MA.prototype.processChangeLayout =function(){
+    SoundManager.playEquip();
+    const  L =this.getKeyLayout();
+    if(L!=='JIS'){
+        this.setKeyLayout('JIS' );
+    }else{
+        this.setKeyLayout('US');
+    }
+    this.refresh();
+};
+
+
 Window_KeyConfig_MA.prototype.processOk =function(){
     const index = this.index();
     if(index<0){
         return;
     }
-    const item =Window_KeyConfig_MA.keyLayout[index];
+    const item =this._list[index];
     if(item ===Window_KeyConfig_MA.COMMAND_APPLY){
         this.processApply();
         return;
@@ -1720,15 +2013,15 @@ Window_KeyConfig_MA.prototype.processOk =function(){
         this.callCancelHandler();
         return;
     }
+    if(item ===Window_KeyConfig_MA.COMMAND_CHANGE_LAYOUT){
+        this.processChangeLayout();
+        return;
+    }
+
     if(item.locked){
         this.playBuzzerSound();
-        return;
-        
+        return;        
     }
-    // if (item===Window_KeyConfig_MA.KEY_NULL || item ===KEY_ENTER) {
-    //     this.playBuzzerSound();
-    //     return;
-    // }
     this.playOkSound();
     this.updateInputData();
     this.deactivate();
@@ -1736,7 +2029,7 @@ Window_KeyConfig_MA.prototype.processOk =function(){
 };
 
 Window_KeyConfig_MA.prototype.itemHeight =function(){
-    return this.lineHeight() * 2;    
+    return this.lineHeight() * 2;
 };
 Window_KeyConfig_MA.prototype.itemWidth=function(){
     return 40;
@@ -1769,20 +2062,20 @@ Window_KeyConfig_MA.prototype.spaceRect =function(){
 };
 Window_KeyConfig_MA.prototype.tenkeyZeroRect =function(){
     const rect= Window_KeyConfig_MA.baseType.itemRect.call(this,this.tenkeyZeroIndex());
-    rect.width *= 2;   
+    rect.width *= 2;
     return rect;
 };
 
 Window_KeyConfig_MA.prototype.itemRect =function(index){
-    const item =Window_KeyConfig_MA.keyLayout[index];
+    const item = this._list[index];
     if(item.isLink){
-        if(item ===KEY_ENTER){
+        if(item ===KEYS.ENTER){
             return this.enterRect();
         }
         if(this.isSpaceIndex(index)){
             return this.spaceRect();
         }
-        if(this.isTenkeyZeroIndex(index)){
+        if(item ===KEYS.TENKEY0){
             return this.tenkeyZeroRect();
         }
         if(item ===Window_KeyConfig_MA.COMMAND_DEFAULT){
@@ -1796,15 +2089,17 @@ Window_KeyConfig_MA.prototype.itemRect =function(index){
         }
         if(item ===Window_KeyConfig_MA.COMMAND_EXIT){
             return this.exitCommandRect();
-        }        
+        }
+        if(item ===Window_KeyConfig_MA.COMMAND_CHANGE_LAYOUT){
+            return this.changeLayoutCommandRect();
+        }
     }
     return Window_KeyConfig_MA.baseType.itemRect.call(this,index);
  };
 
-Window_KeyConfig_MA.prototype.makeItemList =function(){};
 
 Window_KeyConfig_MA.prototype.maxItems =function(){
-    return Window_KeyConfig_MA.keyLayout.length;
+    return this._list.length;
 };
 Window_KeyConfig_MA.prototype.spacing =function(){
     return 0;
@@ -1814,7 +2109,7 @@ Window_KeyConfig_MA.prototype.spacing =function(){
  * @return {String}
  */
 Window_KeyConfig_MA.prototype.keyNumber =function(index){
-    return Window_KeyConfig_MA.keyLayout[index].keycord;
+    return this._list[index].keycord;
 };
 
 Window_KeyConfig_MA.prototype.currentKeyNumber=function(){
@@ -1823,13 +2118,14 @@ Window_KeyConfig_MA.prototype.currentKeyNumber=function(){
 
 
 Window_KeyConfig_MA.prototype.keyName =function(index){
-    return Window_KeyConfig_MA.keyLayout[index].char;
+    return this._list[index].char;
 };
 
 Window_KeyConfig_MA.prototype.isEnterIndex =function(index){
-    return Window_KeyConfig_MA.keyLayout[index] ===KEY_ENTER;
+    return this._list[index] ===KEYS.ENTER;
 };
 Window_KeyConfig_MA.prototype.enterIndex =function(){
+    return this._extraIndex.ENTER;
     return Window_KeyConfig_MA.INDEX_ENTER;
     return 32;
 };
@@ -1837,7 +2133,7 @@ Window_KeyConfig_MA.prototype.enterIndex =function(){
 Window_KeyConfig_MA.spaceItems =4;
 
 Window_KeyConfig_MA.prototype.spaceIndex =function(){
-    return Window_KeyConfig_MA.INDEX_SPACE;
+    return this._extraIndex.SPACE;
 };
 
 
@@ -1845,11 +2141,11 @@ Window_KeyConfig_MA.prototype.tenkeyZeroIndex =function(){
     return this.maxCols()*4 +15;
 };
 Window_KeyConfig_MA.prototype.isTenkeyZeroIndex=function(index){
-    return Window_KeyConfig_MA.keyLayout[index]===KEY_TENKEY_ZERO;
+    return  this._list[index]===KEYS.TENKEY0;
 };
 Window_KeyConfig_MA.prototype.isSpaceIndex =function(index){
     const spaceStart =this.spaceIndex();
-    return spaceStart <= index && index< spaceStart+ Window_KeyConfig_MA.spaceItems; 
+    return spaceStart <= index && index< spaceStart+ Window_KeyConfig_MA.spaceItems;
 };
 
 /**
@@ -1870,22 +2166,22 @@ Window_KeyConfig_MA.prototype.drawItemRect =function(enabled,rect){
 
 Window_KeyConfig_MA.prototype.cursorUp = function(wrap) {
     if(wrap||this._index >= this.maxCols() ){
-        this.cursorMoveCheck( -this.maxCols() );        
+        this.cursorMoveCheck( -this.maxCols() );
     }
 };
 Window_KeyConfig_MA.prototype.cursorDown = function(wrap) {
     if(wrap||this._index < this.maxItems()- this.maxCols() ){
-        this.cursorMoveCheck( this.maxCols() );        
+        this.cursorMoveCheck( this.maxCols() );
     }
 };
 Window_KeyConfig_MA.prototype.cursorLeft = function(wrap) {
     if(wrap||this._index>0 ){
-        this.cursorMoveCheck( -1 );        
+        this.cursorMoveCheck( -1 );
     }
 };
 Window_KeyConfig_MA.prototype.cursorRight = function(wrap) {
     if(wrap||this._index < this.maxItems()-1 ){
-        this.cursorMoveCheck( 1 );        
+        this.cursorMoveCheck( 1 );
     }
 };
 
@@ -1899,10 +2195,10 @@ Window_KeyConfig_MA.prototype.cursorMoveCheck =function(moveDir){
     var next = this.nextIndex(current,moveDir);
     const last = Math.abs(this.maxItems() /moveDir);
     for(var i =0 ;i <last; ++i ){
-        var itemA = Window_KeyConfig_MA.keyLayout[current];
-        var itemB = Window_KeyConfig_MA.keyLayout[next];
-        if(itemB===Window_KeyConfig_MA.KEY_NULL){
-            break;            
+        var itemA = this._list[current];
+        var itemB = this._list[next];
+        if(itemB===KEYS.NULL){
+            break;
         }
         if( itemA!==itemB){
             break;
@@ -1917,11 +2213,13 @@ Window_KeyConfig_MA.prototype.symbolTextColor =function(){
 };
 Window_KeyConfig_MA.prototype.redrawItem =function(index){
     this.clearItem(index);
-    if(this.isEnterIndex(index)){
+    const item = this._list[index];
+
+    if(item ===KEYS.ENTER){
         this.drawEnter();
-    }else if(this.isSpaceIndex(index)){
+    }else if(item ===KEYS.SPACE){
         this.drawSpace();
-    }else if(this.isTenkeyZeroIndex(index)){
+    }else if(item===KEYS.TENKEY0){
         this.drawTenkeyZero();
     }else{
         this.drawItem(index)        
@@ -1929,11 +2227,13 @@ Window_KeyConfig_MA.prototype.redrawItem =function(index){
 };
 
 Window_KeyConfig_MA.prototype.drawAllItems =function(){
+//    this.resetFontSettings();
+//    this.contents.fontSize -=8;
 
     const last =this.maxPageItems();
     for (var i = 0; i < last; i++) {
         var index =  i;
-        var item  = Window_KeyConfig_MA.keyLayout[i];
+        var item  = this._list[i];
         if (item && !item.isLink) {
             this.drawItem(index);
         }
@@ -1944,8 +2244,8 @@ Window_KeyConfig_MA.prototype.drawAllItems =function(){
     this.drawDefaultCommand();
     this.drawApplyCommand();
     this.drawexitCommand();
+    this.drawChangeLayoutCommand();
 };
-
 
 Window_KeyConfig_MA.prototype.drawItemText =function(keyName,symobolText,x,y,width){
     
@@ -1956,7 +2256,7 @@ Window_KeyConfig_MA.prototype.drawItemText =function(keyName,symobolText,x,y,wid
     this.drawText(keyName,x ,y,width,'center');//,this.itemTextAlign());
     this.changeTextColor(this.textColor(4));
     if(symobolText){
-        this.drawText(symobolText,x,y+this.lineHeight() ,width,'center'); 
+        this.drawText(symobolText,x,y+this.lineHeight() ,width,'center');
     }
 };
 
@@ -1974,7 +2274,7 @@ Window_KeyConfig_MA.prototype.drawSpace =function(){
 };
 
 Window_KeyConfig_MA.prototype.drawEnter =function(){
-   const rect = this.enterRect(); 
+   const rect = this.enterRect();
    const y = rect.y + rect.height/4;
    const index =this.enterIndex();
    this.drawItemRect(!!this.symbol(index),rect);
@@ -1992,7 +2292,7 @@ Window_KeyConfig_MA.prototype.drawTenkeyZero =function(){
         this.keyName(index),
         this.symbolText(index),
          rect.x,rect.y,rect.width
-    ); 
+    );
 };
 
 Window_KeyConfig_MA.prototype.symbol =function(index){
@@ -2048,29 +2348,31 @@ Window_KeyConfig_MA.prototype.drawCommand =function(commandName,rect){
  * @return {Rectangle}
  */
 Window_KeyConfig_MA.prototype.defaultCommandRect =function(){
-    const rect= Window_KeyConfig_MA.baseType.itemRect.call(this,Window_KeyConfig_MA.INDEX_DEFAULT_COMMAND);
-    rect.width *=6;
+    const index =this._extraIndex.COMMAND_DEFAULT;
+    const rect= Window_KeyConfig_MA.baseType.itemRect.call(this,index);
+    rect.width *=setting.commandWidth.DEFAULT;
     return rect;
 };
 
 Window_KeyConfig_MA.prototype.drawDefaultCommand =function(){
     const rect = this.defaultCommandRect();
     this.drawCommand(setting.commandText.default_,rect);
-
-    // this.changeTextColor(this.commandColor());
-    // this.drawText(setting.commandText.default_,rect.x,rect.y,rect.width,'center');
 };
+
+
+
 /**
  * @return {Rectangle}
  */
 Window_KeyConfig_MA.prototype.applyCommandRect =function(){
-    const rect= Window_KeyConfig_MA.baseType.itemRect.call(this,Window_KeyConfig_MA.INDEX_APPLY_COMMAND);
-    rect.width *=6;
+    const index =this._extraIndex.COMMAND_APPLY;
+    const rect= Window_KeyConfig_MA.baseType.itemRect.call(this,index);
+    rect.width *=setting.commandWidth.APPLY;
     return rect;
 };
 
 Window_KeyConfig_MA.prototype.redrawApplyCommand =function(){
-    this.clearItem(Window_KeyConfig_MA.INDEX_APPLY_COMMAND);
+    this.clearItem( this._extraIndex.COMMAND_APPLY);//   Window_KeyConfig_MA.INDEX_APPLY_COMMAND);
     this.drawApplyCommand();
 };
 Window_KeyConfig_MA.prototype.drawApplyCommand =function(){
@@ -2090,11 +2392,24 @@ Window_KeyConfig_MA.prototype.drawApplyCommand =function(){
  * @return {Rectangle}
  */
 Window_KeyConfig_MA.prototype.exitCommandRect =function(){
-    const rect= Window_KeyConfig_MA.baseType.itemRect.call(this,Window_KeyConfig_MA.INDEX_EXIT_COMMAND);
-    rect.width *=2;
+    const exitIndex = this._extraIndex.COMMAND_EXIT;
+    const rect= Window_KeyConfig_MA.baseType.itemRect.call(this,exitIndex);// Window_KeyConfig_MA.INDEX_EXIT_COMMAND);
+    rect.width *= setting.commandWidth.EXIT;
     return rect;
 };
-
+/**
+ * @return {Rectangle}
+ */
+Window_KeyConfig_MA.prototype.changeLayoutCommandRect =function(){
+    const index= this._extraIndex.COMMAND_LAYOUT;
+    const rect= Window_KeyConfig_MA.baseType.itemRect.call(this,index);
+    rect.width *=setting.commandWidth.LAYOUT;
+    return rect;
+};
+Window_KeyConfig_MA.prototype.drawChangeLayoutCommand =function(){
+    const rect = this.changeLayoutCommandRect();
+    this.drawCommand(setting.commandText.changeLayout,rect);
+};
 
 Window_KeyConfig_MA.prototype.drawexitCommand =function(){
     const rect = this.exitCommandRect();
@@ -2128,7 +2443,7 @@ Scene_KeyConfig_MA.prototype.onConfigCancel =function(){
 };
 Scene_KeyConfig_MA.prototype.changeSymbol =function(symbol){
     const index =this._keyconfigWindow.index();
-    this._keyconfigWindow.changeKeyMap(index,symbol);    
+    this._keyconfigWindow.changeKeyMap(index,symbol);
 };
 
 Scene_KeyConfig_MA.prototype.onConfigOk =function(){
@@ -2141,9 +2456,10 @@ Scene_KeyConfig_MA.prototype.loadDefautConfig =function(){
 };
 Scene_KeyConfig_MA.prototype.terminate =function(){
     Scene_KeyConfig_MA.baseType.terminate.call(this);
+    ConfigManager.setKeyLayoutMA(this._keyconfigWindow.getKeyLayout());
+
     if(this._applyOnExit){
-        const mapper = this._keyconfigWindow.cloneMapper();
-        Input.keyMapper  =mapper;
+        Input.keyMapper = this._keyconfigWindow.cloneMapper();
     }
 };
 
@@ -2219,7 +2535,7 @@ if(setting.hookPoint==='menu'){
         Window_Options.prototype.makeCommandList =function(){
             Window_Options_makeCommandList.call(this);
             this.addGamepadOptions_MA();
-            this.addKeyboardConfig_MA();            
+            this.addKeyboardConfig_MA();
         };
     }
     const Window_Options_statusText=Window_Options.prototype.statusText;
@@ -2231,7 +2547,7 @@ if(setting.hookPoint==='menu'){
             return '';
         }
         return Window_Options_statusText.call(this,index);
-    }    
+    }
     const Window_Options_processOk = Window_Options.prototype.processOk;
     Window_Options.prototype.processOk =function(){
         const index = this.index();
