@@ -530,6 +530,8 @@
  */
 
 var  MA_InputSymbols = MA_InputSymbols ||[];
+var Imported = Imported || {};
+Imported.Mano_InputConfig = true;
 
 (function(global){
     'use strict'
@@ -669,7 +671,7 @@ function createSetting(){
                 const preSymbor =sample[key];
                 // 警告機能
                 if(overwriteWarning && preSymbor){
-                    console.log('overwriteWarning\ngamepadMapper['+key+']('+preSymbor+')='+x.symbol);
+                    console.log('overwriteWarning/キー上書き警告 \ngamepadMapper['+key+']('+preSymbor+')='+x.symbol);
                 }
                 sample[key] =x.symbol;
             });
@@ -1104,10 +1106,12 @@ Window_GamepadConfig_MA.prototype.processOk =function(){
         this.callCancelHandler();
         return;
     }
-    this.updateInputData();
-    this.deactivate();
-    this.playOkSound();
-    this.callOkHandler();
+    if(this._list[index]){
+        this.updateInputData();
+        this.deactivate();
+        this.playOkSound();
+        this.callOkHandler(); 
+    }
 };
 Window_GamepadConfig_MA.prototype.processCancel =function(){
     SoundManager.playCancel();
@@ -1632,7 +1636,8 @@ const KEYS ={
     COLON:keyinfo(':',58),
 
     CARET:keyinfo('^',222),
-
+    EQUAL:keyinfo('=',222),
+    
     SQUARE_BRACKETS_OPEN :keyinfo('[',219),
     SQUARE_BRACKETS_CLOSE :keyinfo(']',221),
     SLASH:keyinfo('/',191),
@@ -1755,7 +1760,7 @@ const KEYLAYOUT_US =[
     KEYS._9, 
     KEYS._0, 
     KEYS.MINUS,
-    KEYS.CARET,
+    KEYS.EQUAL,
     KEYS.INSERT ,
     KEYS.BACK ,
     KEYS.HOME ,
@@ -1776,8 +1781,8 @@ const KEYLAYOUT_US =[
     KEYS.P ,
     KEYS.SQUARE_BRACKETS_OPEN,
     KEYS.SQUARE_BRACKETS_CLOSE, 
-    KEYS.ENTER,
-    KEYS.ENTER,
+    KEYS.BACKSLASH,
+    KEYS.NULL,
     KEYS.TENKEY7 ,
     KEYS.TENKEY8 ,
     KEYS.TENKEY9 ,
@@ -1794,7 +1799,7 @@ const KEYLAYOUT_US =[
     KEYS.L ,
     KEYS.SEMICOLON,
     KEYS.COLON,
-    KEYS.BACKSLASH,
+    KEYS.ENTER,
     KEYS.ENTER,
     KEYS.ENTER,
     KEYS.TENKEY4 ,
@@ -1842,13 +1847,9 @@ const KEYLAYOUT_US =[
     KEYS.TENKEY0,
     KEYS.TENKEY0,
     KEYS.TENKEY_DOT,
-    KEYS.NULL,
-    
+    KEYS.NULL,    
 ];
 
-const KEYCONFIG_COMMAND={
-
-};
 function Window_KeyConfig_MA() {
     this.initialize.apply(this, arguments);
 };
@@ -1879,11 +1880,11 @@ function pushKeyconfigCommand(data,count){
         KEYLAYOUT_JIS.push(data);        
     }
 }
-
+// コマンドの並び順を変えたいときは、ここを編集してください
 pushKeyconfigCommand(Window_KeyConfig_MA.COMMAND_DEFAULT,  setting.commandWidth.DEFAULT);
 pushKeyconfigCommand(Window_KeyConfig_MA.COMMAND_APPLY,  setting.commandWidth.APPLY);
-pushKeyconfigCommand(Window_KeyConfig_MA.COMMAND_CHANGE_LAYOUT,  setting.commandWidth.LAYOUT);
 pushKeyconfigCommand(Window_KeyConfig_MA.COMMAND_EXIT,  setting.commandWidth.EXIT);
+pushKeyconfigCommand(Window_KeyConfig_MA.COMMAND_CHANGE_LAYOUT,  setting.commandWidth.LAYOUT);
 
 for(var i =KEYLAYOUT_JIS.length ; i<114;++i){
     KEYLAYOUT_JIS.push(KEYS.NULL);
@@ -1901,6 +1902,8 @@ for(var i =KEYLAYOUT_US.length ; i<114;++i){
 function makeKeylayoutIndex(keyLayout){
     return {
         ENTER:keyLayout.indexOf(KEYS.ENTER),
+        ENTER_WIDTH:2,
+        ENTER_HEIGHT:2,
         SPACE:keyLayout.indexOf(KEYS.SPACE),
         COMMAND_DEFAULT:keyLayout.indexOf(Window_KeyConfig_MA.COMMAND_DEFAULT),
         COMMAND_APPLY:keyLayout.indexOf(Window_KeyConfig_MA.COMMAND_APPLY),
@@ -1910,6 +1913,8 @@ function makeKeylayoutIndex(keyLayout){
 };
 const KEY_INDEX_JIS = makeKeylayoutIndex(KEYLAYOUT_JIS);
 const KEY_INDEX_US = makeKeylayoutIndex(KEYLAYOUT_US);
+KEY_INDEX_US.ENTER_WIDTH=3;
+KEY_INDEX_US.ENTER_HEIGHT=1;
 
 Window_KeyConfig_MA.prototype.changeKeyMap =function(index,symbol){
     const keyNumber = this.keyNumber(index);
@@ -2032,7 +2037,7 @@ Window_KeyConfig_MA.prototype.itemHeight =function(){
     return this.lineHeight() * 2;
 };
 Window_KeyConfig_MA.prototype.itemWidth=function(){
-    return 40;
+    return 41;
 };
 Window_KeyConfig_MA.prototype.maxPageRows =function(){
     return 100;
@@ -2049,8 +2054,9 @@ Window_KeyConfig_MA.prototype.numVisibleRows =function(){
  */
 Window_KeyConfig_MA.prototype.enterRect =function(){
     const rect= Window_KeyConfig_MA.baseType.itemRect.call(this,this.enterIndex());
-    rect.width *=2;
-    rect.height*=2;
+    
+    rect.width *=this._extraIndex.ENTER_WIDTH;
+    rect.height*=this._extraIndex.ENTER_HEIGHT;
     return rect;
 };
 
@@ -2275,7 +2281,10 @@ Window_KeyConfig_MA.prototype.drawSpace =function(){
 
 Window_KeyConfig_MA.prototype.drawEnter =function(){
    const rect = this.enterRect();
-   const y = rect.y + rect.height/4;
+   var y = rect.y;// + rect.height;
+   if(this._extraIndex ===KEY_INDEX_JIS){
+       y += rect.height/4;
+   }
    const index =this.enterIndex();
    this.drawItemRect(!!this.symbol(index),rect);
    this.drawItemText(
@@ -2585,4 +2594,13 @@ const exportFuntion= createExportFunction();
 //global.mano = global.mano||{};
 //global.mano = Object.assign()
 
+const exportClass ={
+    Scene_KeyConfig:Scene_KeyConfig_MA,
+    Scene_GamepadConfig: Scene_GamepadConfigMA,
+    Window_InputSymbolList:Window_InputSymbolList,
+    Window_GamepadConfig:Window_GamepadConfig_MA,
+    Window_KeyConfig:Window_KeyConfig_MA,
+};
+
+global.Mano_InputConfig = exportClass;
 })(this);
