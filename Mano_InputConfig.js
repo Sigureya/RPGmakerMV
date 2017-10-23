@@ -1558,7 +1558,6 @@ function keyinfo(char,keycord){
 }
 
 const KEYS ={
-
     SPACE:keyinfoEX('Space',32,true),
     NULL:keyinfoEX('NULL',0,true,true),
     UP:keyinfoEX(setting.keyText.up,38,false,true),
@@ -1633,16 +1632,25 @@ const KEYS ={
     MINUS :keyinfo('-',189),
     COMMA :keyinfo(',',188),
     SEMICOLON:keyinfo(';',186),
-    COLON:keyinfo(':',58),
 
-    CARET:keyinfo('^',222),
-    EQUAL:keyinfo('=',222),
+//    EQUAL:keyinfo('=',222),
     
-    SQUARE_BRACKETS_OPEN :keyinfo('[',219),
-    SQUARE_BRACKETS_CLOSE :keyinfo(']',221),
     SLASH:keyinfo('/',191),
     BACKSLASH:keyinfo('\\',226),
     DOT :keyinfo('.',190),
+
+    
+    COLON:keyinfo(':',58),
+    CARET:keyinfo('^',222),
+    APOSTROPHE:keyinfo("'",222),  //追加しました
+
+    EQUAL_JIS:keyinfo('=',189),
+    
+    SQUARE_BRACKETS_OPEN :keyinfo('[',219),
+    SQUARE_BRACKETS_CLOSE :keyinfo(']',221),
+//    SLASH:keyinfo('/',191),
+
+
 };
 const KEYLAYOUT_JIS =[
     KEYS.ESC,
@@ -1760,7 +1768,7 @@ const KEYLAYOUT_US =[
     KEYS._9, 
     KEYS._0, 
     KEYS.MINUS,
-    KEYS.EQUAL,
+    KEYS.EQUAL_JIS,
     KEYS.INSERT ,
     KEYS.BACK ,
     KEYS.HOME ,
@@ -1794,14 +1802,16 @@ const KEYLAYOUT_US =[
     KEYS.F ,
     KEYS.G ,
     KEYS.H ,
+
     KEYS.J ,
     KEYS.K ,
     KEYS.L ,
     KEYS.SEMICOLON,
-    KEYS.COLON,
+    KEYS.APOSTROPHE, //元COLON
     KEYS.ENTER,
     KEYS.ENTER,
     KEYS.ENTER,
+
     KEYS.TENKEY4 ,
     KEYS.TENKEY5 ,
     KEYS.TENKEY6 ,
