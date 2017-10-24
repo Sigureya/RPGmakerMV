@@ -445,7 +445,7 @@
  * 新しいプラグインを入れた場合、
  * ゲーム起動後にコンフィグを「初期設定に戻す」でリセットしてください。
  * 
- * ■extendActions
+ * ■extendSymbols
  * 定義することで、新たなアクションを定義できます。
  * ここにKeyと入力した場合、Input.isPressed('Key')で入力を取得できます。
  * symbolsに登録するのを忘れないようにしてください
@@ -559,7 +559,8 @@ function MA_InputSymbolsEx_Import(){
     for(var i =0; i <MA_InputSymbols.length; ++i){
         var elem =MA_InputSymbols[i];
         var symbol = elem.symbol;
-        if(elem.mandatory){
+        const mandatory =elem.mandatory;
+        if(mandatory ===true || mandatory ==='true'){
             setting.mandatorySymbols.push(symbol);
         }
         setting.symbolText[symbol] =elem.text;
@@ -569,46 +570,47 @@ function MA_InputSymbolsEx_Import(){
     }
 }
 
-/**
- * @return {string[]}
- */
-function createMandatorySymbols(params){
-    const result =JSON.parse(params.mandatorySymbols);
-    return result;
-}
 
-function insertExtendAction(helpText,params){
-    for(var i=6; i <=8; ++i){
-        var actionKey = String(params['extendSymbol'+i]);
-        if(actionKey){
-            helpText[actionKey] = helpText['symbol'+i];
+const setting = (function(){
+    /**
+     * @return {string[]}
+     */
+    function createMandatorySymbols(params){
+        const result =JSON.parse(params.mandatorySymbols);
+        return result;
+    }
+
+    function insertExtendAction(helpText,params){
+        for(var i=6; i <=8; ++i){
+            var actionKey = String(params['extendSymbol'+i]);
+            if(actionKey){
+                helpText[actionKey] = helpText['symbol'+i];
+            }
         }
     }
-}
-/**
- * @return {String[]}
- * @param {any} params 
- */
-function createButtonList(params){
-    return JSON.parse(params.buttons);
-}
+    /**
+     * @return {String[]}
+     * @param {any} params 
+     */
+    function createButtonList(params){
+        return JSON.parse(params.buttons);
+    }
 
-function makeKeyboardSamples(){
-    const RPGmakerDefault =Object.assign({},  Input.keyMapper);
-    return [RPGmakerDefault];
-}
+    function makeKeyboardSamples(){
+        const RPGmakerDefault =Object.assign({},  Input.keyMapper);
+        return [RPGmakerDefault];
+    }
 
-function makeConfigSamples(){
-    const RPGmakerDefault =Object.assign({},  Input.gamepadMapper);
-    const ab_swaped =Object.assign({},  Input.gamepadMapper);
-    ab_swaped[0] = RPGmakerDefault[1];
-    ab_swaped[1] = RPGmakerDefault[0];
-    return [RPGmakerDefault,ab_swaped];
-}
-
-
-function createSetting(){
+    function makeConfigSamples(){
+        const RPGmakerDefault =Object.assign({},  Input.gamepadMapper);
+        const ab_swaped =Object.assign({},  Input.gamepadMapper);
+        ab_swaped[0] = RPGmakerDefault[1];
+        ab_swaped[1] = RPGmakerDefault[0];
+        return [RPGmakerDefault,ab_swaped];
+    }
     
+    
+
     const params =PluginManager.parameters('Mano_InputConfig');
     const helpText ={
         ok:String(params.textOK),
@@ -730,10 +732,9 @@ function createSetting(){
         Array.prototype.push.apply(result.buttonList,['12','13','14','15']);
     }
 
-//    result.actionKey.push(null);
 
     return result;
-};
+})();
 
 
 //ツクールのデフォルトと同様の設定です
@@ -749,7 +750,6 @@ function createGamepadMapper(){
     const index = setting.configIndex;
     return setting.configSamples[index];
 };
-const setting = createSetting();
 
 MA_InputSymbolsEx_Import();
 
@@ -796,8 +796,6 @@ Input.gamepadMapper = createGamepadMapper();
 const MA_KEYBOARD_CONFIG ='KEYBOARD_CONFIG';
 const MA_GAMEPAD_CONFIG = 'GAMEPAD_CONFIG';
 const MA_KEYBOARD_LAYOUT ='KEYBOARD_LAYOUT';
-// const MA_KEYBOARD_LAYOUT_JIS ='KEYBOARD_LAYOUT_JIS';
-// const MA_KEYBOARD_LAYOUT_JIS ='KEYBOARD_LAYOUT_US';
 
 
 function readGamePadConfig( config ){
