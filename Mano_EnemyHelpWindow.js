@@ -80,13 +80,22 @@
  * テキスト欄を右クリックすることで、アイコン選択画面が出ます。
  * @default ["64","65", "66", "67", "68", "69", "70", "71"]
  * 
- *
+ * @param hiddenState
+ * @desc 指定したステートが発生している場合、
+ * 弱点・耐性を非表示にします。
+ * @type state
+ * 
+ * @param hiddenIcon
+ * @desc 敵の弱点が隠されている場合、
+ * 耐性と弱点の代わりに表示するアイコンを指定します。
+ * 
  * @help
  * エネミーを選んでいる時に弱点を表示します。
- * 諸事情により、アイコンモードは機能していません。
  * プラグインを編集できるのであれば、
  * elementIconにアイコンIDを指定する配列を入れれば動きます。
  * 
+ * バトラーのメモ欄に<EnemyHelpHide>と書くことで、
+ * 弱点・耐性を表示しない設定ができます。
  * var 1.0(2017/7/16) 公開
  */
 
@@ -126,8 +135,10 @@
             height:Number(param.WindowHeight)
         },
         elementIcon:createIconLiset( param),
+        hiddenState:Number(param.hiddenState),
+        hiddenIcon:Number(param.hiddenIcon),
       };
-    const elementItemFunc=setting.displayMode==='text' ? toElementName:toIcon;
+const elementItemFunc=setting.displayMode==='text' ? toElementName:toIcon;
 
 class Window_EenmyHelp extends Window_Selectable{
     constructor(x,y,w,h){
@@ -138,6 +149,13 @@ class Window_EenmyHelp extends Window_Selectable{
         this._infoX = Math.max(this.textWidth( setting.weakName) ,this.textWidth(setting.resistanceName));
         this._batller=null;
     }
+    /**
+     * @param {Game_Battler} battler 
+     */
+    isBattlerDataHidden(battler){
+        return battler.isStateAffected(setting.hiddenState);
+    }
+
     /**
      * @return {Game_Battler}
      */
@@ -204,8 +222,29 @@ class Window_EenmyHelp extends Window_Selectable{
         this.drawText(str,x,y);
     }
 
+    drawDataUnknow(){
+        if(setting.displayMode==='icon'){
+            const iconId = setting.hiddenIcon;
+            if(iconId){
+                this.drawIcon(  iconId, this._infoX ,0);
+                this.drawIcon(  iconId, this._infoX ,this.lineHeight());
+            }
+        }else{
+            const textUnknow ='????';
+            this.drawText(textUnknow,this._infoX,0);
+            this.drawText(textUnknow,this._infoX,this.lineHeight());
+        }
+    }
+
     drawItem(){
-        const list = this.createWeakList(this.battler());
+        const battler = this.battler();
+        if(this.isBattlerDataHidden(battler)){
+            this.drawDataUnknow();
+            return;
+        }
+
+
+        const list = this.createWeakList(battler);
         
         if(setting.displayMode==='icon'){
             this.drawIcons(this._infoX,0,list.weakList);
@@ -245,7 +284,6 @@ Scene_Battle.prototype.isInputCompleted =function(){
 Scene_Battle.prototype.onInputComplete =function(){
     this._enemyHelpWindow_MA.clearCache();
 };
-
 const Scene_Battle_selectNextCommand = Scene_Battle.prototype.selectNextCommand;
 Scene_Battle.prototype.selectNextCommand = function() {
     Scene_Battle_selectNextCommand.call(this);
@@ -253,6 +291,8 @@ Scene_Battle.prototype.selectNextCommand = function() {
         this.onInputComplete();
     }
 };
+
+
 /**
  * @param {Window_EenmyHelp} help
  */
