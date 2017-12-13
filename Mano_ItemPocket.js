@@ -278,6 +278,8 @@
  * startでウィンドウを開き、endで閉じています。
  * 
  * ※ヘルプの書き途中です。
+ * var 1.4.0
+ * タッチ操作向けのボタンを追加。
  * 
  * var 1.3.0 
  * MA_ItemPocket.addItem()にバグが発覚したので修正。
@@ -838,7 +840,7 @@ function createSetting(){
     const param = PluginManager.parameters('Mano_ItemPocket');
     MA_itemPocket.pocketSize =Number(param.pocketSize);
 
-    const xxx={
+    const setting={
         maxAmount : Number (param.maxAmount),
         weight:Number(param.defaultWeight),
         canDuplicate:Boolean(param.canDuplicate==='true'),
@@ -888,7 +890,7 @@ function createSetting(){
             weight:'Weight'
         },
     };
-    return xxx;
+    return setting;
 }
 const setting = createSetting();
     const Mano_ItemPocket_State={
@@ -983,7 +985,9 @@ Scene_Boot.prototype.start= function() {
     for(var i =1; i < len;i+=1){
         pocketFunction.bootEachItem($dataItems[i]);
     }
+
 };
+
 
 class PocketIndex{
     /**
@@ -1109,6 +1113,8 @@ Window_PocketNumber.prototype.initialize=function(x,y,w,h){
     this._max=1;
     this._number=1;
     this._weightCapacity=Number.MAX_SAFE_INTEGER;
+    this.createButtons();
+    this.deactivate();
 };
 /**
  * @return {RPG.Item}
@@ -1117,11 +1123,9 @@ Window_PocketNumber.prototype.item =function(){
     return this._item;
 };
 
-Window_PocketNumber.prototype.createButtons =function(){
-//    Window_ShopNumber.prototype.createButtons.call(this);
-};
 Window_PocketNumber.prototype.clear =function(){
     this._item =null;
+    this._number=0;
     this.updateCursor();
     this.refresh();
 };
@@ -1215,6 +1219,7 @@ Window_PocketNumber.prototype.setup=function(item,max){
     this._number =Math.min(1,max);
     this._item =item;
     this._max =max;
+    this.updateButtonsVisiblity();
 };
 
 Window_PocketNumber.prototype.setPrevWindow =function(window){
@@ -1248,6 +1253,71 @@ Window_PocketNumber.prototype.processNumberChange=function(){
 
 Window_PocketNumber.prototype.number=function(){
     return this._number;
+};
+Window_PocketNumber.prototype.buttonX =function(){
+    return 8;
+};
+
+
+Window_PocketNumber.prototype.buttonY =function(){
+    return 100;
+};
+
+Window_PocketNumber.prototype.createButtons =function(){
+    Window_ShopNumber.prototype.createButtons.call(this);
+    this.placeButtons();
+//    Window_ShopNumber.prototype.placeButtons.call(this);
+};
+
+
+Window_PocketNumber.prototype.placeButtons =function(){
+    const numButtons = this._buttons.length;
+    const spacing = 8;
+    const buttonY = this.buttonY();
+    const width =48;
+    let x = this.buttonX();
+
+    for (let i = 0; i < this._buttons.length; i++) {
+        var button = this._buttons[i];
+        button.x = x;
+        button.y =buttonY;
+        x += width + spacing;//  button.width/2;//+spacing;
+    }
+};
+
+Window_PocketNumber.prototype.updateButtonsVisiblity =function(){
+    if (TouchInput.date > Input.date) {
+        this.showButtons();
+    } else {
+        this.hideButtons();
+    }
+};
+
+Window_PocketNumber.prototype.hideButtons =function(){
+    Window_ShopNumber.prototype.hideButtons.call(this);    
+};
+
+Window_PocketNumber.prototype.showButtons =function(){
+    Window_ShopNumber.prototype.showButtons.call(this);    
+};
+Window_PocketNumber.prototype.onButtonDown =function(){
+    this.changeNumber(-1);
+};
+    
+
+Window_PocketNumber.prototype.onButtonDown2 =function(){
+    this.changeNumber(-10);
+};
+Window_PocketNumber.prototype.onButtonUp =function(){
+    this.changeNumber(1);
+};
+
+Window_PocketNumber.prototype.onButtonUp2 =function(){
+    this.changeNumber(10);
+};
+
+Window_PocketNumber.prototype.onButtonOk =function(){
+    this.processOk();
 };
 
 function Window_PocketModeSelect(){
@@ -2334,6 +2404,11 @@ Scene_ItemPocket.prototype.createAllWindow=function(){
     this.addNameWindows();
 };
 Scene_ItemPocket.prototype.create =function(){
+    if(!this._actor){
+        
+    }
+
+
     actorSetPocket();
     Scene_MenuBase.prototype.create.call(this);
 
@@ -2576,7 +2651,7 @@ Scene_ItemPocket.prototype.executeAddItem =function(){
     const tmp = this.pocketTemporary(this.actor());
     const table = this.pocketIndex(this.actor());
     const item = this._itemWindow.item();
-    const amount =this._numberWindow.number()
+    const amount =this._numberWindow.number();
     tmp.addItem(item,amount);
     $gameParty.loseItem(item,amount);
     this.refreshWeight();
@@ -2587,6 +2662,7 @@ Scene_ItemPocket.prototype.executeAddItem =function(){
     }else{
         this._itemWindow.refresh();
     }
+    this._numberWindow.clear();
     this._pocketWindow.deselect();
     this._itemWindow.activate();
 };
@@ -3900,7 +3976,7 @@ Game_Actor.prototype.setup = function(actorId) {
     zz_MA_Game_Actor_setup.call(this,actorId);
     this.setupPocket();
 };
-var callCount=0;
+
 Game_Actor.prototype.setupPocket =function(){
     if(this.pocket_MA){
         return;
