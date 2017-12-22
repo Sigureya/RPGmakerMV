@@ -197,7 +197,7 @@
  * @param saveMysetHelp
  * @type string
  * @desc マイセットを保存する時のヘルプ表示
- * @default マイセットの保存
+ * @default 保存先の選択
  * @parent myset
  * 
  * @param loadMyset
@@ -206,6 +206,11 @@
  * @default マイセットの読み込み
  * @parent myset
  * 
+ * @param loadMysetHelp
+ * @type string
+ * @desc マイセットを保存する時のヘルプ表示
+ * @default 読み込むデータの選択
+ * @parent myset
  * 
  * @param renameMyset
  * @type string
@@ -304,10 +309,14 @@
  * 現在のタスク
  * 
  * TODO
- * 「渡す」の処理　左右キーでアイテムを移動させる
  * 装備品も一緒にする（ほぼ無理　アイテムのフリをする装備品を作ればあるいは？）
  * ↑アクター本体からデータを取得すればいいかも？
  * 
+ * タッチ操作の改善
+ * タッチ操作でのアクター同士でのアイテムの受け渡し
+ * 個数選択を９０度回転して使う
+ * モード切替時にキャンセルを押さなくてもいいように
+ * 無を渡すことで、反対側からアイテムを引き込める処理
  * 
  * アイテム欄から持たせる処理(特定のボタンで呼び出す)
  * １ボタンで以下の機能の呼び出し
@@ -402,7 +411,7 @@ MA_itemPocket._addItemImple =function(array,item,amount,index){
  * @return {number}
  */
 MA_itemPocket.weight =function(item){
-    return $dataItems[itemId].weight_MA;
+    return item.weight_MA;
 };
 MA_itemPocket.TYPE_ITEM=0;
 MA_itemPocket.TYPE_WEAPON =1;
@@ -840,7 +849,7 @@ function createSetting(){
     const param = PluginManager.parameters('Mano_ItemPocket');
     MA_itemPocket.pocketSize =Number(param.pocketSize);
 
-    const setting={
+    const setting=  {
         maxAmount : Number (param.maxAmount),
         weight:Number(param.defaultWeight),
         canDuplicate:Boolean(param.canDuplicate==='true'),
@@ -853,7 +862,9 @@ function createSetting(){
         mysetSize :Number(param.mysetSize ||8),
         mysetFormat:String(param.mysetFormat),
         saveMyset:String(param.saveMyset),
+        saveMysetHelp:String(param.saveMysetHelp),
         loadMyset:String(param.loadMyset),
+        loadMysetHelp:String(param.loadMysetHelp),
         renameMyset:String(param.renameMyset),
         weightText:String(param.weightText),
 
@@ -1141,6 +1152,7 @@ Window_PocketNumber.prototype.refresh=function(){
         this.drawItemName(this._item,0,itemY);
         this.drawMultiplicationSign();
         this.drawNumber(numberX,itemY);
+
         if(setting.usingWeight){
             this.drawItemWeight(numberX);
             this.drawWeightText();
@@ -1323,7 +1335,8 @@ Window_PocketNumber.prototype.onButtonOk =function(){
 function Window_PocketModeSelect(){
     this.initialize.apply(this,arguments);
 };
-Window_PocketModeSelect.prototype = Object.create(Window_Command.prototype);
+Window_PocketModeSelect.baseType = Window_Command .prototype;
+Window_PocketModeSelect.prototype = Object.create(Window_PocketModeSelect.baseType);
 Window_PocketModeSelect.prototype.constructor = Window_PocketModeSelect;
 
 Window_PocketModeSelect.prototype.initialize=function(x,y){
@@ -1338,6 +1351,7 @@ Window_PocketModeSelect.prototype.windowWidth = function() {
 Window_PocketModeSelect.prototype.maxCols = function() {
      return 4;
 };
+
 
 Window_PocketModeSelect.prototype.addUseCommand =function(){
     this.addCommand(setting.wordUse, setting.symbolUse );    
@@ -1380,6 +1394,10 @@ Window_PocketModeSelect.prototype.processPagedown =function(){
     this.updateInputData();
     this.callHandler('pagedown');
 };
+// Window_PocketModeSelect.prototype.isOpenAndActive =function(){
+
+// };
+
 
 function Window_Pocket(){
 	this.initialize.apply(this,arguments);
@@ -1398,9 +1416,35 @@ Window_Pocket.prototype.initialize=function(x,y,w,h){
     this._pushLastNull=false;
     this._equips =[];
     this._passMode =false;
+    this.createAllButtons();
 };
 
+Window_Pocket.prototype.createButton=function(x,y,texcodeX,bitmap,func){
+    const button = new Sprite_Button();
+    const width  = 48;
+    const height =48;
 
+    button.x = x;
+    button.y = y;
+    button.setColdFrame(texcodeX, 0, width, height);
+    button.setHotFrame(texcodeX, height, width, height);
+    button.bitmap = bitmap;
+    button.setClickHandler(func);
+    this.addChild(button);
+    return button;
+}
+
+Window_Pocket.prototype.createAllButtons =function(){
+    const bitmap = ImageManager.loadSystem('ButtonSet');
+    const buttonY =16;
+    const buttonX = 8;
+    const buttonSize = 48;
+    const buttons = [
+        this.createButton(buttonX+ 48*0,buttonY,48,bitmap,this.processPagedown.bind(this)) ,       
+        this.createButton(buttonX+ 48*1,buttonY,96,bitmap,this.processPageup.bind(this))        
+    ];
+    this._buttonsWidth = 48 * buttons.length ;
+};
 
 /**
  * @param {boolean}
@@ -1627,8 +1671,8 @@ Window_Pocket.prototype.drawHorzLine = Window_Status.prototype.drawHorzLine;
 Window_Pocket.prototype.drawActorName =function(){
     this.changeTextColor(this.normalColor());
 
-    this.drawText(this.name(), 0,0,this.itemWidth());
-    var y = this.contents.fontSize;
+    this.drawText(this.name(), this._buttonsWidth  ,0,this.itemWidth());
+    const y = this.contents.fontSize;
     this.drawHorzLine(y);
 };
 
@@ -1649,8 +1693,8 @@ Window_Pocket.prototype.itemWeightText =function(){
 
 
 // TODO　要リファクタリング パラメータ設定部分と実際の描画に分ける？
-Window_Pocket.prototype.drawItemWeight =function(){
-    const x =this.width -50;
+Window_Pocket.prototype.drawItemWeight =function(x,y){
+//    const x =this.width -50;
 
     const totalWeight=this.totalWeight();
     const maxWeight = this.maxWeight();
@@ -1665,16 +1709,16 @@ Window_Pocket.prototype.drawItemWeight =function(){
         this.resetTextColor();
     }
 
-    this.drawText(maxWeightText,weightMax_X,0,weightMaxWidth,'right');
+    this.drawText(maxWeightText,weightMax_X,y,weightMaxWidth,'right');
 
     const slashWidth = this.textWidth('/');
     const slashX = weightMax_X -slashWidth;
-    this.drawText('/',slashX,0);
+    this.drawText('/',slashX,y);
 
     const totalWeightText =String(totalWeight);
     const totalWeightX = slashX - this.textWidth(totalWeightText);
 
-    this.drawText(totalWeightText,totalWeightX,0);
+    this.drawText(totalWeightText,totalWeightX,y);
 };
 
 
@@ -1682,8 +1726,10 @@ Window_Pocket.prototype.drawItemWeight =function(){
 Window_Pocket.prototype.drawAllItems =function(){
     this.changePaintOpacity(true);
     this.drawActorName();
+
+    let x = this.width -50;
     if(setting.usingWeight){
-        this.drawItemWeight();
+        this.drawItemWeight(this.width-50,0);
     }
 
 
@@ -1747,7 +1793,7 @@ Window_Pocket.prototype.allItemList =function(){
 
 
 Window_Pocket.prototype.itemRect=function(index){
-    var rect=  Window_Selectable.prototype.itemRect.call(this,index);
+    const rect=  Window_Selectable.prototype.itemRect.call(this,index);
     rect.y += this.actorNameHeight();
     return rect;
 };
@@ -1768,7 +1814,7 @@ Window_Pocket.prototype.drawItemAmount =function(index,rect){
  * @param {number} index
  */
 Window_Pocket.prototype.drawItemImple =function(index,item){
-    var numberWidth = this.itemCountWidth();
+    const numberWidth = this.itemCountWidth();
     var rect = this.itemRect(index);
     rect.width -= this.textPadding();
     this.changePaintOpacity(this.isEnabled(this.pocket().item(index) ) );
@@ -1791,13 +1837,10 @@ Window_PocketSub.prototype = Object.create(Window_PocketSub.baseType.prototype);
 Window_PocketSub.prototype.constructor =Window_PocketSub;
 Window_PocketSub.prototype.initialize =function(){
     Window_PocketSub.baseType.prototype.initialize.apply(this,arguments);
-    
-//    this.setCursorFixed(true);
-
 };
 Window_PocketSub.prototype.processCursorMove = function() {
     if (this.isCursorMovable()&&!this.isPassItemMode()) {
-        var lastIndex = this.index();
+        const lastIndex = this.index();
         if (Input.isRepeated('down')) {
             this.cursorDown(Input.isTriggered('down'));
         }
@@ -1820,8 +1863,7 @@ Window_PocketSub.prototype.isPassItemMode =function(){
  * @param {boolean} value
  */
 Window_PocketSub.prototype.setPassItemMode=function(value){
-    this._passMode =value;
-    
+    this._passMode =value;    
 };
 
 Window_PocketSub.prototype.setChangeNumberFunc =function(func){
@@ -1861,8 +1903,6 @@ Window_PocketSub.prototype.processHandling = function() {
     }
 };
 
-
-
 // Window_PocketSub.prototype.isCursorMovable =function(){
 //     return this.item() !==this._swapTargetItem && Window_PocketSub.baseType.prototype.isCursorMovable.call(this);
 // };
@@ -1888,6 +1928,10 @@ Window_PocketPreview.prototype.maxItems =function(){
     }
     return 0;
 };
+Window_PocketPreview.prototype.isEnabled =function(){
+    return true;
+};
+
 /**
  * @param {string} name 
  */
@@ -1934,8 +1978,6 @@ Window_MysetCommand.prototype.processPagedown=function(){
     this.activate();
 };
 
-
-
 Window_MysetCommand.prototype.makeCommandList =function(){
     this.addLoadCommand();
     this.addSaveCommand();
@@ -1950,7 +1992,6 @@ class MysetListItem{
         this.name =name;
         this.pocket =pocket;
     }
-
 };
 
 function Window_MysetList(){
@@ -2021,8 +2062,6 @@ class ModeObject{
     static  defaultEnebledJudge(item){
         return !!item;
     }
-
-
 
     constructor(){
         this._table ={};
@@ -2872,10 +2911,7 @@ Scene_ItemPocket.prototype.passItemSelectAmount =function(){
     if(item){
         this._pocketWindow2.selectOfItem(item,this._pocketWindow2.maxItems());
     }else{
-        this;
         this._pocketWindow2.select(0);
-
-
     }
     this._pocketWindow2.activate();
     this._pocketWindow2.setPassItemMode(true);    
@@ -2886,7 +2922,6 @@ Scene_ItemPocket.prototype.passItemSelectAmount =function(){
 
 Scene_ItemPocket.prototype.passItem =function(){
     this.passItemSelectAmount();
-    return;
 };
 
 Scene_ItemPocket.prototype.selectSubPocketActor=function(){
@@ -2909,7 +2944,6 @@ Scene_ItemPocket.prototype.startSwapMode =function(){
     this._pocketWindow.activate();
     this._pocketWindow.select(0);
     const pocket= this.pocket();
-
 };
 
 Scene_ItemPocket.prototype.endSwapMode =function(){
@@ -3106,6 +3140,7 @@ Scene_ItemPocket.prototype.executeUseItem =function(){
             if(pocket.amount(index)<=0){
                 this.reserveDestoryIndex(this.actor());
             }
+            //アイテムの使用に成功したので、失敗音を鳴らさずに離脱
             return;
         }
         //TODO:描き途中
@@ -3136,11 +3171,10 @@ Scene_ItemPocket.prototype.onMysetListCancel=function(){
     this._windowMysetCommand.activate();
     this._pocketWindow.show();
     this._pocketPreviewWindow.hide();
+    this._helpWindow.clear();
 };
 Scene_ItemPocket.prototype.onMysetListOk =function(){
     const s= this._windowMysetCommand.currentSymbol()[0];
-
-  
 
     switch (s) {
         case Window_MysetCommand.SYMBOL_LOAD[0]:
@@ -3166,7 +3200,7 @@ function partyGetMyset(index){
 Scene_ItemPocket.prototype.loadMyset =function(){
     this._mysetListWindow.activate();
     this._mysetListWindow.select(0);
-
+    this._helpWindow.setText(this.loadMysetText());
 };
 
 Scene_ItemPocket.prototype.endLoadMyset =function(){
@@ -3174,7 +3208,6 @@ Scene_ItemPocket.prototype.endLoadMyset =function(){
 };
 
 Scene_ItemPocket.prototype.mysetShowMissingList =function(missingList){
-    
     this.endLoadMyset();
 };
 Scene_ItemPocket.prototype.executeLoadMyset =function(){
@@ -3218,8 +3251,13 @@ Scene_ItemPocket.prototype.selectMysetList =function(){
 };
 
 Scene_ItemPocket.prototype.saveMysetText =function(){
-    return '保存先の選択';
+    return setting.saveMysetHelp;
 };
+
+Scene_ItemPocket.prototype.loadMysetText =function(){
+    return setting.loadMysetHelp;
+};
+
 
 Scene_ItemPocket.prototype.saveMyset =function(){
     this.setHelpText(this.saveMysetText());
@@ -3238,8 +3276,8 @@ Scene_ItemPocket.prototype.executeRenameMyset =function(){
         $gameParty.renameMyset(index,name);
         this._mysetListWindow.redrawItem(index);
     }
-    this._pocketWindow.show();
-    this._pocketPreviewWindow.hide();
+//    this._pocketWindow.show();
+//    this._pocketPreviewWindow.hide();
 
 };
 
@@ -3268,12 +3306,9 @@ Scene_ItemPocket.prototype.onNameEditCancel =function(){
 
 };
 Scene_ItemPocket.prototype.onNameEditOk =function(){
-    const name =this.editingName();
     this.executeRenameMyset();
     
     this.endRename();
-
-
 };
 
 
@@ -3318,7 +3353,7 @@ function idUpper(item1,item2){
 }
 
 Scene_ItemPocket.prototype.sortPreview =function(){
-     var pocket= this.pocket().clone();
+     const pocket= this.pocket().clone();
      pocket.sort(idUpper);
 };
 
@@ -3331,7 +3366,6 @@ Scene_ItemPocket.prototype.createModeSelectMode =function(){
     const mode =new ModeObject();
     this._nullMode =mode;
     this._mode =mode;
-
 };
 
 // TODO:あとでこっちのモードに切り替える
@@ -3408,7 +3442,6 @@ Scene_ItemPocket.prototype.createModePass =function(){
 Scene_ItemPocket.prototype.createModeObjects =function(){
     this.createModeSelectMode();
 
-
     this.createModeUse();
     this.createModePass();
     this.createAddMode();
@@ -3425,15 +3458,11 @@ Scene_ItemPocket.prototype.createModeSelectWindow =function(){
     a.setHandler('ok',this.onModeOk.bind(this));
     a.setHandler('pagedown', this.nextActor.bind(this));
     a.setHandler('pageup',   this.previousActor.bind(this));
-//    a.select(0);//
-
-//    this.createModeObjects();
     this.addWindow(a); 
     a.refresh(); 
 };
 
 Scene_ItemPocket.prototype.createYesNoWindow =function(){
-
 
 };
 
@@ -3519,7 +3548,7 @@ Scene_ItemPocket.prototype.createNameEditWindow =function(){
     this._nameEditWindow=edit;
 };
 Scene_ItemPocket.prototype.createNameInputWindow =function(){
-    var input = new Window_NameInput(this._nameEditWindow);
+    const input = new Window_NameInput(this._nameEditWindow);
     input.y = this._nameEditWindow.y + this._nameEditWindow.height;
     var aaa = 300;
     input.width =input.width-aaa;
@@ -3555,7 +3584,6 @@ Scene_ItemPocket.prototype.onPocketOk =function(){
 
 
 Scene_ItemPocket.prototype.onPocketCancel =function(){
-//    const mode = this.currentModeObject();
     this.endMode();
 };
 
@@ -3650,8 +3678,6 @@ Scene_ItemPocket.prototype.closeItemWindow =function(){
     this._itemWindow.deactivate();
     this._itemWindow.deselect();
     this._itemWindow.close();
-    
-
 };
 
 Scene_ItemPocket.prototype.onPocketItemSelect =function(){    
@@ -3728,6 +3754,7 @@ Scene_ItemPocket.prototype.endMode =function(){
     this._pocketWindow.refresh();
     this._pocketWindow.deselect();
     this._modeSelectWindow.activate();
+    this._helpWindow.clear();
 };
 /**
  * @param {string} mode
@@ -3784,9 +3811,7 @@ Scene_ItemPocket.prototype.user =function(){
 Scene_ItemPocket.prototype.onItemSelect =function(){
     var mode =this.currentModeObject();
     if(mode){
-
         mode.onItemSelect_EX();
-
     }
 };
 Scene_ItemPocket.prototype.onItemCancel=function(){
@@ -3982,10 +4007,10 @@ Game_Actor.prototype.setupPocket =function(){
         return;
     }
 
-    var actorData =$dataActors[this._actorId];
+    const actorData =$dataActors[this._actorId];
     const reg =/PocketItem\[(\d{1,4})\]/;
     var matched=false;
-    var pocket =new MA_itemPocket([]);
+    const pocket =new MA_itemPocket([]);
     for(var key in actorData.meta){
         var match = reg.exec(key);
         if(match){
