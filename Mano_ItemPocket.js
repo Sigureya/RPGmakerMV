@@ -1127,6 +1127,10 @@ Window_PocketNumber.prototype.initialize=function(x,y,w,h){
     this.createButtons();
     this.deactivate();
 };
+Window_PocketNumber.prototype.setNumber =function(number){
+    this._number =number;
+};
+
 /**
  * @return {RPG.Item}
  */
@@ -1136,7 +1140,7 @@ Window_PocketNumber.prototype.item =function(){
 
 Window_PocketNumber.prototype.clear =function(){
     this._item =null;
-    this._number=0;
+    this.setNumber(0);
     this.updateCursor();
     this.refresh();
 };
@@ -1213,7 +1217,8 @@ Window_PocketNumber.prototype.drawWeightText =function(){
 Window_PocketNumber.prototype.drawItemWeight =function(x){
     const y =this.weightY();
     const width = this.numberWidth();
-    this.drawText(this.itemWeight() *this._number ,x,y,width,'right');
+    const value = this.itemWeight() *this._number;
+    this.drawText(value ,x,y,width,'right');
 };
 
 Window_PocketNumber.prototype.cursorWidth = function() {
@@ -1228,9 +1233,15 @@ Window_PocketNumber.prototype.maxDigits=function(){
  * @param {Number} max
  */
 Window_PocketNumber.prototype.setup=function(item,max){
-    this._number =Math.min(1,max);
+    // if(!max){
+    //     max =1;
+    // }
+    this.setNumber( Math.min(1,max));
     this._item =item;
     this._max =max;
+    if(this._number ===NaN){
+        this;
+    }
     this.updateButtonsVisiblity();
 };
 
@@ -1246,7 +1257,7 @@ Window_PocketNumber.prototype.getPrevWindow =function(){
  */
 Window_PocketNumber.prototype.changeNumber =function(amount){
     const lastNumber =this._number;
-    this._number = (this._number + amount).clamp(1, this._max);
+    this.setNumber(  (this._number + amount).clamp(1, this._max));
     
     if (this._number !== lastNumber) {
         SoundManager.playCursor();
@@ -2495,7 +2506,7 @@ Scene_ItemPocket.prototype.itemCapacity =function(actor,item){
  * @return {number}
  */
 Scene_ItemPocket.prototype.weightCapacity =function(actor,item){
-    const itemWeight = MA_itemPocket.weight(item.id);
+    const itemWeight = MA_itemPocket.weight(item);
     const remainingWeight = this.pocketTemporary(actor).remainingWeight();
 
     if(itemWeight===0){
@@ -2618,7 +2629,8 @@ Scene_ItemPocket.prototype.setupCapacityNumber =function(item){
 
     const capacity = this.finalCapacity(this.actor(),item);
 
-    this._numberWindow.setup(item,capacity);
+
+    this._numberWindow.setup(item,capacity,1);
     this._numberWindow.refresh();
     this._numberWindow.activate();
 };
