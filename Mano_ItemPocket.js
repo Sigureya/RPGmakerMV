@@ -3906,6 +3906,17 @@ Game_Action.prototype.consumeItem=function(){
         this._pocketPtr.amount-=1;
     }
 };
+const  Game_Party_removeActor =Game_Party.prototype.removeActor;
+Game_Party.prototype.removeActor = function(actorId){
+    if (this._actors.contains(actorId)) {
+        const actor = $gameActors.actor(actorId);
+        actor.itemPocket().releaseAllItem();
+    }
+    Game_Party_removeActor.call(this,actorId);
+
+};
+
+
 /**
  * @param {Number} itemId
  */
