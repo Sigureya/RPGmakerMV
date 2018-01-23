@@ -225,15 +225,15 @@
  * @parent buttons
  * 
  * @param button10
- * @desc PS2コントローラ：
+ * @desc PS2コントローラ：左スティック押し込み
  * @type struct<ButtonInfo>
- * @default {"buttonName":"button10","action":""}
+ * @default {"buttonName":"L push","action":""}
  * @parent buttons
  * 
  * @param button11
- * @desc PS2コントローラ：
+ * @desc PS2コントローラ：右スティック押し込み
  * @type struct<ButtonInfo>
- * @default {"buttonName":"button11","action":""}
+ * @default {"buttonName":"R push","action":""}
  * @parent buttons
  * 
  * @param moveButtons
@@ -287,6 +287,12 @@
  * @default →
  * @parent moveButtons
  * 
+ * @param button16
+ * @desc PS2コントローラ：
+ * @type struct<ButtonInfo>
+ * @default {"buttonName":"button16","action":""}
+ * @parent buttons
+ * @param button_unknow
  * 
  * @param CommandDefaultWidth
  * @type number
@@ -312,12 +318,6 @@
  * @default 4
  * @parent CommandWidth
  * 
- * @param button16
- * @desc PS2コントローラ：
- * @type struct<ButtonInfo>
- * @default {"buttonName":"button16","action":""}
- * @parent buttons
- * @param button_unknow
  * 
  * @param gamepadConfigPositionMode
  * @text ゲームパッドコンフィグの位置
@@ -1023,6 +1023,18 @@ Imported.Mano_InputConfig = true;
 
 (function(global){
     'use strict'
+
+    const objectClone = (!!Object.assign)?Object.assign :(function(obj){
+        var result ={};
+        Object.keys(obj).forEach(function(key){
+            result[key] = obj[key];
+        })
+        return result;
+    })
+    
+    // function objectClone( obj ){
+    //     return Object.assign({},obj);
+    // }
 const moveSymbols =['up','down','left','right'];
 const setting = (function(){
     /**
@@ -1064,13 +1076,14 @@ const setting = (function(){
     }
 
     function makeKeyboardSamples(){
-        const RPGmakerDefault =Object.assign({},  Input.keyMapper);
+        const RPGmakerDefault =objectClone(  Input.keyMapper);
         return [RPGmakerDefault];
     }
 
     function makeConfigSamples(){
-        const RPGmakerDefault =Object.assign({},  Input.gamepadMapper);
-        const ab_swaped =Object.assign({},  Input.gamepadMapper);
+        console.log(Input.gamepadMapper);
+        const RPGmakerDefault =objectClone(  Input.gamepadMapper);
+        const ab_swaped =objectClone(  Input.gamepadMapper);
         ab_swaped[0] = RPGmakerDefault[1];
         ab_swaped[1] = RPGmakerDefault[0];
         return [RPGmakerDefault,ab_swaped];
@@ -1204,7 +1217,7 @@ const setting = (function(){
 
 //ツクールのデフォルトと同様の設定です
 function RPGmakerDefault(){
-    return Object.assign({},setting.configSamples[setting.configIndex]);
+    return objectClone(setting.configSamples[setting.configIndex]);
 }
 
 function createKeyboradMapper(){
@@ -1476,13 +1489,13 @@ function Window_GamepadConfig_MA(){
 Window_GamepadConfig_MA.baseType = Window_Selectable;
 Window_GamepadConfig_MA.prototype = Object.create(Window_GamepadConfig_MA.baseType.prototype);
 Window_GamepadConfig_MA.prototype.constructor = Window_GamepadConfig_MA;
-
 Window_GamepadConfig_MA.prototype.initialize=function(){
     this.setGamepadMapper(Input.gamepadMapper);
     const h = this.windowHeight();
     const w = this.windowWidth();
     var x =0;
     var y =0;
+    
     if(setting.gamepadConfigPosition.mode==='center'){
 //    if(setting.gamepadConfigPosition){
         x =(Graphics.boxWidth - w) / 2;///:setting.windowCustom.x;
@@ -1632,7 +1645,7 @@ Window_GamepadConfig_MA.prototype.configItems =function(){
     return this._list.length;
 };
 Window_GamepadConfig_MA.prototype.setGamepadMapper =function(map){
-    this._map = Object.assign({}, map);
+    this._map =   objectClone(map);
     this.makeItemList();
 };
 Window_GamepadConfig_MA.prototype.cloneGamepadMapper= function(){
@@ -2418,7 +2431,7 @@ Window_KeyConfig_MA.prototype.getKeyLayout =function(){
 
 
 Window_KeyConfig_MA.prototype.setKeyboradMapper =function(mapper){
-    this._map = Object.assign({}, mapper);
+    this._map = objectClone( mapper);
 };
 Window_KeyConfig_MA.prototype.canApplySetting =function(){
     return isValidMapper(this._map);
