@@ -76,6 +76,8 @@
  * アクターの最大LPはactor.baseLifePoint()+装備品などによる<LPbase>の合計値で求められます。
  * actor.baseLifePoint()はレベル/10を返します。
  * 
+ * ■更新履歴
+ * 2018/01/30 二重にライフポイントが失われたという表示だったのを修正。
 */
 (function(){
     'use strict'
@@ -142,7 +144,7 @@ Game_BattlerBase.prototype.baseLifePoint =function(){
 };
 
 Game_Actor.prototype.baseLifePoint =function(){
-    return setting.defaultLifePoint;
+    return setting.defaultLifePoint + Math.round( this.level /10);
 };
 
 Game_BattlerBase.prototype.callcurateMaxLifePoint =function(){
@@ -169,6 +171,9 @@ Game_Actor.prototype.callcurateMaxLifePoint =function(){
         }
     }
     return value + this.baseLifePoint();
+};
+Game_ActionResult.prototype.hasLifePointDamage =function(){
+    return this.lpDamage !==0;
 };
 
 const Game_ActionResult_clear =Game_ActionResult.prototype.clear;
@@ -210,6 +215,9 @@ function lifePointMessage(battler,lostLifePoint){
     }
     return setting.gainLifePointMessage.format(battler.name(),-lostLifePoint);    
 }
+
+
+
 /**
  * @param {Game_Battler} target 
  */
@@ -223,6 +231,60 @@ Window_BattleLog.prototype.displayLostLifePoint =function(target){
         this.push('waitForNewLine');
         this.push('popBaseLine');
     }
+};
+
+class Sprite_LPdamage extends Sprite_Damage{
+    constructor(){
+        super();
+    }
+    update(){
+        if(this.visible){
+            super.update();
+        }
+    }
+    isPlaying(){
+        return !this.visible || super.isPlaying();
+    }
+}
+
+const Sprite_Battler_isAnimationPlaying=Sprite_Battler.prototype.isAnimationPlaying;
+Sprite_Battler.prototype.isAnimationPlaying =function(){
+    if(this._lpDamage && this._lpDamage.isPlaying()){
+        return true;
+    }
+    return Sprite_Battler_isAnimationPlaying.call(this) ;
+};
+const  Sprite_Battler_updateDamagePopup = Sprite_Battler.prototype.updateDamagePopup;
+Sprite_Battler.prototype.updateDamagePopup = function(){
+    Sprite_Battler_updateDamagePopup.call(this);
+    if(this._lpDamage){
+        if(this._damages.length ===0){
+            this._lpDamage.visible =true;
+        }
+        if(!this._lpDamage.isPlaying()){
+            this.parent.removeChild(this._lpDamage);
+            this._lpDamage =null;
+        }
+    } 
+};
+
+const Sprite_Battler_setupDamagePopup =Sprite_Battler.prototype.setupDamagePopup;
+Sprite_Battler.prototype.setupDamagePopup = function(){
+    if (this._battler.isDamagePopupRequested()) {
+        if (this._battler.isSpriteVisible()) {
+            const result= this._battler.result();
+            if(result.lpDamage!==0){
+                const sprite = new Sprite_LPdamage();
+                sprite.x = this.x + this.damageOffsetX();
+                sprite.y = this.y + this.damageOffsetY()+10;
+                sprite.createDigits(0,result.lpDamage);
+                sprite.visible =false;
+                this.parent.addChild(sprite);
+                this._lpDamage = sprite;
+            }
+        }
+    }
+    Sprite_Battler_setupDamagePopup.call(this);
 };
 
 const Game_BattlerBase_recoverAll =Game_BattlerBase.prototype.recoverAll;
@@ -244,8 +306,7 @@ Game_Battler.prototype.addNewState =function(stateId){
     Game_Battler_addNewState.call(this,stateId);
     if(stateId ===this.deathStateId()){
          const damage= this.lostLifePoint();         
-         this._lp -= damage;
-         this.result().lpDamage +=damage;
+         this.gainLifePoint( -damage);
     }
 };
 
@@ -256,6 +317,8 @@ Game_Battler.prototype.gainLifePoint=function(point){
         this.addState(this.deathStateId());
     }
 };
+
+
 Game_Action.prototype.isLpDamage=function(){
     const meta = this.item().meta;
     return meta.LPdamage || meta.LPdamageAll;
