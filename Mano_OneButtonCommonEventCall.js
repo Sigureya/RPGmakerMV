@@ -70,10 +70,23 @@
  * オプション画面を開いて初期設定に戻すを選択してください。
  * 解決するかもしれません。
  * 
+ * ver 2.0(2018/02/01)　更新
+ * 破壊的変更
+ * キーコードの指定方法を変更　数字キーを押して、動作を確認してください。
+ * 
  * var 1.0(2017/10/17) 公開
  */
 
+/**
+ * TODO:
+ * autoExportの無効化機能
+ * 
+ */
+
 /*~struct~CommonDefine:
+ * @param text
+ * @desc コマンド名称です
+ * 
  * @param enabled
  * @desc このパラメータがONの時だけ、機能します
  * デバッグ用に機能を無効化する場合を想定しています
@@ -92,8 +105,6 @@
  * @param symbol
  * @desc Input.isTriggered()の引数として使われます
  * 
- * @param text
- * @desc コマンド名称です
  * 
  * @param mandatory
  * @desc inputConfigの方で必須指定されたものとして扱います。
@@ -101,9 +112,14 @@
  * @default false
  * 
  * @param keycode
- * @desc キーボードの割り当てです
- * キーコードは各自調べてください
+ * @desc キーボードの割り当てです。（廃止予定）
+ * 0以外を指定すると、警告が出ます。
  * @type number
+ * 
+ * @param keyList
+ * @desc キーボードの割り当てです。(半角・大文字) 
+ * Aと入れればAを押したときにイベントを実行します。
+ * @type string
  * 
  * @param padButton
  * @desc ゲームパッドの割り当てです
@@ -113,13 +129,13 @@
  * @option non(割り当てなし)
  * @value -1
  * @type select
- * @option button6
+ * @option button6(L2)
  * @value 6
- * @option button7
+ * @option button7(R2)
  * @value 7
- * @option button8
+ * @option button8(select)
  * @value 8
- * @option button9
+ * @option button9(start)
  * @value 9
  * @option button10
  * @value 10
@@ -152,53 +168,75 @@ var MA_InputSymbols =MA_InputSymbols||[];
 
 (function () {
     'use strict';
-function fetchCommonEvent(CommonDefine){
-    const obj =JSON.parse(CommonDefine);
-    const enabled=(obj.enabled==='true');
-    if(!enabled){
-        return null;
+
+
+const setting= (function(){
+     function fetchCommonEvent(CommonDefine){
+        const obj =JSON.parse(CommonDefine);
+        const enabled=(obj.enabled==='true');
+        if(!enabled){
+            return null;
+        }
+        return {
+            enableSwitch:Number(obj.enableSwitch ||0 ),
+            symbol:String(obj.symbol),
+            text:String(obj.text),
+            eventId:Number(obj.event),
+            keycode:Number(obj.keycode),
+            keyList:String(obj.keyList),
+            padButtonNumber:Number(obj.padButton),
+            mandatory:(obj.mandatory==='true'),
+        };
     }
-    return {
-//        enabled:(obj.enabled==='true'),
-        enableSwitch:Number(obj.enableSwitch ||0 ),
-        symbol:String(obj.symbol),
-        text:String(obj.text),
-        eventId:Number(obj.event),
-        keycode:Number(obj.keycode),
-        padButtonNumber:Number(obj.padButton),
-        mandatory:(obj.mandatory==='true'),
-    };
-}
-function createCommonEventList(params){
-    return [
-        fetchCommonEvent(params.commonA),
-        fetchCommonEvent(params.commonB),
-        fetchCommonEvent(params.commonC),
-        fetchCommonEvent(params.commonD),
-        fetchCommonEvent(params.commonE),
-        fetchCommonEvent(params.commonF),
-        fetchCommonEvent(params.commonG),
-        fetchCommonEvent(params.commonH),        
-    ];//.filter(function(e){return !!e});
-}
-function createSetting(){
-    const params =PluginManager.parameters('Mano_OneButtonCommonEventCall')
-    const result= {
-        eventList:createCommonEventList(params)
-    };
-    return result;
-}
+    function createCommonEventList(params){
+        return [
+            fetchCommonEvent(params.commonA),
+            fetchCommonEvent(params.commonB),
+            fetchCommonEvent(params.commonC),
+            fetchCommonEvent(params.commonD),
+            fetchCommonEvent(params.commonE),
+            fetchCommonEvent(params.commonF),
+            fetchCommonEvent(params.commonG),
+            fetchCommonEvent(params.commonH),        
+        ];//.filter(function(e){return !!e});
+    }
+        const params =PluginManager.parameters('Mano_OneButtonCommonEventCall')
+        const result= {
+            eventList:createCommonEventList(params)
+        };
+    return result
+})();
 
-const setting = createSetting();
+(function(){
 
-function setMapper(){
+    /**
+     * 
+     * @param {Number} keycode 
+     * @param {String} symbol 
+     */
+    function setKeySymbol(keycode,symbol){
+//        console.log('keymapper'+keycode+'='+symbol);
+        const preDef =Input.keyMapper[keycode ];
+        if(preDef){
+            console.log("上書き警告("+keycode+"):"+preDef+"を"+symbol+"に上書きしようとしています");
+        }
+        Input.keyMapper[keycode ] =symbol;
+    }
 
     setting.eventList.forEach(function(data){
         if(!data){return;}
-        if(data.keycode !==undefined){
-            Input.keyMapper[data.keycode ] =data.symbol;
+
+        const keyListLen = data.keyList.length;
+        for(var i=0; i < keyListLen; ++i){
+            setKeySymbol( data.keyList.charCodeAt(i)  ,data.symbol);
+        }
+
+        if(data.keycode > 0){
+            console.log("warning:keycodeの番号指定は廃止予定なので、keylistを使ってください")
+            setKeySymbol(data.keycode,data.symbol);
         }
         if( (  data.padButtonNumber)>=0){
+            console.log("button"+data.padButtonNumber+"="+data.symbol);
             Input.gamepadMapper[ data.padButtonNumber]=data.symbol;
         }
 
@@ -208,9 +246,9 @@ function setMapper(){
             symbol:data.symbol,
         })
     })
-}
+})()
 
-setMapper();
+//setMapper();
 /**
  * @param {Number} settingId
  */
