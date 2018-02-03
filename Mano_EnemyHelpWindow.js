@@ -74,6 +74,11 @@
  * @desc 属性を文字で表示するかアイコンで表示するかを決めます。
  * @default text
  * 
+ * @param elementIconList
+ * @desc 属性アイコン用にスキルデータを参照します。
+ * （属性が重複している場合、未定義の動作）
+ * @type skill[]
+ * 
  * @param iconList
  * @type []
  * @desc アイコンを属性の並び順と同じように、並べてください。
@@ -119,26 +124,67 @@
         result.unshift(null);
         return result;
     }
+    function myParams(){
+        return PluginManager.parameters('Mano_EnemyHelpWindow');;
+    }
 
 
-	var param = PluginManager.parameters('Mano_EnemyHelpWindow');
-	const setting ={
-        weakLine:Number(param.WeakLine)/100,
-	    resistanceLine:Number(param.ResistanceLine)/100,
-        weakName : String(param.WeakName),
-        resistanceName :String(param.ResistanceName),
-        displayMode : String(param.displayMode),
-        rect :{
-            x:parseInt(param.WindowX),
-            y:parseInt(param.WindowY),
-            width:Number(param.WindowWidth),
-            height:Number(param.WindowHeight)
-        },
-        elementIcon:createIconLiset( param),
-        hiddenState:Number(param.hiddenState),
-        hiddenIcon:Number(param.hiddenIcon),
+	const setting =(function(){
+        const param = myParams();
+
+        const result= {
+            weakLine:Number(param.WeakLine)/100,
+            resistanceLine:Number(param.ResistanceLine)/100,
+            weakName : String(param.WeakName),
+            resistanceName :String(param.ResistanceName),
+            displayMode : String(param.displayMode),
+            rect :{
+                x:parseInt(param.WindowX),
+                y:parseInt(param.WindowY),
+                width:Number(param.WindowWidth),
+                height:Number(param.WindowHeight)
+            },
+//            elementIcon:createIconLiset( param),
+            hiddenState:Number(param.hiddenState),
+            hiddenIcon:Number(param.hiddenIcon),
+            elementIcon:[],
       };
+      return result;
+    })();
 const elementItemFunc=setting.displayMode==='text' ? toElementName:toIcon;
+
+
+
+
+function iconSampling(){
+    const param = myParams();
+    const array =[];
+    array.length = $dataSystem.elements.length;
+    for(var i=0;i <array.length;++i){
+        array[i]=0;
+    }
+
+
+    const list = JSON.parse(param.elementIconList);
+    const listLen =list.length;
+    for(var i=0;i <listLen;++i){
+        let skillID= Number(list[i]);
+        let skill = $dataSkills[skillID];
+        let elm= skill.damage.elementId;
+        array[elm] = skill.iconIndex;
+    }
+
+    setting.elementIcon =array;
+}
+
+
+const Scene_Boot_start=Scene_Boot.prototype.start;
+Scene_Boot.prototype.start =function(){
+    Scene_Boot_start.call(this);
+    iconSampling();
+
+
+};
 
 class Window_EenmyHelp extends Window_Selectable{
     constructor(x,y,w,h){
