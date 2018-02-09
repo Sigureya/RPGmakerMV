@@ -88,6 +88,7 @@ const setting =(function(){
         lostLifePointMessage:String(param.lostLifePointMessage),
         gainLifePointMessage:String(param.gainLifePointMessage),
         defaultLifePoint:Number(param.defaultLifePoint),
+        mixmumLifePoints:Number(param.mixmumLifePoints),
     };
 })();
 /**
@@ -170,7 +171,8 @@ Game_Actor.prototype.callcurateMaxLifePoint =function(){
             value+= traits[i].meta.LPbase;
         }
     }
-    return value + this.baseLifePoint();
+
+    return  Math.min(setting.mixmumLifePoints,   value + this.baseLifePoint());
 };
 Game_ActionResult.prototype.hasLifePointDamage =function(){
     return this.lpDamage !==0;
