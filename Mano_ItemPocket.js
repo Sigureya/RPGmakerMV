@@ -62,7 +62,18 @@
  * 
  * 
  * @param command
- * @text コマンド
+ * @text コマンドリスト
+ * @desc ゲーム中で有効なコマンドの一覧です。
+ * ここで並び順を調整できます。
+ * @default ["use","pass","swap","remove","add","myset"]
+ * @type select[]
+ * @option use
+ * @option pass
+ * @option add
+ * @option swap
+ * @option remove
+ * @option myset
+ * 
  * 
  * @param CommandUse
  * @type string
@@ -309,6 +320,12 @@
  * 現在のタスク
  * 
  * TODO
+ * 
+ * コマンド（モード）の任意配置・無効化（そうりんさんリクエスト）
+ * 優先度高め
+ * 
+ * 
+ * 
  * 装備品も一緒にする（ほぼ無理　アイテムのフリをする装備品を作ればあるいは？）
  * ↑アクター本体からデータを取得すればいいかも？
  * 
@@ -375,12 +392,11 @@
 //     }
 // }
 
-(function(){});
 
 function MA_itemPocket(){
     this.initialize.apply(this,arguments);
 }
-
+MA_itemPocket.pocketSize =0;
 
 /**
  * 
@@ -845,11 +861,14 @@ MA_itemPocket.prototype.loadMyset =function(myset){
 
 (function (global) {
     'use strict';
-function createSetting(){
+
+const setting = (function(){
     const param = PluginManager.parameters('Mano_ItemPocket');
     MA_itemPocket.pocketSize =Number(param.pocketSize);
 
-    const setting=  {
+
+
+    const result=  {
         maxAmount : Number (param.maxAmount),
         weight:Number(param.defaultWeight),
         canDuplicate:Boolean(param.canDuplicate==='true'),
@@ -870,6 +889,11 @@ function createSetting(){
 
         commandKey :"actorItemEquip",
         commandName:String(param.menuCommand),
+
+        /**
+         * @type {String[]}
+         */
+        commandList:(JSON.parse(param.command)),
 
         wordUse:String(param.CommandUse),
         symbolUse:'use',
@@ -901,9 +925,8 @@ function createSetting(){
             weight:'Weight'
         },
     };
-    return setting;
-}
-const setting = createSetting();
+    return result;
+})();
     const Mano_ItemPocket_State={
         includeParty:false,
         includeAll:false,
@@ -1366,7 +1389,7 @@ Window_PocketModeSelect.prototype.maxCols = function() {
 
 Window_PocketModeSelect.prototype.addUseCommand =function(){
     this.addCommand(setting.wordUse, setting.symbolUse );    
-};
+};0
 Window_PocketModeSelect.prototype.addRemoveCommand =function(){
     this.addCommand(setting.wordRemove, setting.symbolRemove );    
 };
@@ -1387,12 +1410,17 @@ Window_PocketModeSelect.prototype.addMysetCommand =function(){
 };
 
 Window_PocketModeSelect.prototype.makeCommandList =function(){
-    this.addUseCommand();
-    this.addPassCommand();
-    this.addSwapCommand();
-    this.addRemoveCommand();
-    this.addAddCommand();
-    this.addMysetCommand();
+
+
+    for (const func of Window_PocketModeSelect.commandListDefine) {
+        func.call(this);
+    }
+    // this.addUseCommand();
+    // this.addPassCommand();
+    // this.addSwapCommand();
+    // this.addRemoveCommand();
+    // this.addAddCommand();
+    // this.addMysetCommand();
 };
 
 Window_PocketModeSelect.prototype.processPageup =function(){
@@ -1405,6 +1433,27 @@ Window_PocketModeSelect.prototype.processPagedown =function(){
     this.updateInputData();
     this.callHandler('pagedown');
 };
+
+function createModeselectCommands(){
+    const result =[];
+    const table ={
+        add:Window_PocketModeSelect.prototype.addAddCommand,
+        remove:Window_PocketModeSelect.prototype.addRemoveCommand,
+        use:Window_PocketModeSelect.prototype.addUseCommand,
+        swap:Window_PocketModeSelect.prototype.addSwapCommand,
+        myset: Window_PocketModeSelect.prototype.addMysetCommand,
+        pass: Window_PocketModeSelect.prototype.addPassCommand,
+    };
+
+    for( const command of setting.commandList){
+        const func = table[command];
+        if(func){
+            result.push(func);
+        }
+    }
+    return result;
+}
+Window_PocketModeSelect.commandListDefine =createModeselectCommands();
 // Window_PocketModeSelect.prototype.isOpenAndActive =function(){
 
 // };
@@ -3913,7 +3962,6 @@ Game_Party.prototype.removeActor = function(actorId){
         actor.itemPocket().releaseAllItem();
     }
     Game_Party_removeActor.call(this,actorId);
-
 };
 
 
@@ -4026,7 +4074,7 @@ Game_Actor.prototype.setup = function(actorId) {
 };
 
 Game_Actor.prototype.setupPocket =function(){
-    if(this.pocket_MA){
+    if(!!this.pocket_MA){
         return;
     }
 
