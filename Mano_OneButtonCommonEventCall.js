@@ -17,35 +17,27 @@
  * 
  * @param commonA
  * @type Struct<CommonDefine>
- * @default {"enabled":"false","enableSwitch":"0","event":"0","symbol":"event1","description":"イベント1","text":"イベント1","keycode":"","padButton":"-1"}
  * 
  * @param commonB
  * @type Struct<CommonDefine>
- * @default {"enabled":"false","enableSwitch":"0","event":"0","symbol":"event2","description":"イベント2","text":"イベント2","keycode":"","padButton":"-1"}
  * 
  * @param commonC
  * @type Struct<CommonDefine>
- * @default {"enabled":"false","enableSwitch":"0","event":"0","symbol":"event3","description":"イベント3","text":"イベント3","keycode":"","padButton":"-1"}
  * 
  * @param commonD
  * @type Struct<CommonDefine>
- * @default {"enabled":"false","enableSwitch":"0","event":"0","symbol":"event4","description":"イベント4","text":"イベント4","keycode":"","padButton":"-1"}
  * 
  * @param commonE
  * @type Struct<CommonDefine>
- * @default {"enabled":"false","enableSwitch":"0","event":"0","symbol":"event5","description":"イベント5","text":"イベント5","keycode":"","padButton":"-1"}
  * 
  * @param commonF
  * @type Struct<CommonDefine>
- * @default {"enabled":"false","enableSwitch":"0","event":"0","symbol":"event6","description":"イベント6","text":"イベント6","keycode":"","padButton":"-1"}
  * 
  * @param commonG
  * @type Struct<CommonDefine>
- * @default {"enabled":"false","enableSwitch":"0","event":"0","symbol":"event7","description":"イベント7","text":"イベント7","keycode":"","padButton":"-1"}
  * 
  * @param commonH
  * @type Struct<CommonDefine>
- * @default {"enabled":"false","enableSwitch":"0","event":"0","symbol":"event8","description":"イベント8","text":"イベント8","keycode":"","padButton":"-1"}
  *
  * @help
  * 1ボタンでコモンイベントを呼び出せるようになります。
@@ -70,6 +62,12 @@
  * オプション画面を開いて初期設定に戻すを選択してください。
  * 解決するかもしれません。
  * 
+ * ver 2.1(2018/03/01) 更新
+ * 破壊的変更
+ * 割り込み設定のパラメータを追加
+ * アクションゲームで使っている方は要注意
+ * パラメータのデフォルト値を変更
+ * 自分で使っていて、ミスが多発したので
  * ver 2.0(2018/02/01)　更新
  * 破壊的変更
  * キーコードの指定方法を変更　数字キーを押して、動作を確認してください。
@@ -91,6 +89,7 @@
  * @desc このパラメータがONの時だけ、機能します
  * デバッグ用に機能を無効化する場合を想定しています
  * @type boolean
+ * @default true
  *  
  * @param enableSwitch
  * @desc 指定したスイッチがONの時だけ、呼びだしを行います。
@@ -103,18 +102,22 @@
  * @type common_event
  * 
  * @param symbol
- * @desc Input.isTriggered()の引数として使われます
+ * @desc Input.isTriggered()の引数として使われます。
+ * 他のプラグインと重複しないような名前を付けてください。
  * 
+ * @param interrupt
+ * @desc 他のイベントが実行されている時に割り込むかを決めます。
+ * アクションゲームの場合、trueにすると良いと思います。
+ * @on 割り込む
+ * @off 割り込まない(入力を無視)
+ * @type boolean
+ * @default false
  * 
  * @param mandatory
  * @desc inputConfigの方で必須指定されたものとして扱います。
  * @type boolean
  * @default false
  * 
- * @param keycode
- * @desc キーボードの割り当てです。（廃止予定）
- * 0以外を指定すると、警告が出ます。
- * @type number
  * 
  * @param keyList
  * @desc キーボードの割り当てです。(半角・大文字) 
@@ -153,6 +156,11 @@
  * @value 4
  * @option button5(pagedown)
  * @value 5
+ * @param keycode
+ * @desc キーボードの割り当てです。（廃止予定）
+ * 0以外を指定すると、警告が出ます。
+ * @type number
+ * @default 0
  */
 /*~
  * @param description
@@ -172,20 +180,36 @@ var MA_InputSymbols =MA_InputSymbols||[];
 
 const setting= (function(){
      function fetchCommonEvent(CommonDefine){
+         if(!CommonDefine){
+             console.log("データが無いよ")
+             return null;
+         }
         const obj =JSON.parse(CommonDefine);
         const enabled=(obj.enabled==='true');
         if(!enabled){
+            console.log("無効だから無視したよ")
             return null;
         }
+        const eventId_ = Number(obj.event);
+        if(!(eventId_>0)){
+            console.log("イベント番号が不正だからやめたよ")
+            return null;
+        }
+        if(!obj.symbol){
+            console.log("シンボルが設定されてないよ");
+            return null;
+        }
+
         return {
             enableSwitch:Number(obj.enableSwitch ||0 ),
             symbol:String(obj.symbol),
             text:String(obj.text),
-            eventId:Number(obj.event),
+            eventId:eventId_,
             keycode:Number(obj.keycode),
             keyList:String(obj.keyList),
             padButtonNumber:Number(obj.padButton),
-            mandatory:(obj.mandatory==='true'),
+            mandatory:(obj.mandatory==='true'),   
+            interrupt:(obj.interrupt==='true'),
         };
     }
     function createCommonEventList(params){
@@ -220,6 +244,7 @@ const setting= (function(){
         if(preDef){
             console.log("上書き警告("+keycode+"):"+preDef+"を"+symbol+"に上書きしようとしています");
         }
+        console.log("keycode:"+keycode+"に"+symbol);
         Input.keyMapper[keycode ] =symbol;
     }
 
@@ -253,6 +278,7 @@ const setting= (function(){
  * @param {Number} settingId
  */
 MA_OneButtonCommonEvent.prototype.initialize =function(settingId){
+    this._settingId = settingId;
     const param =setting.eventList[settingId];
     this._commonEventId = param.eventId;
     this._enableSwitch=  param.enableSwitch;
@@ -285,16 +311,44 @@ MA_OneButtonCommonEvent.prototype.isSwitchOk =function(){
 MA_OneButtonCommonEvent.prototype.isCalled=function(){
     return Input.isTriggered(this._symbol);
 };
+MA_OneButtonCommonEvent.prototype.isCallOK=function(){
+    if(!Input.isTriggered(this._symbol)){
+        return false;
+    }
+    console.log("入力受付:"+this._symbol);
+    const def = setting.eventList[this._settingId];
+
+    return (!SceneManager.isSceneChanging())
+    && (!this._interpreter.isRunning())
+    && (def.interrupt || !$gameMap.isEventRunning())
+    && (def.enableSwitch ===0 || $gameSwitches.value(def.enableSwitch));
+
+    if(SceneManager.isSceneChanging()){return false};
+
+    if( this._interpreter.isRunning() ){
+        return false;
+    }
+    if(!def.interrupt && $gameMap.isEventRunning()){
+        return false;
+    }
+    if (def.enableSwitch !==0 && $gameSwitches.value(def.enableSwitch)){
+        return false;
+    }
+
+    return true;
+
+};
+
 
 MA_OneButtonCommonEvent.prototype.update=function(){
-    if (this._interpreter) {
-        if (!this._interpreter.isRunning()  && this.isCalled() ) {
-            if(this.isSwitchOk()){
-                this._interpreter.setup(this.list());
-            }
+
+    if(this._interpreter){
+        if(this.isCallOK()){
+            this._interpreter.setup(this.list());            
         }
         this._interpreter.update();
     }
+    return;
 };
 /**
  * @return {MA_OneButtonCommonEvent[]}
