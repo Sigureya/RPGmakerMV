@@ -178,10 +178,11 @@ var MA_InputSymbols =MA_InputSymbols||[];
     'use strict';
 
 
+
 const setting= (function(){
      function fetchCommonEvent(CommonDefine){
          if(!CommonDefine){
-             console.log("データが無いよ")
+//             console.log("データが無いよ")
              return null;
          }
         const obj =JSON.parse(CommonDefine);
@@ -239,7 +240,6 @@ const setting= (function(){
      * @param {String} symbol 
      */
     function setKeySymbol(keycode,symbol){
-//        console.log('keymapper'+keycode+'='+symbol);
         const preDef =Input.keyMapper[keycode ];
         if(preDef){
             console.log("上書き警告("+keycode+"):"+preDef+"を"+symbol+"に上書きしようとしています");
@@ -261,7 +261,7 @@ const setting= (function(){
             setKeySymbol(data.keycode,data.symbol);
         }
         if( (  data.padButtonNumber)>=0){
-            console.log("button"+data.padButtonNumber+"="+data.symbol);
+//            console.log("button"+data.padButtonNumber+"="+data.symbol);
             Input.gamepadMapper[ data.padButtonNumber]=data.symbol;
         }
 
@@ -308,40 +308,24 @@ MA_OneButtonCommonEvent.prototype.isSwitchOk =function(){
     return this._enableSwitch ===0||$gameSwitches.value(this._enableSwitch);
 };
 
-MA_OneButtonCommonEvent.prototype.isCalled=function(){
-    return Input.isTriggered(this._symbol);
-};
+// MA_OneButtonCommonEvent.prototype.isCalled=function(){
+//     return Input.isTriggered(this._symbol);
+// };
 MA_OneButtonCommonEvent.prototype.isCallOK=function(){
-    if(!Input.isTriggered(this._symbol)){
+    const def = setting.eventList[this._settingId];
+    if(!Input.isTriggered(def.symbol)){
         return false;
     }
-    console.log("入力受付:"+this._symbol);
-    const def = setting.eventList[this._settingId];
 
     return (!SceneManager.isSceneChanging())
     && (!this._interpreter.isRunning())
     && (def.interrupt || !$gameMap.isEventRunning())
     && (def.enableSwitch ===0 || $gameSwitches.value(def.enableSwitch));
 
-    if(SceneManager.isSceneChanging()){return false};
-
-    if( this._interpreter.isRunning() ){
-        return false;
-    }
-    if(!def.interrupt && $gameMap.isEventRunning()){
-        return false;
-    }
-    if (def.enableSwitch !==0 && $gameSwitches.value(def.enableSwitch)){
-        return false;
-    }
-
-    return true;
-
 };
 
 
 MA_OneButtonCommonEvent.prototype.update=function(){
-
     if(this._interpreter){
         if(this.isCallOK()){
             this._interpreter.setup(this.list());            
