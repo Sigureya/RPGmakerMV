@@ -437,9 +437,9 @@
  * 
  * @help
  * ゲームの起動時の設定をデフォルト値として読み込みます。
- * このプラグインよりも早く、
- * Input.gamepadMapperが変更されていた場合、
+ * このプラグインよりも早く、Input.gamepadMapperが変更されていた場合、
  * それを初期値として扱います。
+ * そのため、できる限り後ろに配置することをお勧めします。
  * 
  * このプラグインで設定したコンフィグデータは、ファイルに記録されます。
  * 新しいプラグインを入れた場合、
@@ -1081,11 +1081,14 @@ const setting = (function(){
     }
 
     function makeConfigSamples(){
-        console.log(Input.gamepadMapper);
+//        console.log(Input.gamepadMapper);
         const RPGmakerDefault =objectClone(  Input.gamepadMapper);
         const ab_swaped =objectClone(  Input.gamepadMapper);
-        ab_swaped[0] = RPGmakerDefault[1];
-        ab_swaped[1] = RPGmakerDefault[0];
+        const a = RPGmakerDefault[1];
+        const b = RPGmakerDefault[0];
+
+        ab_swaped[0] =a;
+        ab_swaped[1] =b;
         return [RPGmakerDefault,ab_swaped];
     }
 
@@ -1231,8 +1234,9 @@ function createGamepadMapper(){
 
 (function MA_InputSymbolsEx_Import(){
     if(!MA_InputSymbols){return;}
+    const len =MA_InputSymbols.length;
 
-    for(var i =0; i <MA_InputSymbols.length; ++i){
+    for(var i =0; i < len; ++i){
         var elem =MA_InputSymbols[i];
         var symbol = elem.symbol;
         var mandatory =elem.mandatory;
@@ -1301,8 +1305,6 @@ Input.gamepadMapper = createGamepadMapper();
 const MA_KEYBOARD_CONFIG ='KEYBOARD_CONFIG';
 const MA_GAMEPAD_CONFIG = 'GAMEPAD_CONFIG';
 const MA_KEYBOARD_LAYOUT ='KEYBOARD_LAYOUT';
-// const MA_KEYBOARD_LAYOUT_JIS ='KEYBOARD_LAYOUT_JIS';
-// const MA_KEYBOARD_LAYOUT_JIS ='KEYBOARD_LAYOUT_US';
 
 
 function readGamePadConfig( config ){
@@ -1371,7 +1373,8 @@ function inputMapperHasSymbol(mapper,symbol){
 }
 
 function isValidMapper(mapper){
-    for(var i=0; i < setting.mandatorySymbols.length;++i){
+    const len =setting.mandatorySymbols.length;
+    for(var i=0; i < len;++i){
         var symbol = setting.mandatorySymbols[i];
         if(!inputMapperHasSymbol( mapper , setting.mandatorySymbols[i])){
             return false;
@@ -1460,7 +1463,8 @@ Window_InputSymbolList.prototype.currentSymbol =function(){
 
 Window_InputSymbolList.prototype.makeCommandList =function(){
     this._list =[];
-    for(var i=0; i <setting.symbolList.length; ++i){
+    const len =setting.symbolList.length;
+    for(var i=0; i <len; ++i){
         const actionKey = setting.symbolList[i];
         this.addCommand( symbolToText(actionKey)||setting.emptySymbolText ,actionKey,'テスト'+i);
     }
@@ -2101,7 +2105,7 @@ const KEYS ={
     Z:keyinfo('Z',90),
 
     SHIFT:keyinfo('Shift',16),
-    CTRL:keyinfo('CTRL',17),
+    CTRL:keyinfoEX('CTRL',17,false,true),
     INSERT:keyinfo('Ins',45),
     BACK:keyinfo('Back',8),
     HOME:keyinfo('Home',36),
@@ -2830,7 +2834,6 @@ Window_KeyConfig_MA.prototype.drawCommand =function(commandName,rect){
     this.changeTextColor(this.commandColor());
     this.drawRect(rect,this.commandBackColor());
     this.drawText(commandName,rect.x,rect.y,rect.width,'center');
-
 };
 
 /**
@@ -2847,8 +2850,6 @@ Window_KeyConfig_MA.prototype.drawDefaultCommand =function(){
     const rect = this.defaultCommandRect();
     this.drawCommand(setting.commandText.default_,rect);
 };
-
-
 
 /**
  * @return {Rectangle}
@@ -3048,6 +3049,8 @@ if(setting.hookPoint==='menu'){
         
     };
 }
+
+
 /**
  * @return {[key =string]: Function}
  */
