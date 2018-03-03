@@ -321,10 +321,6 @@
  * 
  * TODO
  * 
- * コマンド（モード）の任意配置・無効化（そうりんさんリクエスト）
- * 優先度高め
- * 
- * 
  * 
  * 装備品も一緒にする（ほぼ無理　アイテムのフリをする装備品を作ればあるいは？）
  * ↑アクター本体からデータを取得すればいいかも？
@@ -665,8 +661,6 @@ MA_itemPocket.prototype.weight =function(index){
         return item.weight_MA *amount;
     }
     return 0;
-
-
 };
 
 /**
@@ -1505,7 +1499,12 @@ Window_Pocket.prototype.createAllButtons =function(){
     ];
     this._buttonsWidth = 48 * buttons.length ;
 };
-
+/** 
+ * @return {Number}
+*/
+Window_Pocket.prototype.buttonsWidth =function(){
+    return this._buttonsWidth;
+};
 /**
  * @param {boolean}
  */
@@ -1731,7 +1730,7 @@ Window_Pocket.prototype.drawHorzLine = Window_Status.prototype.drawHorzLine;
 Window_Pocket.prototype.drawActorName =function(){
     this.changeTextColor(this.normalColor());
 
-    this.drawText(this.name(), this._buttonsWidth  ,0,this.itemWidth());
+    this.drawText(this.name(), this.buttonsWidth()  ,0,this.itemWidth());
     const y = this.contents.fontSize;
     this.drawHorzLine(y);
 };
@@ -3938,7 +3937,7 @@ function actorSetPocket(){
 }
 
 
-// デフォルトのconsumeItemを無力化する
+// デフォルトのconsumeItemを上書きして無力化する
 Game_Battler.prototype.consumeItem = function(item) {};
 
 // 代わりのアイテム使用を作っておく
@@ -4132,6 +4131,8 @@ Window_BattlePocket.prototype.initialize=function(){
     Window_Pocket.prototype.initialize.apply(this,arguments);
     this.hide();
 };
+
+Window_BattlePocket.prototype.createAllButtons =function(){}
 
 Window_BattlePocket.prototype.maxCols=function(){
     return 2;
