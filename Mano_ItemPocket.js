@@ -60,6 +60,9 @@
  * @default 重さ
  * @parent usingWeight
  * 
+ * @param command2
+ * @type struct<CommandSetting>[]
+ * @default []
  * 
  * @param command
  * @text コマンドリスト
@@ -75,49 +78,53 @@
  * @option myset
  * 
  * 
- * @param CommandUse
- * @type string
+ * @param use
+ * @type struct<CommandSetting>
  * @desc アイテムを使うコマンド名
- * @default 使う
+ * @default {"name":"","description":""}
  * @parent command
  * 
- * @param CommandSwap
- * @type string
+ * @param swap
+ * @type struct<CommandSetting>
  * @desc アイテムを入れ替えるコマンド名
- * @default 入れ替え
+ * @default {"name":"","description":""}
  * @parent command
  * 
- * @param CommandRemove
- * @type string
+ * @param remove
+ * @type struct<CommandSetting>
  * @desc アイテムをしまうコマンド名
- * @default しまう
+ * @default {"name":"","description":""}
  * @parent command
  * 
- * @param CommandAdd
- * @type string
+ * @param add
+ * @type struct<CommandSetting>
  * @desc アイテムを入れるコマンド名
- * @default 入れる
+ * @default {"name":"","description":""}
  * @parent command
  * 
- * @param CommandPass
- * @type string
+ * @param pass
+ * @type struct<CommandSetting>
  * @desc アイテムを渡すコマンド名
- * @default 渡す
+ * @default {"name":"","description":""}
  * @parent command
  * 
  * 
- * @param CommandMyset
- * @type string
+ * @param myset
+ * @type struct<CommandSetting>
  * @desc マイセットのコマンド名
- * @default マイセット
+ * @default {"name":"マイセット","description":"アイテム所持の組み合わせを保存できます"}
  * @parent command
  * 
- * @param CommandSort
- * @type string
+ * @param sort
+ * @type struct<CommandSetting>
  * @desc アイテムのソートのコマンド名
- * @default マイセット
+ * @default {"name":"","description":""}
  * @parent command
  * 
+ * @param numberSelectHelp
+ * @type string
+ * @desc 個数を選択するときのヘルプ文章を設定します
+ * @default 左右キーで個数を選択
  * @param sound
  * @text 効果音
  * 
@@ -148,6 +155,7 @@
  * @type switch
  * @default 0
  * 
+* 
  * @param pocket
  * @text ポケットの設定
  * 
@@ -181,8 +189,6 @@
  * @未実装
  * @default 4
  * 
- * @param myset
- * @text マイセット機能
  * 
  * @param usingMyset
  * @type boolean
@@ -303,6 +309,10 @@
  * タッチ操作周辺の不具合を修正
  * 本体のクラス構文を旧来の書き方からES5以降の物へ変更
  * 多数のエンバグ発生の可能性あり
+ * ver 2.1.0 (2018/03/28)
+ * ヘルプ表示を増やし、UIを改善
+ * プラグインパラメータの一部を破壊的変更（互換切り）
+ *
  * 
  * ver 1.4.0
  * タッチ操作向けのボタンを追加。
@@ -324,7 +334,16 @@
  * @param id
  * @param amount
  */
+/*~struct~CommandSetting:
+ * @param name
+ * @type string
+ * 
+ * @param description
+ * @type string
+ * 画面上部に表示する説明文です。
+ */
 
+ 
 
  /*
  * 現在のタスク
@@ -850,13 +869,64 @@ MA_itemPocket.TYPE_ARMOR =2;
 
 var Mano_ItemPocket =(function () {
 
+    class ModeSymbol{
+        /**
+         * 
+         * @param {String} symbol 
+         */
+        setSymbol(symbol){
+            this.symbol=symbol;
+        }
+        makeFromJSON(jsonObj){
+            this.description =String(jsonObj.description);
+            this.name = String(jsonObj.name);            
+        }
+    };
+
 const setting = (function(){
+
+
+
     const param = PluginManager.parameters('Mano_ItemPocket');
     MA_itemPocket.pocketSize =Number(param.pocketSize);
 
+    /**
+     * @param {String} symbol
+     */
+    function createCommandSetting(symbol,objText){
+        const result = new ModeSymbol();
+        result.setSymbol(symbol);
+        result.makeFromJSON(JSON.parse(objText));
+        return result;
+    }
+    const mode ={
+        use:createCommandSetting("use",param.use),
+        swap:createCommandSetting("swap",param.swap),
+        add:createCommandSetting("add",param.add),
+        remove:createCommandSetting("remove",param.remove),
+        pass:createCommandSetting("pass",param.pass),
+        myset:createCommandSetting("myset",param.myset),
+    };
+    /**
+     * @return {ModeSymbol[]}  
+     */
+    function createModeList( ){
+        const list= JSON.parse(param.command);
+        const len = list.length;
+        const result =[];
+        for(var i=0;i<len;++i){
+            const symbol = list[i];
+            const x = mode[symbol];
+            if(x){
+                result.push(x);
+            }
+        }
+        return result;
+    }
 
 
     const result=  {
+        
         maxAmount : Number (param.maxAmount),
         weight:Number(param.defaultWeight),
         canDuplicate:Boolean(param.canDuplicate==='true'),
@@ -874,6 +944,7 @@ const setting = (function(){
         loadMysetHelp:String(param.loadMysetHelp),
         renameMyset:String(param.renameMyset),
         weightText:String(param.weightText),
+        
 
         commandKey :"actorItemEquip",
         commandName:String(param.menuCommand),
@@ -882,6 +953,15 @@ const setting = (function(){
          * @type {String[]}
          */
         commandList:(JSON.parse(param.command)),
+        use:mode.use,
+        swap:mode.swap,
+        add:mode.add,
+        remove:mode.remove,
+        pass:mode.pass,
+        myset:mode.myset,
+        modeList :createModeList(),
+
+        numberSelectHelp:String(param.numberSelectHelp),
 
         wordUse:String(param.CommandUse),
         symbolUse:'use',
@@ -1007,6 +1087,7 @@ Scene_Boot.prototype.start= function() {
     for(var i =1; i < len;i+=1){
         pocketFunction.bootEachItem($dataItems[i]);
     }
+    setting;
 
 };
 
@@ -1228,6 +1309,7 @@ class Window_PocketNumber extends Window_Selectable{
     maxDigits() {
         return 2;
     }
+
     /**
      * @param {RPG.Item} item
      * @param {Number} max
@@ -1240,6 +1322,9 @@ class Window_PocketNumber extends Window_Selectable{
             this;
         }
         this.updateButtonsVisiblity();
+        if(this._helpWindow){
+            this._helpWindow.setText(setting.numberSelectHelp);
+        }
     }
     setPrevWindow(window) {
         this._prevWindow = window;
@@ -1322,6 +1407,86 @@ class Window_PocketNumber extends Window_Selectable{
     }
 }
 
+class Window_PocketModeSelect_V2 extends Window_Selectable{
+
+    constructor(x,y,w,h){
+        super(x,y,w,h);
+    }
+    initialize(x, y) {
+        this.makeItemList();
+        const width = this.windowWidth();
+        const height = this.fittingHeight(2);
+
+        super.initialize(x,y,width,height);
+        this.deactivate();
+        this.deselect();
+    }
+    activate(){
+        this.active=true;
+        super.activate();
+//        this.callUpdateHelp();
+    }
+    maxItems(){
+        return this._list.length;
+    }
+
+    windowWidth() {
+        return Graphics.boxWidth;
+    }
+    maxCols() {
+        return 4;
+    }
+    addUseCommand() {
+        this._list.push(setting.use);
+    }
+    addRemoveCommand() {
+        this._list.push(setting.remove);
+    }
+    addSwapCommand() {
+        this._list.push(setting.swap);
+    }
+    addAddCommand() {
+        this._list.push(setting.add);
+    }
+    addPassCommand() {
+        this._list.push(setting.pass);
+    }
+    addMysetCommand() {
+        if (setting.usingMyset) {
+            this._list.push(setting.myset);
+        }
+    }
+    currentSymbol(){
+        return this.item(this._index).symbol;
+    }
+    updateHelp(){
+        super.updateHelp();
+        this.setHelpWindowItem(this.item(this._index));
+    }
+    makeItemList() {
+        this._list = setting.modeList;
+    }
+    item(index){
+        return this._list[index];
+    }
+    drawItem(index){
+        const rect = this.itemRectForText(index);
+        const item =this.item(index);
+
+        this.drawText(item.name,rect.x,rect.y,rect.width);
+    }
+    processPageup() {
+        SoundManager.playCursor();
+        this.updateInputData();
+        this.callHandler('pageup');
+    }
+    processPagedown() {
+        SoundManager.playCursor();
+        this.updateInputData();
+        this.callHandler('pagedown');
+    }
+
+}
 
 class Window_PocketModeSelect extends Window_Command{
     initialize(x, y) {
@@ -1336,7 +1501,8 @@ class Window_PocketModeSelect extends Window_Command{
         return 4;
     }
     addUseCommand() {
-        this.addCommand(setting.wordUse, setting.symbolUse);
+        const data = setting.use;
+        this.addCommand(data.name, data.symbol);
     }
     addRemoveCommand() {
         this.addCommand(setting.wordRemove, setting.symbolRemove);
@@ -1437,21 +1603,36 @@ class Window_Pocket  extends Window_Selectable {
      * @param {Number} h 
      */
     initialize(x, y, w, h) {
+        this.usingHelp(true);
+
         this._pocket = new MA_itemPocket();
         super.initialize(x,y,w,h)
         this.deactivate();
         this.deselect();
         this.setActor(null);
         this.setEnableJudge(function(){return true;})
-//        this._enableJudge = ;
         this._pushLastNull = false;
         this._equips = [];
         this._passMode = false;
         this.createAllButtons();
-
-//        this.setHandler("pagedown",this.processButtonUp.bind(this));
-//        this.setHandler("pageup",this.processButtonUp.bind(this));
         this.setActorLock(false);
+    }
+    /**
+     * @param {Window_Help} window 
+     */
+    setHelpWindow(window){
+        this._helpWindow=window;
+    }
+    /**
+     * @param {Boolean} value 
+     */
+    usingHelp(value){
+        this._helpUse =!!value;
+    }
+    callUpdateHelp(){
+        if(this._helpUse && this._helpWindow){
+            this.updateHelp();
+        }
     }
 
     createButton(x, y, texcodeX, bitmap, func) {
@@ -2533,6 +2714,7 @@ class Scene_ItemPocket extends Scene_ItemBase {
     onAddItemOk() {
         const item = this._itemWindow.item();
         this.addItem(item);
+        this.setHelpText(this.selectAmountHelp());
     }
     /**
      * @return {Rectangle}
@@ -2575,11 +2757,13 @@ class Scene_ItemPocket extends Scene_ItemBase {
         this._numberWindow.setup(item, capacity, 1);
         this._numberWindow.refresh();
         this._numberWindow.activate();
+        this.setHelpText(setting.numberSelectHelp);
     }
     createNumberWindow() {
         const rect = this.subWindowRect();
         const num = new Window_PocketNumber(rect.x, rect.y, rect.width, this.smallPocketHegiht());
         this._numberWindow = num;
+//        num.setHelpWindow(this._helpWindow);
         num.setHandler('cancel', this.onNumberCancel.bind(this));
         num.setHandler('ok', this.onNumberOk.bind(this));
         num.openness = 0;
@@ -2698,6 +2882,7 @@ class Scene_ItemPocket extends Scene_ItemBase {
         this._numberWindow.setup(item, amount);
         this._numberWindow.refresh();
         this._numberWindow.activate();
+        this.setHelpText(setting.numberSelectHelp);
     }
     /**
      * @param {RPG.Item} item
@@ -2833,14 +3018,14 @@ class Scene_ItemPocket extends Scene_ItemBase {
         this._pocketWindow2.setPassItemMode(false);
         this._pocketWindow.setActorLock(false);
     }
+    selectAmountHelp(){
+        return setting.numberSelectHelp;
+    }
     passItemSelectAmount() {
-
-
         const item = this._pocketWindow.item();
         if (item) {
             this._pocketWindow2.selectOfItem(item, this._pocketWindow2.maxItems());
-        }
-        else {
+        } else {
             this._pocketWindow2.select(0);
         }
         this._pocketWindow2.setCursorFixed(true);
@@ -2849,6 +3034,7 @@ class Scene_ItemPocket extends Scene_ItemBase {
         this.saveUndoPass(this._pocketWindow);
         this.saveUndoPass(this._pocketWindow2);
         
+        this.setHelpText(this.selectAmountHelp());
         this.firtsPass();
     }
     firtsPass(){
@@ -3088,7 +3274,7 @@ class Scene_ItemPocket extends Scene_ItemBase {
     loadMyset() {
         this._mysetListWindow.activate();
         this._mysetListWindow.select(0);
-        this._helpWindow.setText(this.loadMysetText());
+        this.setHelpText(this.loadMysetText());
     }
     endLoadMyset() {
         this.mysetExecuteSucces();
@@ -3283,8 +3469,9 @@ class Scene_ItemPocket extends Scene_ItemBase {
         this.createModeMyset();
     }
     createModeSelectWindow() {
-        var a = new Window_PocketModeSelect(0, this._helpWindow.y + this._helpWindow.height);
+        var a = new Window_PocketModeSelect_V2(0, this._helpWindow.y + this._helpWindow.height);
         this._modeSelectWindow = a;
+        a.setHelpWindow(this._helpWindow);
         a.setHandler('cancel', this.onModeCancel.bind(this));
         a.setHandler('ok', this.onModeOk.bind(this));
         a.setHandler('pagedown', this.nextActor.bind(this));
@@ -3331,11 +3518,13 @@ class Scene_ItemPocket extends Scene_ItemBase {
         if(this._pocketWindow2.isOpen()){
             this._pocketWindow2.processButtonDown();
         }
+        this._pocketWindow.refresh();
     }
     subWindowPrevActor(){
         if(this._pocketWindow2.isOpen()){
             this._pocketWindow2.processButtonUp();
         }
+        this._pocketWindow.refresh();
     }
 
     createPocketWindow() {
@@ -3503,17 +3692,6 @@ class Scene_ItemPocket extends Scene_ItemBase {
         if (mode) {
             this.startMode(mode);
         }
-        return;
-        this._mode = this._modeSelectWindow.currentSymbol();
-        const modeObj = this.currentModeObject();
-        if (modeObj.usingSubWindow) {
-            this.openSubPocketWindow();
-        }
-        this._pocketWindow.setLastNull(modeObj.needNullPush);
-        modeObj.start();
-        // if(modeObj.needRefreshOnModeChange()){
-        //     this._pocketWindow.refresh();
-        // }
     }
     onModeCancel() {
         SceneManager.pop();
@@ -3542,7 +3720,6 @@ class Scene_ItemPocket extends Scene_ItemBase {
         this._pocketWindow.deselect();
         this._pocketWindow.setActorLock(false);
         this._modeSelectWindow.activate();
-        this._helpWindow.clear();
     }
     // /**
     //  * @param {string} mode
@@ -4021,7 +4198,6 @@ Game_Interpreter.prototype.command126 =function(){
 
     }
     return Game_Interpreter_command126.call(this);
-    
 
 };
 const Game_Interpreter_pluginCommand =Game_Interpreter.prototype.pluginCommand;
