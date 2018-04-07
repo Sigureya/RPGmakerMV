@@ -99,6 +99,14 @@
  * 指定値より大きい数値が指定された場合、999...などになります。
  * @default 8
  * 
+ * @param align
+ * @text 文字寄せ
+ * @desc 数字を左右どちらに寄せるかを決めます
+ * @type select 
+ * @option right
+ * @option left
+ * @default right
+ * 
  * @param padZero
  * @desc ゼロ埋め処理の有無を指定します
  * @type boolean
@@ -119,11 +127,15 @@
  * @desc 数字より上のレイヤーに表示される画像です。
  * @type struct<DecorationSprite>
  * 
- * 
+ */
+
+/**
+ * TODO 元々のピクチャーを割り込んで乗っ取る機能
+ * その番号のピクチャーは一切使えなくなる
  */
 
 var Mano_SpriteNumber=(function(){
-'use strict'
+'use strict';
 
 class Setting_SpriteNumber{
     constructor(jsonObject){
@@ -138,11 +150,13 @@ class Setting_SpriteNumber{
         this.y = Number(jsonObject.y);        
         this.decorationLower = this.createDescriptionObject(jsonObject.DecorationLower);
         this.decorationUpper = this.createDescriptionObject(jsonObject.DecorationUpper);
+        this.align =(jsonObject.align || 'right');
     }
 
     createDescriptionList(listText){
-        if(!listText){return []};
-        const result =[]
+        if(!listText){return [];}
+
+        const result =[];
         for( const objText of JSON.parse(listText)){
             result.push( this.createDescriptionObject (objText));
         }
@@ -159,7 +173,7 @@ class Setting_SpriteNumber{
         return {
             x:Number(obj.x),
             y:Number(obj.y),
-            bitmap:'img/'+obj.bitmap+'.png',
+            bitmap:'img/'+obj.bitmap+'.png'
         };
     }
 }
@@ -182,19 +196,23 @@ class Setting_SpriteNumber{
         return map;
     }
     /**
-     * 
      * @param {Map<String,Number>} map 
      * @param {Setting_SpriteNumber[]} list 
      */
     function SpriteSettingXX(map,list){
-
+        for(const item of list){
+            const value = map.get(item.bitmap);
+            if(value!==undefined){
+                item.bitmapRow =value;
+            }
+        }
     }
 
 
     function createSpriteSettingList(paramText){
         if(!paramText){return[];}
         const result =[];
-        const list =JSON.parse(paramText)
+        const list =JSON.parse(paramText);
         for (const objText of list) {
             const obj = JSON.parse(objText);
             const item = new Setting_SpriteNumber(obj);
@@ -205,7 +223,7 @@ class Setting_SpriteNumber{
 
 
     const result ={
-        mapNumbers:createSpriteSettingList(parameters.mapNumbers),
+        mapNumbers:createSpriteSettingList(parameters.mapNumbers)
     };
     const map =createRowMap(parameters);
     if(map.size >0){
@@ -213,13 +231,7 @@ class Setting_SpriteNumber{
     }
 
     return result;
-})()
-const Scene_Boot_start=Scene_Boot.prototype.start;
-Scene_Boot.prototype.start =function(){
-    Scene_Boot_start.call(this);
-
-//    setting = createSetting();
-};
+})();
 
 
 class Sprite_NumberBase extends Sprite{
@@ -229,6 +241,7 @@ class Sprite_NumberBase extends Sprite{
 
     initialize(){
         super.initialize();
+        
         this._damageBitmap= ImageManager.loadSystem("Damage");
         this._lastValue = NaN;
         this._maxValue=0;
@@ -242,7 +255,7 @@ class Sprite_NumberBase extends Sprite{
         return 0;
     }
     resetDuration(){
-
+        this.duration=0;
     }
 
 
@@ -261,7 +274,7 @@ class Sprite_NumberBase extends Sprite{
      */
     makeNumberSprites(digit){
         const result =[];
-        const width =this.digitWidth();
+       const width =this.digitWidth();
         const height =this.digitHeight();
 
         for(var i=0; i <digit;++i){
@@ -274,22 +287,30 @@ class Sprite_NumberBase extends Sprite{
         this.alignNumbers();
         this._maxValue = ( Math.pow(10,this.digit()))-1;
     }
+
+    isAlignLeft(){
+        return false;
+    }
     alignNumbers(){
         const spacing = this.spacing();
         const len = this._numberSprites.length;
         const width =this.digitWidth();
         const height =this.digitHeight();
+        const rightAlign =!this.isAlignLeft();
         let x =0;
+
         for(var i=0 ;i<len;++i){
             const sprite = this._numberSprites[i];
-            sprite.x = x;
-            x += spacing + width;
+            if(rightAlign||sprite.visible ){
+                sprite.x = x;
+                sprite.y =0;
+                x += spacing + width;    
+            }
         }
     }
     baseRow(){
         return 0;
     }
-
 
 
     /**
@@ -307,6 +328,7 @@ class Sprite_NumberBase extends Sprite{
         }
         return result;
     }
+    
 
     /**
      * @param {Sprite} sprite 
@@ -354,6 +376,7 @@ class Sprite_NumberBase extends Sprite{
             this.drawDight(sprite,n, width,height);
         }
         this._lastValue =value;
+        this.alignNumbers();
     }
 
     currentNumber(){
@@ -383,6 +406,7 @@ class Sprite_NumberBase extends Sprite{
 
 class Sprite_NumberVariable extends Sprite_NumberBase{
 
+
     /**
      * @param {Setting_SpriteNumber} [data=null] 
      */
@@ -396,7 +420,21 @@ class Sprite_NumberVariable extends Sprite_NumberBase{
             this.setPadZero(false);
             this.setSpacing(0);
             this.setRows(5);
+            this.setAlign("rigth");
         }
+    }
+
+
+    /**
+     * 
+     * @param {String} align 
+     */
+    setAlign(align){
+        this._align = align;
+    }
+
+    isAlignLeft(){
+        return this._align ==='left';
     }
 
     /**
@@ -424,7 +462,7 @@ class Sprite_NumberVariable extends Sprite_NumberBase{
         this.setPadZero(data.padZero);
         this.setSpacing(data.spacing);
         this.setRows(data.bitmapRow);
-//        this.setR
+        this.setAlign(data.align);
 
         if(data.decorationLower){
             const decLower =data.decorationLower;
@@ -467,8 +505,10 @@ class Sprite_NumberVariable extends Sprite_NumberBase{
         this._row =row;
     }
     rows(){
+        if(isNaN( this._row) ){return 5;}
         return this._row;
     }
+
 
     /**
      * @param {Number} value 
@@ -476,6 +516,9 @@ class Sprite_NumberVariable extends Sprite_NumberBase{
     setSpacing(value){
         this._spacing =value;
     }
+    /**
+     * @return {number}
+     */
     spacing(){
         return this._spacing;
     }
@@ -507,7 +550,7 @@ Scene_Map.prototype.createSpriteset=function(){
 
 const exportClass={
     Base:Sprite_NumberBase,
-    Variable:Sprite_NumberVariable,
+    Variable:Sprite_NumberVariable
 };
 
 return exportClass;
