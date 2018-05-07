@@ -1021,13 +1021,13 @@
  * @option pagedown
  * @default 
  */
-'use strict'
 
 
 var  MA_InputSymbols = MA_InputSymbols ||[];
 var Imported = Imported || {};
 Imported.Mano_InputConfig = true;
-const Mano_InputConfig=( function(){
+var Mano_InputConfig=( function(){
+    'use strict'
 
     const objectClone = (!!Object.assign)?Object.assign :(function(obj){
         var result ={};
@@ -1244,13 +1244,14 @@ const setting = (function(){
 //     return setting.configSamples[index];
 // };
 
-(function MA_InputSymbolsEx_Import(){
+function MA_InputSymbolsEx_Import(){
     if(!MA_InputSymbols){return;}
     const len =MA_InputSymbols.length;
 
     for(var i =0; i < len; ++i){
         var elem =MA_InputSymbols[i];
         var symbol = elem.symbol;
+        console.log(symbol);
         var mandatory =elem.mandatory;
         if(mandatory ===true || mandatory ==='true'){
             setting.mandatorySymbols.push(symbol);
@@ -1260,7 +1261,7 @@ const setting = (function(){
             setting.symbolList.push(symbol);
         }
     }
-})();
+};
 
 
 /**
@@ -1329,14 +1330,14 @@ function readGamePadConfig( config ){
     if(value){
         return value;
     }
-    return createGamepadMapper();
+    return null;
 }
 function readKeyboardConfig(config){
     const value =config[MA_KEYBOARD_CONFIG];
     if(value){
         return value;
     }
-    return createKeyboradMapper();
+    return null;
 }
 ConfigManager.setKeyLayoutMA =function(layout){
     ConfigManager.keyLayout_MA =layout;
@@ -3095,26 +3096,33 @@ function createExportFunction(){
     }
     return result;
 }
+const Scene_Boot_create =Scene_Boot.prototype.create 
+Scene_Boot.prototype.create =function(){
+    MA_InputSymbolsEx_Import();
+    Mano_InputConfig.defaultGamepadMapper =Object.freeze( objectClone(Input.gamepadMapper));
+    Mano_InputConfig.defaultKeyMapper= Object.freeze(objectClone(Input.keyMapper));
+    Scene_Boot_create.call(this);
+};
+/**
+ * @returns {String[]}
+ * @param {Object} mapper 
+ */
+function unknowSymbols(mapper){
+    const result =[];
+    const systemKeys =new Set(["debug","control","tab","up","down","left","right"]);
 
-function importSymbol(list){
-    list;
-    const k = Input.keyMapper;
-    for (const elem of list) {
-        elem;
-        
+    for (const key in mapper) {
+        if (mapper.hasOwnProperty(key)) {
+            const value = mapper[key];
+            if(!systemKeys.has(value)){
+                if(!setting.symbolList.contains(value)){
+                    result.push(value);
+                }
+            }
+        }
     }
-
+    return result;
 }
-
-// const exportFuntion= createExportFunction();
-// const Scene_Boot_start=Scene_Boot.prototype.start;
-// Scene_Boot.prototype.start =function(){
-//     importSymbol(MA_InputSymbols);
-//     Mano_InputConfig.defaultKeyMapper= objectClone(Input.keyMapper);
-//     Mano_InputConfig.defaultGamepadMapper=  objectClone(Input.gamepadMapper)
-//     Scene_Boot_start.call(this);
-    
-// };
 
 const exportClass ={
     Scene_KeyConfig:Scene_KeyConfig_MA,
@@ -3124,14 +3132,20 @@ const exportClass ={
     Window_KeyConfig:Window_KeyConfig_MA,
     symbolToButtonName:symbolToButtonName,
     symbolToButtonNumber:symbolToButtonNumber,
-    defaultKeyMapper:Object.freeze(objectClone(Input.keyMapper)),
-    defaultGamepadMapper:Object.freeze( objectClone(Input.gamepadMapper)),
+    defaultKeyMapper:{},
+    defaultGamepadMapper:{},
     gotoKey:function(){
         SceneManager.push(Scene_KeyConfig_MA  );
     },
     gotoGamepad:function(){
         SceneManager.push(Scene_GamepadConfigMA  );
     },
+    unknowButtons:function(){
+        return unknowSymbols(Input.gamepadMapper);
+    },
+    unknowKeys:function(){
+        return unknowSymbols(Input.keyMapper);
+    }
 };
 
 return exportClass;
