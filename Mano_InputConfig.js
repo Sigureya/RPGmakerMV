@@ -15,7 +15,7 @@
 /*:ja
  * @plugindesc ゲームパッドの設定を変更するプラグインです。
  * ユーザーが入力を拡張する場合の補助も行います
- * @author しぐれん
+ * @author しぐれん(https://github.com/Sigureya/RPGmakerMV)
  * 
  * @param overwriteWarning
  * @desc このプラグインで割り当てたボタン設定が、既存の入力に対して上書きしている場合にconsoleへ警告を出します
@@ -999,6 +999,11 @@
  * 上から順に調べていく
  * 専用のプラグインを作り、inputConfigとの連結を作る
  * 
+ * 
+ * 備忘録
+ * Bootのタイミングですでにコンフィグを読み込んでいるので注意
+ * 
+ * 
  */
 /*~struct~ButtonInfo:
  *
@@ -1016,13 +1021,13 @@
  * @option pagedown
  * @default 
  */
+'use strict'
+
 
 var  MA_InputSymbols = MA_InputSymbols ||[];
 var Imported = Imported || {};
 Imported.Mano_InputConfig = true;
-
-(function(global){
-    'use strict'
+const Mano_InputConfig=( function(){
 
     const objectClone = (!!Object.assign)?Object.assign :(function(obj){
         var result ={};
@@ -1036,6 +1041,9 @@ Imported.Mano_InputConfig = true;
     //     return Object.assign({},obj);
     // }
 const moveSymbols =['up','down','left','right'];
+
+
+
 const setting = (function(){
     /**
      * @param {*} param 
@@ -1048,7 +1056,11 @@ const setting = (function(){
      * @return {String[]}
      */
     function paramToActionKeys(params){
-        return JSON.parse(params.symbols);
+        const list= JSON.parse(params.symbols);
+
+
+//        Object.setPrototypeOf(list,Array);
+        return list;
     }
 
     /**
@@ -1075,22 +1087,21 @@ const setting = (function(){
         return JSON.parse(params.buttons);
     }
 
-    function makeKeyboardSamples(){
-        const RPGmakerDefault =objectClone(  Input.keyMapper);
-        return [RPGmakerDefault];
-    }
+    // function makeKeyboardSamples(){
+    //     const RPGmakerDefault =objectClone(  Input.keyMapper);
+    //     return [RPGmakerDefault];
+    // }
 
-    function makeConfigSamples(){
-//        console.log(Input.gamepadMapper);
-        const RPGmakerDefault =objectClone(  Input.gamepadMapper);
-        const ab_swaped =objectClone(  Input.gamepadMapper);
-        const a = RPGmakerDefault[1];
-        const b = RPGmakerDefault[0];
+    // function makeConfigSamples(){
+    //     const RPGmakerDefault =objectClone(  Input.gamepadMapper);
+    //     const ab_swaped =objectClone(  Input.gamepadMapper);
+    //     const a = RPGmakerDefault[1];
+    //     const b = RPGmakerDefault[0];
 
-        ab_swaped[0] =a;
-        ab_swaped[1] =b;
-        return [RPGmakerDefault,ab_swaped];
-    }
+    //     ab_swaped[0] =a;
+    //     ab_swaped[1] =b;
+    //     return [RPGmakerDefault,ab_swaped];
+    // }
 
     const params =PluginManager.parameters('Mano_InputConfig');
     const helpText ={
@@ -1146,22 +1157,23 @@ const setting = (function(){
         left:String(params.textKeyLeft),
     };
     const overwriteWarning=(params.overwriteWarning==='true');
-    const configSamples =makeConfigSamples(buttonInfo);
+//    const configSamples =makeConfigSamples(buttonInfo);
+    
     for(var key in buttonInfo){
         const x = buttonInfo[key];
         if(x.symbol){
-            configSamples.forEach(function(sample){
+            (function(sample){
                 const preSymbor =sample[key];
                 // 警告機能
                 if(overwriteWarning && preSymbor){
                     console.log('overwriteWarning/キー上書き警告 \ngamepadMapper['+key+']('+preSymbor+')='+x.symbol);
                 }
                 sample[key] =x.symbol;
-            });
+            })(Input.gamepadMapper);
         }
     }
 
-    const keyConfigSamples = makeKeyboardSamples();
+//    const keyConfigSamples = makeKeyboardSamples();
     const result= {
         keyText:keyText,
         commandText:commandText,
@@ -1172,8 +1184,8 @@ const setting = (function(){
         buttonList: createButtonList(params),
         mandatorySymbols:createMandatorySymbols(params),
         symbolAutoSelect:(params.symbolAutoSelect==='true'),
-        configSamples :configSamples,
-        keyConfigSamples:keyConfigSamples,
+//        configSamples :configSamples,
+//        keyConfigSamples:keyConfigSamples,
 
         configIndex:Number(params.defaultGamepadMapper),
         windowSymbolListWidht:Number(params.windowSymbolListWidth),
@@ -1219,18 +1231,18 @@ const setting = (function(){
 
 
 //ツクールのデフォルトと同様の設定です
-function RPGmakerDefault(){
-    return objectClone(setting.configSamples[setting.configIndex]);
-}
+// function RPGmakerDefault(){
+//     return objectClone(setting.configSamples[setting.configIndex]);
+// }
 
-function createKeyboradMapper(){
-    return setting.keyConfigSamples[0];
-}
+// function createKeyboradMapper(){
+//     return setting.keyConfigSamples[0];
+// }
 
-function createGamepadMapper(){
-    const index = setting.configIndex;
-    return setting.configSamples[index];
-};
+// function createGamepadMapper(){
+//     const index = setting.configIndex;
+//     return setting.configSamples[index];
+// };
 
 (function MA_InputSymbolsEx_Import(){
     if(!MA_InputSymbols){return;}
@@ -1251,7 +1263,11 @@ function createGamepadMapper(){
 })();
 
 
-
+/**
+ * @returns {String}
+ * @param {String} symbol 
+ * @desc シンボルからゲームパッドのボタン番号を文字列で返します
+ */
 function symbolToButtonNumber(symbol){
     for(var key in Input.gamepadMapper){
         if(Input.gamepadMapper[key]===symbol){
@@ -1261,6 +1277,11 @@ function symbolToButtonNumber(symbol){
     return ''
 }
 
+/**
+ * @param {String} symbol
+ * @returns {String}
+ * @desc シンボルからゲームパッドのボタン名を返します
+ */
 function symbolToButtonName(symbol){
     return buttonName(symbolToButtonNumber(symbol));
 }
@@ -1278,11 +1299,7 @@ function symbolToText(symbol){
     if(text){
         return text;
     }
-
-
     return 'unknow:'+symbol;
-
-
 };
 
 /**
@@ -1301,7 +1318,7 @@ function buttonAction(buttonNumber){
 };
 
 
-Input.gamepadMapper = createGamepadMapper();
+//Input.gamepadMapper = createGamepadMapper();
 const MA_KEYBOARD_CONFIG ='KEYBOARD_CONFIG';
 const MA_GAMEPAD_CONFIG = 'GAMEPAD_CONFIG';
 const MA_KEYBOARD_LAYOUT ='KEYBOARD_LAYOUT';
@@ -1335,8 +1352,14 @@ ConfigManager.makeData =function(){
 const ConfigManager_applyData = ConfigManager.applyData;
 ConfigManager.applyData =function(config){
     ConfigManager_applyData.call(this,config);
-    Input.gamepadMapper = readGamePadConfig(config);
-    Input.keyMapper =readKeyboardConfig(config);
+    const gamepad =readGamePadConfig(config);
+    if(gamepad){
+        Input.gamepadMapper = gamepad;
+    }
+    const keyMapper =readKeyboardConfig(config);
+    if(keyMapper){
+        Input.keyMapper =keyMapper;
+    }
     ConfigManager.setKeyLayoutMA(config[MA_KEYBOARD_LAYOUT]||'JIS');
     Input.clear();
 };
@@ -1463,6 +1486,7 @@ Window_InputSymbolList.prototype.currentSymbol =function(){
 
 Window_InputSymbolList.prototype.makeCommandList =function(){
     this._list =[];
+
     const len =setting.symbolList.length;
     for(var i=0; i <len; ++i){
         const actionKey = setting.symbolList[i];
@@ -1512,7 +1536,6 @@ Window_GamepadConfig_MA.prototype.initialize=function(){
     Window_GamepadConfig_MA.baseType.prototype.initialize.call(this,x,y,w,h);
     this.defineNameWidth();
     this.defineSymbolTextWidth();
-//    this.readGamePad();
 };
 
 // Window_GamepadConfig_MA.prototype.readGamePad =function(){
@@ -1987,7 +2010,7 @@ Scene_GamepadConfigMA.prototype.currentSymbol =function(){
     return this._gamepadWindow.currentSymbol();
 };
 Scene_GamepadConfigMA.prototype.loadDefautConfig =function(){
-    this.setGamepadMapper(createGamepadMapper());
+    this.setGamepadMapper(Mano_InputConfig.defaultGamepadMapper);
     this._gamepadWindow.activate();
 };
 Scene_GamepadConfigMA.prototype.terminate =function(){
@@ -2350,15 +2373,25 @@ Window_KeyConfig_MA.baseType =Window_Selectable.prototype;
 Window_KeyConfig_MA.prototype = Object.create(Window_KeyConfig_MA.baseType);
 Window_KeyConfig_MA.prototype.constructor = Window_KeyConfig_MA;
 Window_KeyConfig_MA.prototype.initialize =function(){
+
     this.setKeyboradMapper(Input.keyMapper);
     this.setKeyLayout(ConfigManager.keyLayout_MA);
     const height =this.fittingHeight( 12 );
     Window_KeyConfig_MA.baseType.initialize.call(this,0,0,Graphics.boxWidth,height );
+    this.initElementsSize();
     this.refresh();
     this.activate();
     this.select(0);
     this.moveCenter();
+
+
 };
+Window_KeyConfig_MA.prototype.initElementsSize=function(){
+    const x= Graphics.boxWidth ;
+    const p = this.textPadding();
+    this._itemWidth = Math.round( (x -p*6) /this.maxCols());
+};
+
 
 Window_KeyConfig_MA.COMMAND_DEFAULT =keyinfoEX(setting.commandText.default_,0,true);
 Window_KeyConfig_MA.COMMAND_APPLY =keyinfoEX(setting.commandText.apply,0,true);
@@ -2453,7 +2486,6 @@ Window_KeyConfig_MA.prototype.moveCenter =function(){
     this.move(x,y,this.width,this.height);
 };
 
-
 Window_KeyConfig_MA.prototype.processCancel =function(){
     SoundManager.playCancel();
     this.updateInputData();
@@ -2530,7 +2562,8 @@ Window_KeyConfig_MA.prototype.itemHeight =function(){
     return this.lineHeight() * 2;
 };
 Window_KeyConfig_MA.prototype.itemWidth=function(){
-    return 41;
+    return this._itemWidth;
+//    return 41;
 };
 Window_KeyConfig_MA.prototype.maxPageRows =function(){
     return 100;
@@ -2614,7 +2647,6 @@ Window_KeyConfig_MA.prototype.keyNumber =function(index){
 Window_KeyConfig_MA.prototype.currentKeyNumber=function(){
     return this.keyNumber(this.index());
 };
-
 
 Window_KeyConfig_MA.prototype.keyName =function(index){
     return this._list[index].char;
@@ -2899,8 +2931,6 @@ Window_KeyConfig_MA.prototype.drawexitCommand =function(){
     this.drawCommand(setting.commandText.exit,rect);
 };
 
-
-
 function Scene_KeyConfig_MA() {
     this.initialize.apply(this, arguments);
 }
@@ -2934,7 +2964,7 @@ Scene_KeyConfig_MA.prototype.onConfigOk =function(){
     this.selectSymbol();
 };
 Scene_KeyConfig_MA.prototype.loadDefautConfig =function(){
-    this._keyconfigWindow.setKeyboradMapper(setting.keyConfigSamples[0]);
+    this._keyconfigWindow.setKeyboradMapper(Mano_InputConfig.defaultKeyMapper);
     this._keyconfigWindow.refresh();
 };
 Scene_KeyConfig_MA.prototype.terminate =function(){
@@ -3066,7 +3096,25 @@ function createExportFunction(){
     return result;
 }
 
-const exportFuntion= createExportFunction();
+function importSymbol(list){
+    list;
+    const k = Input.keyMapper;
+    for (const elem of list) {
+        elem;
+        
+    }
+
+}
+
+// const exportFuntion= createExportFunction();
+// const Scene_Boot_start=Scene_Boot.prototype.start;
+// Scene_Boot.prototype.start =function(){
+//     importSymbol(MA_InputSymbols);
+//     Mano_InputConfig.defaultKeyMapper= objectClone(Input.keyMapper);
+//     Mano_InputConfig.defaultGamepadMapper=  objectClone(Input.gamepadMapper)
+//     Scene_Boot_start.call(this);
+    
+// };
 
 const exportClass ={
     Scene_KeyConfig:Scene_KeyConfig_MA,
@@ -3074,7 +3122,21 @@ const exportClass ={
     Window_InputSymbolList:Window_InputSymbolList,
     Window_GamepadConfig:Window_GamepadConfig_MA,
     Window_KeyConfig:Window_KeyConfig_MA,
+    symbolToButtonName:symbolToButtonName,
+    symbolToButtonNumber:symbolToButtonNumber,
+    defaultKeyMapper:Object.freeze(objectClone(Input.keyMapper)),
+    defaultGamepadMapper:Object.freeze( objectClone(Input.gamepadMapper)),
+    gotoKey:function(){
+        SceneManager.push(Scene_KeyConfig_MA  );
+    },
+    gotoGamepad:function(){
+        SceneManager.push(Scene_GamepadConfigMA  );
+    },
 };
 
-global.Mano_InputConfig = exportClass;
-})(this);
+return exportClass;
+//global.Mano_InputConfig = exportClass;
+})();
+
+
+//Mano_InputConfig.buttonName()
