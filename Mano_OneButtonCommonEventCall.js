@@ -39,6 +39,8 @@
  * @param commonH
  * @type Struct<CommonDefine>
  *
+ * 
+ * 
  * @help
  * 1ボタンでコモンイベントを呼び出せるようになります。
  * ゲームパッドにも対応しています。
@@ -61,6 +63,9 @@
  * Mano_InputConfigと一緒に入れている状態で動かない場合、
  * オプション画面を開いて初期設定に戻すを選択してください。
  * 解決するかもしれません。
+ * 
+ * ver 2.2
+ * キーコードの設定方法で、旧型式を完全に削除
  * 
  * ver 2.1(2018/03/01) 更新
  * 破壊的変更
@@ -121,7 +126,7 @@
  * 
  * @param keyList
  * @desc キーボードの割り当てです。(半角・大文字) 
- * Aと入れればAを押したときにイベントを実行します。
+ * ADと入れればAかDを押したときにイベントを実行します。
  * @type string
  * 
  * @param padButton
@@ -156,11 +161,7 @@
  * @value 4
  * @option button5(pagedown)
  * @value 5
- * @param keycode
- * @desc キーボードの割り当てです。（廃止予定）
- * 0以外を指定すると、警告が出ます。
- * @type number
- * @default 0
+ * 
  */
 /*~
  * @param description
@@ -178,26 +179,24 @@ var MA_InputSymbols =MA_InputSymbols||[];
     'use strict';
 
 
-
 const setting= (function(){
      function fetchCommonEvent(CommonDefine){
          if(!CommonDefine){
-//             console.log("データが無いよ")
              return null;
          }
         const obj =JSON.parse(CommonDefine);
         const enabled=(obj.enabled==='true');
         if(!enabled){
-            console.log("無効だから無視したよ")
+//            console.log("無効だから無視したよ")
             return null;
         }
         const eventId_ = Number(obj.event);
         if(!(eventId_>0)){
-            console.log("イベント番号が不正だからやめたよ")
+//            console.log("イベント番号が不正だからやめたよ")
             return null;
         }
         if(!obj.symbol){
-            console.log("シンボルが設定されてないよ");
+//            console.log("シンボルが設定されてないよ");
             return null;
         }
 
@@ -242,10 +241,11 @@ const setting= (function(){
     function setKeySymbol(keycode,symbol){
         const preDef =Input.keyMapper[keycode ];
         if(preDef){
-            console.log("上書き警告("+keycode+"):"+preDef+"を"+symbol+"に上書きしようとしています");
+//            console.log("上書き警告("+keycode+"):"+preDef+"を"+symbol+"に上書きしようとしています");
         }
-        console.log("keycode:"+keycode+"に"+symbol);
+//        console.log("keycode:"+keycode+"に"+symbol);
         Input.keyMapper[keycode ] =symbol;
+        console.log(Input.keyMapper[keycode ]);
     }
 
     setting.eventList.forEach(function(data){
@@ -256,10 +256,6 @@ const setting= (function(){
             setKeySymbol( data.keyList.charCodeAt(i)  ,data.symbol);
         }
 
-        if(data.keycode > 0){
-            console.log("warning:keycodeの番号指定は廃止予定なので、keylistを使ってください")
-            setKeySymbol(data.keycode,data.symbol);
-        }
         if( (  data.padButtonNumber)>=0){
 //            console.log("button"+data.padButtonNumber+"="+data.symbol);
             Input.gamepadMapper[ data.padButtonNumber]=data.symbol;
@@ -321,7 +317,6 @@ MA_OneButtonCommonEvent.prototype.isCallOK=function(){
     && (!this._interpreter.isRunning())
     && (def.interrupt || !$gameMap.isEventRunning())
     && (def.enableSwitch ===0 || $gameSwitches.value(def.enableSwitch));
-
 };
 
 
@@ -367,9 +362,13 @@ Game_Map.prototype.setupOneButtonEvents =function(){
 
 const  Game_Map_updateEvents=Game_Map.prototype.updateEvents;
 Game_Map.prototype.updateEvents =function(){
-    this._oneButtonEvents.forEach(function(event){
-        event.update();
-    });
+    const len = this._oneButtonEvents.length;
+    for(var i =0;i <len;++i){
+        this._oneButtonEvents[i].update();
+    }
+    // this._oneButtonEvents.forEach(function(event){
+    //     event.update();
+    // });
     Game_Map_updateEvents.call(this);
 };
 
