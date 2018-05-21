@@ -1029,7 +1029,7 @@ Imported.Mano_InputConfig = true;
 var Mano_InputConfig=( function(){
     'use strict'
 
-    const objectClone = (!!Object.assign)?Object.assign :(function(obj){
+    const objectClone = (function(obj){
         var result ={};
         Object.keys(obj).forEach(function(key){
             result[key] = obj[key];
@@ -1251,7 +1251,7 @@ function MA_InputSymbolsEx_Import(){
     for(var i =0; i < len; ++i){
         var elem =MA_InputSymbols[i];
         var symbol = elem.symbol;
-        console.log(symbol);
+//        console.log(symbol);
         var mandatory =elem.mandatory;
         if(mandatory ===true || mandatory ==='true'){
             setting.mandatorySymbols.push(symbol);
