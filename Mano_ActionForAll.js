@@ -126,7 +126,7 @@ const setting =(function(){
         defaultForAll:(param.defaultForAll)==='true',
         input:fetchButton(param.forAllButton),
     };
-    return result;
+    return Object.freeze( result);
 })();
 (function(){
     const data =setting.input;
@@ -242,7 +242,7 @@ Window_MenuActor.prototype.selectForAction =function(action){
         this.setCursorAll(false);
         this.select(action.subject().index());
     }else{
-        this.setCursorFixed(action.needsSelection());
+        this.setCursorFixed(!action.needsSelection());
         this.setCursorAll(!action.isForOne());
         this.selectLast();    
     }
