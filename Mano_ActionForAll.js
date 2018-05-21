@@ -42,13 +42,13 @@
  * 
  * Mano_InputConfigと連携する機能がついています。
  * ■更新履歴
+ * 1.0.1 2018/05/21 細かいバグの修正
  * 1.0.0 2018/05/21 初版 
  */
 
  /*~struct~CommonDefine:
  * @param text
  * @desc コマンド名称です
- * 
  * 
  * @param symbol
  * @desc Input.isTriggered()の引数として使われます。
@@ -137,7 +137,6 @@ const setting =(function(){
     });
 
     /**
-     * 
      * @param {Number} keycode 
      * @param {String} symbol 
      */
@@ -149,16 +148,30 @@ const setting =(function(){
     }
 })();
 
-const Game_Action_setItemObject=Game_Action.prototype.setItemObject;
-Game_Action.prototype.setItemObject =function(item){
-    Game_Action_setItemObject.call(this,item);
-
+Game_Action.prototype.initForAll =function(){
     if(setting.defaultForAll && this.canForAllSpecialize()){
         this.forAllSpecialize(true);
     }else{
-        this.forAllSpecialize(false);        
+        this.forAllSpecialize(false);
     }
 };
+
+const Game_Action_setItemObject=Game_Action.prototype.setItemObject;
+Game_Action.prototype.setItemObject =function(item){
+    Game_Action_setItemObject.call(this,item);
+    this.initForAll();
+};
+const Game_Action_setSkill=Game_Action.prototype.setSkill;
+Game_Action.prototype.setSkill =function(skillId){
+    Game_Action_setSkill.call(this,skillId);
+    this.initForAll();
+};
+const Game_Action_setItem=Game_Action.prototype.setItem;
+Game_Action.prototype.setItem = function(itemId){
+    Game_Action_setItem.call(this,itemId);
+    this.initForAll();
+};
+
 Game_Action.prototype.flipForAllSpecialize =function(){
     this.forAllSpecialize(!this._allSP_MA);
 };
@@ -176,7 +189,6 @@ Game_Action.prototype.isForOne =function(){
 };    
 
 function hasForAllImple(item){
-
     const meta = item.meta.ForAll;
     if(meta){
         return true;
@@ -195,6 +207,7 @@ Game_Action.prototype.canForAllSpecialize =function(){
 
     return this.hasForAllTraits();
 };
+
 Game_Action.prototype.isForAllSpecialized =function(){
     return !!this._allSP_MA;
 };
@@ -209,6 +222,20 @@ function isForAllTriggered(){
     return Input.isTriggered(setting.input.symbol);    
 }
 /**
+ * @param {Window_Selectable} window 
+ */
+function processHandling_ForAll(window){
+    if(window.isOpenAndActive()){
+        if(isForAllTriggered()){
+            if(window.isForAllEnabled()){
+                window.deactivate();
+                window.callHandler("forall");
+            }
+        }
+    }
+}
+
+/**
  * @param {Game_Action} action 
  * @param {Window_Selectable} window 
  */
@@ -219,15 +246,13 @@ function actionChnageForAll(action,window){
     window.updateCursor();
 }
 
+Window_MenuActor.prototype.isForAllEnabled =function(){
+    return this._forallAble;
+};
+
 const Window_MenuActor_processHandling=Window_MenuActor.prototype.processHandling;
 Window_MenuActor.prototype.processHandling =function(){
-    if (this.isOpenAndActive()) {
-        if(isForAllTriggered() &&this._forallAble){
-            this.deactivate();
-            this.callHandler("forall");
-            return;
-        }
-    }
+    processHandling_ForAll(this);
     Window_MenuActor_processHandling.call(this);
 };
 /**
@@ -254,7 +279,6 @@ Scene_Skill.prototype.createActorWindow=function(){
 };
 
 Scene_Skill.prototype.onForallChange =function(){
-
     actionChnageForAll(this._action,this._actorWindow);    
     this._actorWindow.activate();
 };
@@ -323,31 +347,23 @@ Scene_Skill.prototype.applyItem =function(){
 
 const Window_BattleActor_processHandling=Window_BattleActor.prototype.processHandling;
 Window_BattleActor.prototype.processHandling =function(){
-    if (this.isOpenAndActive()) {
-        if(isForAllTriggered()) {
-            const action = BattleManager.inputtingAction();
-            if(action.canForAllSpecialize()){
-                this.deactivate();
-                this.callHandler("forall");    
-                return;
-            }
-        }
-    }
+    processHandling_ForAll(this);
     Window_BattleActor_processHandling.call(this);
+};
+
+Window_BattleActor.prototype.isForAllEnabled =function(){
+    const action = BattleManager.inputtingAction();
+    return action.canForAllSpecialize();
+};
+
+Window_BattleEnemy.prototype.isForAllEnabled =function(){
+    const action = BattleManager.inputtingAction();
+    return action.canForAllSpecialize();
 };
 
 const Window_BattleEnemy_processHandling=Window_BattleEnemy.prototype.processHandling;
 Window_BattleEnemy.prototype.processHandling =function(){
-    if (this.isOpenAndActive()) {
-        if(isForAllTriggered()) {
-            const action = BattleManager.inputtingAction();
-            if(action.canForAllSpecialize()){
-                this.deactivate();
-                this.callHandler("forall");    
-                return;
-            }
-        }
-    }
+    processHandling_ForAll(this);
     Window_BattleEnemy_processHandling.call(this);
 };
 
@@ -369,6 +385,19 @@ const Scene_Battle_createEnemyWindow=Scene_Battle.prototype.createEnemyWindow;
 Scene_Battle.prototype.createEnemyWindow =function(){
     Scene_Battle_createEnemyWindow.call(this);
     this._enemyWindow.setHandler("forall",this.onEnemyForall.bind(this));
+};
+
+/**
+ * @param {Window_Selectable} window 
+ */
+Scene_Battle.prototype.forAllCustom =function(window){
+    window.setCursorAll(BattleManager.inputtingAction().isForAll());
+};
+
+const Scene_Battle_selectEnemySelection=Scene_Battle.prototype.selectEnemySelection;
+Scene_Battle.prototype.selectEnemySelection =function(){
+    this.forAllCustom(this._enemyWindow);
+    Scene_Battle_selectEnemySelection.call(this);
 };
 
 })();
