@@ -28,12 +28,21 @@
  * 
  * @help
  * 指定のボタン・キーを押すと単体攻撃のスキルを全体化します。
+ * 
+ * ■設定方法
  * メモ欄に<ForAll>と書くことで、スキルが全体化できるようになります。
+ * また<ForAll: 4 <= v[10]>など条件式を書くこともできます。
+ * ただし、>は使えないので両辺を入れ替えて対応してください。
+ * <ForAll: 4 <= v[10]>：OK。
+ * <ForAll: v[10] >= 4>：NG。不等号がメモ閉じと勘違いされる。
+ * 使えるのはダメージ式とほぼ同じ内容です。
+ * 攻撃対象を表すbは使えないので注意。
  * 
+ * 条件式には乱数を使わないでください。
+ * 動作が不安定になります。
+ *
+ * ■全体化できるスキル
  * 全体化可能なのは元々の攻撃対象が単体で、対象を選択できるスキルです。
- * 
- * 全体化に条件を付ける機能はありません。
- * Game_Action.hasForAllTraits()を改造することで、条件を拡張できます。
  * 
  * スキルが全体化されている場合にダメージ式を切り替えたい場合、以下のような式を設定してください。
  * this.isForAllSpecialized() ? 全体化したダメージ:単体時のダメージ
@@ -42,6 +51,7 @@
  * 
  * Mano_InputConfigと連携する機能がついています。
  * ■更新履歴
+ * 1.0.2 2018/05/21 全体化条件式の機能
  * 1.0.1 2018/05/21 細かいバグの修正
  * 1.0.0 2018/05/21 初版 
  */
@@ -197,7 +207,18 @@ function hasForAllImple(item){
 }
 
 Game_Action.prototype.hasForAllTraits =function(){
-    return hasForAllImple(this.item());
+    const item =this.item();
+    if(item.meta.ForAll ===true){
+        return true;
+    }
+    const a = this.subject();
+    var v = $gameVariables._data;
+    var s = $gameSwitches._data;
+
+    return eval(item.meta.ForAll);
+
+
+//    return hasForAllImple(this.item());
 };
 Game_Action.prototype.canForAllSpecialize =function(){
     //この部分、元々の定義を呼び出すのでこれが必須
