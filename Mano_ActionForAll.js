@@ -1,7 +1,7 @@
 //=============================================================================
 // Mano_ActionForAll.js
 // ----------------------------------------------------------------------------
-// Copyright (c) 2017-2017 Sigureya
+// Copyright (c) 2017-2018 Sigureya
 // This software is released under the MIT License.
 // http://opensource.org/licenses/mit-license.php
 // ----------------------------------------------------------------------------
@@ -208,17 +208,20 @@ function hasForAllImple(item){
 
 Game_Action.prototype.hasForAllTraits =function(){
     const item =this.item();
-    if(item.meta.ForAll ===true){
+    const metaExpr =item.meta.ForAll;
+    if(metaExpr ===true){
         return true;
     }
+    if(metaExpr===undefined){
+        return false;
+    }
+
     const a = this.subject();
-    var v = $gameVariables._data;
-    var s = $gameSwitches._data;
-
-    return eval(item.meta.ForAll);
-
-
-//    return hasForAllImple(this.item());
+    const v = $gameVariables._data;
+    const V = v;
+    const s = $gameSwitches._data;
+    const S =s;
+    return eval(metaExpr);
 };
 Game_Action.prototype.canForAllSpecialize =function(){
     //この部分、元々の定義を呼び出すのでこれが必須
@@ -303,20 +306,13 @@ Scene_Skill.prototype.onForallChange =function(){
     actionChnageForAll(this._action,this._actorWindow);    
     this._actorWindow.activate();
 };
+
+
 const Scene_Skill_initialize=Scene_Skill.prototype.initialize;
 Scene_Skill.prototype.initialize =function(){
     Scene_Skill_initialize.call(this);
     this._action =null;
 };
-
-Scene_Skill.prototype.action=function(){
-    return this._action;
-    var action = new Game_Action(this.user());
-    var item = this.item();
-    action.setItemObject(item);
-    return action;
-};
-
 Scene_Skill.prototype.determineItem = function() {
     var action = new Game_Action(this.user());
     var item = this.item();
@@ -327,12 +323,19 @@ Scene_Skill.prototype.determineItem = function() {
         this.showSubWindow(this._actorWindow);
 //        this._actorWindow.selectForItem(this.item());
         this._actorWindow.selectForAction(action);
-
     } else {
         this.useItem();
         this.activateItemWindow();
     }
 };
+
+(function(){
+if(!!Scene_Skill.prototype.action){return;}
+
+Scene_Skill.prototype.action=function(){
+    return this._action;
+};
+
 
 
 Scene_Skill.prototype.itemTargetActors =function(){
@@ -364,7 +367,7 @@ Scene_Skill.prototype.applyItem =function(){
     });
     action.applyGlobal();
 };
-
+})();
 
 const Window_BattleActor_processHandling=Window_BattleActor.prototype.processHandling;
 Window_BattleActor.prototype.processHandling =function(){
