@@ -13,6 +13,9 @@
 
 /*:
  * @plugindesc スキル全体化のプラグインです。
+ * 指定したボタンを押すと全体化します。
+ * 
+ * @author しぐれん(https://twitter.com/Sigureya/)
  * 
  * @param defaultForAll
  * @desc スキル選択直後の、全体化の初期値を設定します。
@@ -25,6 +28,7 @@
  * @desc 対象選択時に、指定したボタンを押すと全体化します。
  * @type struct<CommonDefine>
  * @default {"text":"全体化","symbol":"forall","mandatory":"false","keyList":"C","padButton":"-1"}
+ * 
  * 
  * @help
  * 指定のボタン・キーを押すと単体攻撃のスキルを全体化します。
@@ -50,7 +54,9 @@
  * 要望が多ければ、全体化している時に常時ダメージを半減する処理などを追加します。
  * 
  * Mano_InputConfigと連携する機能がついています。
+ * 
  * ■更新履歴
+ * 1.1.0 2018/06/21 全体化時にスプライトが点滅できるようにした
  * 1.0.2 2018/05/21 全体化条件式の機能
  * 1.0.1 2018/05/21 細かいバグの修正
  * 1.0.0 2018/05/21 初版 
@@ -260,6 +266,22 @@ function processHandling_ForAll(window){
 }
 
 /**
+ * @param {Window_Selectable} window 
+ */
+function selectBattler(window){
+    const cursorAll =window.cursorAll();
+    const battlerList = window.members();
+    const selectedBattler = window.battler();
+    for (const battler of battlerList) {
+        if(cursorAll || battler ===selectedBattler){
+            battler.select();
+        }else{
+            battler.deselect();
+        }
+    }
+}
+
+/**
  * @param {Game_Action} action 
  * @param {Window_Selectable} window 
  */
@@ -283,9 +305,7 @@ Window_MenuActor.prototype.processHandling =function(){
  * @param {Game_Action} action
  */
 Window_MenuActor.prototype.selectForAction =function(action){
-
     this._forallAble = action.canForAllSpecialize();
-
     if(action.isForUser()){
         this.setCursorFixed(action.isSkill());
         this.setCursorAll(false);
@@ -306,7 +326,6 @@ Scene_Skill.prototype.onForallChange =function(){
     actionChnageForAll(this._action,this._actorWindow);    
     this._actorWindow.activate();
 };
-
 
 const Scene_Skill_initialize=Scene_Skill.prototype.initialize;
 Scene_Skill.prototype.initialize =function(){
@@ -369,6 +388,13 @@ Scene_Skill.prototype.applyItem =function(){
 };
 })();
 
+Window_BattleActor.prototype.battler =function(){
+    return this.actor();
+};
+Window_BattleActor.prototype.members =function(){
+    return $gameParty.members();
+};
+
 const Window_BattleActor_processHandling=Window_BattleActor.prototype.processHandling;
 Window_BattleActor.prototype.processHandling =function(){
     processHandling_ForAll(this);
@@ -380,6 +406,24 @@ Window_BattleActor.prototype.isForAllEnabled =function(){
     return action.canForAllSpecialize();
 };
 
+const Window_BattleActor_select=Window_BattleActor.prototype.select;
+Window_BattleActor.prototype.select =function(index){
+    Window_BattleActor_select.call(this,index);
+    selectBattler(this);
+};
+
+const Window_BattleEnemy_select=Window_BattleEnemy.prototype.select;
+Window_BattleEnemy.prototype.select =function(index){
+    Window_BattleEnemy_select.call(this,index);
+    selectBattler(this);
+};
+
+Window_BattleEnemy.prototype.battler =function(){
+    return this.enemy();
+};
+Window_BattleEnemy.prototype.members =function(){
+    return this._enemies;
+};
 Window_BattleEnemy.prototype.isForAllEnabled =function(){
     const action = BattleManager.inputtingAction();
     return action.canForAllSpecialize();
@@ -391,10 +435,21 @@ Window_BattleEnemy.prototype.processHandling =function(){
     Window_BattleEnemy_processHandling.call(this);
 };
 
+/**
+ *@param {Sprite_Battler[]} battlers
+ */
+function SelectionEffectSync(battlers){
+    for (const battlerSprite of battlers) {
+        battlerSprite._selectionEffectCount=1;        
+    }
+}
+
 Scene_Battle.prototype.onActorForall =function(){
     actionChnageForAll(BattleManager.inputtingAction(),this._actorWindow);
-    this._actorWindow.activate();
+    SelectionEffectSync(this._spriteset._actorSprites);
+    this._actorWindow.activate();    
 };
+
 const Scene_Battle_createActorWindow=Scene_Battle.prototype.createActorWindow;
 Scene_Battle.prototype.createActorWindow =function(){
     Scene_Battle_createActorWindow.call(this);
@@ -403,6 +458,7 @@ Scene_Battle.prototype.createActorWindow =function(){
 
 Scene_Battle.prototype.onEnemyForall =function(){
     actionChnageForAll(BattleManager.inputtingAction(),this._enemyWindow);
+    SelectionEffectSync(this._spriteset._enemySprites);
     this._enemyWindow.activate();
 };
 const Scene_Battle_createEnemyWindow=Scene_Battle.prototype.createEnemyWindow;
