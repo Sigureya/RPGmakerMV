@@ -22,16 +22,6 @@
  * @type boolean
  * @default true
  *
- * @param defaultGamepadMapper
- * @desc ゲーム初期時のボタン配置です。
- * 「初期設定に戻す」を押した場合、これが読み込まれます。
- * @type select
- * @option ツクールMVデフォルト
- * @value 0
- * @option MVデフォルト＋決定/キャンセル入れ替え
- * @value 1
- * @default 1
- * 
  * @param text
  * @param CommandWidth
  * 
@@ -486,6 +476,9 @@
  * Yanfly.Thank you for creating a nice plugin!
  * 
  * 更新履歴
+ * 
+ * 2018/06/25 ver 2.5
+ * 色々あった細かいバグ修正を重ねた最新版。
  * 
  * 2017/10/21 ver 2.2　更新
  * 外部から追加したシンボルがsymbolsと重複していた場合、追加しないようにした。
@@ -1187,7 +1180,7 @@ const setting = (function(){
 //        configSamples :configSamples,
 //        keyConfigSamples:keyConfigSamples,
 
-        configIndex:Number(params.defaultGamepadMapper),
+//        configIndex:Number(params.defaultGamepadMapper),
         windowSymbolListWidht:Number(params.windowSymbolListWidth),
         hookPoint:String(params.hookPoint),
         commandName:String(params.commandName),
