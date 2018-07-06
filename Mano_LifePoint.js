@@ -1,29 +1,34 @@
 
 //=============================================================================
-// Mano_InputConfig.js
+// Mano_LiefPoint.js
 // ----------------------------------------------------------------------------
 // Copyright (c) 2017-2017 Sigureya
 // This software is released under the MIT License.
 // http://opensource.org/licenses/mit-license.php
 // ----------------------------------------------------------------------------
 // Version
-// 0.9.0 2017/04/13 初版 
 // ----------------------------------------------------------------------------
 // [Twitter]: https://twitter.com/Sigureya/
 //=============================================================================
 /*:
  * @plugindesc 戦闘不能などに関わる「ライフポイント」の概念を実装します。
- * @author しぐれん
+ * @author しぐれん(https://github.com/Sigureya/RPGmakerMV)
  * 
  * @param lpRenderOnBattle
  * @type select 
  * @option TP描画を置き換え
  * @value tpReplace
- * 
+ * @value non
  * @default tpReplace
+ *  
+ * @param usingEquip
+ * @desc 装備画面でのステータスにLPの変化を追加します。
+ * @type boolean
+ * @default false
  * 
- * @param LPzeroDead
- * @desc ライフポイントが0になった場合、強制的に死亡させます
+ * @param removeLPminusEquip
+ * @desc <LPbase>が負の値の装備を最強装備の候補から除外します。
+ * (他のプラグインとの競合が起きた時以外はtrue推奨)
  * @type boolean
  * @default true
  * 
@@ -69,26 +74,49 @@
  * <LPrecoverAll>
  * LPを全回復とか。
  * 
- * ■職業などに設定する項目
+ * ■装備のメモ欄などに設定する項目
  * <LPbase:1>
- * LP基礎値を1増やします。
+ * LP基礎値を1増える装備にできます。
+ * <LPbase:-1>
+ * LP基礎値が1減る装備にできます。
  * 
  * アクターの最大LPはactor.baseLifePoint()+装備品などによる<LPbase>の合計値で求められます。
  * actor.baseLifePoint()はレベル/10を返します。
  * 
+ * ■装備品の挙動について
+ * 装備品に<LPbase>は負の値を指定した場合に一部挙動に問題が発生します。
+ * イベントコマンドなどで強制的に装備を切り替えた場合に、アクターが死亡する可能性があります。
+ * 最強装備コマンドを使用した場合、装備の候補から除外されます。
+ * 
  * ■更新履歴
+ * 2018/07/06 装備品にLPがマイナスの装備を設定すると正しく動かないのを修正。
+ * LP0の場合の強制死亡処理が機能していないのを修正。
+ * また、プラグインパラメータ関係なく死亡するように設定しなおし
+ * (LP0で無敵化するバグがあったため)
+ * 2018/03/02
+ * <LPrecoberAll>と<LPdamageAll>が無効だったのを修正
+ * 2018/03/02 細かいバグの修正
+ * 
  * 2018/01/30 二重にライフポイントが失われたという表示だったのを修正。
 */
+
+/**
+ * TODO
+ * オーバーキル判定
+ * onDamageで判定できるっぽい
+ * 
+ */
 (function(){
     'use strict'
 const setting =(function(){
     const param = PluginManager.parameters('Mano_LifePoint');
     return {
-        LPzeroDead:param.LPzeroDead ==='true',
+        LPzeroDead:true,//(param.LPzeroDead ==='true'),
         lostLifePointMessage:String(param.lostLifePointMessage),
         gainLifePointMessage:String(param.gainLifePointMessage),
         defaultLifePoint:Number(param.defaultLifePoint),
         mixmumLifePoints:Number(param.mixmumLifePoints),
+        tpReplace:(param.lpRenderOnBattle ==="tpReplace" ),
     };
 })();
 /**
@@ -152,7 +180,7 @@ Game_BattlerBase.prototype.callcurateMaxLifePoint =function(){
     return this.baseLifePoint();
 };
 /**
- * @return {RPG.BaseItem[]}  
+ * @return {RPG.Trait[]}  
  * @param {Game_Actor} actor 
  */
 function lifePointTraits(actor){
@@ -161,17 +189,42 @@ function lifePointTraits(actor){
     traits.push( actor.currentClass() );
     return traits;
 }
+
+/**
+ * @returns {Number}
+ * @param {RPG.Trait} trait 
+ */
+function getLifePointValue(trait){
+
+    if(!!trait){
+        const value= trait.meta.LPbase;
+        if(!isNaN(value)){
+            return value;
+        }    
+    }
+    return 0;
+}
+
+const Game_Actor_calcEquipItemPerformance= Game_Actor.prototype.calcEquipItemPerformance;
+Game_Actor.prototype.calcEquipItemPerformance =function(item){
+    const lpValue = getLifePointValue(item);
+    if(lpValue<0){
+        return -2000;
+    }
+
+    return Game_Actor_calcEquipItemPerformance.call(this,item);
+};
 Game_Actor.prototype.callcurateMaxLifePoint =function(){
     const traits = lifePointTraits(this);
     
     const len = traits.length;
     var value=0;
     for(var i=0; i < len; i+=1){
-        if( traits[i] && traits[i].meta.LPbase){
-            value+= traits[i].meta.LPbase;
+        const t = traits[i];
+        if(!!t){
+            value += getLifePointValue(t);
         }
     }
-
     return  Math.min(setting.mixmumLifePoints,   value + this.baseLifePoint());
 };
 Game_ActionResult.prototype.hasLifePointDamage =function(){
@@ -197,6 +250,9 @@ const Game_BattlerBase_refresh=Game_BattlerBase.prototype.refresh;
 Game_BattlerBase.prototype.refresh=function(){
     Game_BattlerBase_refresh.call(this);
     this._lp = this._lp.clamp(0,this.mlp);
+    if(this._lp <=0 && !this.isDeathStateAffected()){
+        this.die();
+    }
 };
 const Window_BattleLog_displayActionResults=Window_BattleLog.prototype.displayActionResults;
 /**
@@ -217,8 +273,6 @@ function lifePointMessage(battler,lostLifePoint){
     }
     return setting.gainLifePointMessage.format(battler.name(),-lostLifePoint);    
 }
-
-
 
 /**
  * @param {Game_Battler} target 
@@ -295,6 +349,8 @@ Game_BattlerBase.prototype.recoverAll =function(){
     this._lp = this.mlp;
 };
 
+
+
 Object.defineProperties(Game_BattlerBase.prototype,{
     lp:{get:function(){return this._lp;},configurable: true},
     mlp:{get:function(){return this.callcurateMaxLifePoint();},configurable: true},
@@ -312,7 +368,32 @@ Game_Battler.prototype.addNewState =function(stateId){
     }
 };
 
-Game_Battler.prototype.gainLifePoint=function(point){
+const Game_Actor_removeState =Game_Actor.prototype.removeState;
+Game_Actor.prototype.removeState=function(stateId){
+    if(this._lp >0){
+        Game_Actor_removeState.call(this,stateId);
+    }
+};
+
+
+/**
+ * @param {Game_Actor} actor 
+ * @param {RPG.EquipItem} item 
+ */
+function canEquip(actor,item){
+    const newValue =  getLifePointValue(item);
+    if(!!item){
+        const oldValue = getLifePointValue( actor._equips[item.etypeId].object());
+        if(oldValue >newValue){
+            const mlp = actor.mlp;
+            if((mlp -oldValue +newValue) <=0){
+                return false;
+            }
+        }
+    }
+    return true;
+}
+Game_BattlerBase.prototype.gainLifePoint=function(point){
     this._lp +=point;
     this.result().lpDamage -=point;
     if(setting.LPzeroDead &&  this._lp <=0){
@@ -336,8 +417,16 @@ Game_Action.prototype.testApply =function(target){
     if(target._lp <=0  ){
         return this.isLpRecover();
     }
+    if(this.isLpRecover() || this.isLpDamage()){
+        return true;
+    }
+
+
     return Game_Action_testApply.call(this,target);
 };
+
+
+
 const Game_Action_itemEffectRemoveState =Game_Action.prototype.itemEffectRemoveState;
 Game_Action.prototype.itemEffectRemoveState =function(target,effect){
     if(effect.dataId === target.deathStateId()){
@@ -352,14 +441,30 @@ const Game_Action_applyItemUserEffect=Game_Action.prototype.applyItemUserEffect;
 Game_Action.prototype.applyItemUserEffect =function(target){
     const meta = this.item().meta;
     // targetのresultにLPが変動したことを書きこむ
-    if(meta.LPdamage){
+
+    if(meta.LPdamageAll){
+        target.gainLifePoint(-target.lp)
+    }else if(meta.LPdamage){
         target.gainLifePoint(-meta.LPdamage);
     }
-    if(meta.LPrecover ){
+
+    if(meta.LPrecoverAll){
+        target.gainLifePoint(target.mlp)
+    }else if(meta.LPrecover ){
         target.gainLifePoint(meta.LPrecover);
     }
 
     Game_Action_applyItemUserEffect.call(this,target);
+};
+
+
+const Window_EquipItem_isEnabled =Window_EquipItem.prototype.isEnabled;
+Window_EquipItem.prototype.isEnabled =function(item){
+
+    if(!canEquip(this._actor,item) ){
+        return false;
+    }
+    return Window_EquipItem_isEnabled.call(this,item);
 };
 
 const Window_Base_drawActorSimpleStatus =Window_Base.prototype.drawActorSimpleStatus;
@@ -385,7 +490,7 @@ Window_Base.prototype.lpColor =function(actor){
     return this.normalColor();
 };
 Window_Base.prototype.drawLiefPointCurrentAndMax = function(current, max, x, y,    width, color1, color2) {
-    var labelWidth = this.textWidth('HP');
+    var labelWidth = this.textWidth('LP');
     var valueWidth = this.textWidth('00');
     var slashWidth = this.textWidth('/');
     var x1 = x + width - valueWidth;
@@ -431,10 +536,11 @@ var drawActorImple =Window_Base.prototype.drawActorLp_ModeB;
 Window_Base.prototype.drawActorLp =function(actor,x,y,width){
     drawActorImple.apply(this,arguments);
 };
-
-Window_Base.prototype.drawActorTp =function(actor, x, y, width){
-    this.drawActorLp(actor,x,y,width);
-};
+if(setting.tpReplace){
+    Window_Base.prototype.drawActorTp =function(actor, x, y, width){
+        this.drawActorLp(actor,x,y,width);
+    };    
+}
 
 
 function setupLP(actor){
