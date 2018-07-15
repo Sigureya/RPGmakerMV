@@ -225,6 +225,7 @@
  * ※後日バグ修正
  * その他、細かい修正。
  * 
+ * ver 1.0.0(2018/07/06) 本来発動しないタイミングでカウンターが動いていたのを修正
  * ver 0.9.3(2017/05/27)
  * 優先度が機能していなかったバグを修正
  * ver 0.9.2(2017/05/21)
@@ -282,7 +283,34 @@ const after_counter={
         return result;
     },
 };
-const INTERSECT_TYPE={
+/**
+ * 
+ * @param {String} name 
+ * @param {String} defaultMode 
+ * @param {Number} id 
+ * @param {String} targetMember 
+ * @param {String} message 
+ * @param {String} tagName 
+ */
+function createIntersectType(
+    name,
+    defaultMode,
+    id,
+    targetMember,
+    message,
+    tagName
+){
+    return {
+        name:name,
+        defaultMode:defaultMode,
+        id:id,
+        targetMember:targetMember,
+        message:message,
+        tagName:tagName
+    };
+}
+//createIntersectType(after_counter.counterTag,"target",1,'counter_MA',params.co)
+const INTERSECT_TYPE={    
     COUNTER :{
         name:after_counter.counterTag,
         defaultMode:'target',
@@ -300,270 +328,331 @@ const INTERSECT_TYPE={
         tagName:String(params.chainTag),
     },
     STATE:{
-        id:3
-        
+        id:3        
     },
 };
 
-//=============================================================================
-// Counter Class
-//=============================================================================
-function IntersectCondition() {
-    this.initialize.apply(this,arguments);
-}
-IntersectCondition.prototype.initialize=function(type)
-{
-    this._type = type || INTERSECT_TYPE.COUNTER;
-    this._priority = 0;
-    this._rate = 1;
-    this._cond = null;
-    this._mode = type ? type.defaultMode:'target';
-    this._commonEvent =0;
-    this._msg =null;
-    this._element =[];
-    this._state =[];
-    this.setSkillID(0);
-};
-/**
- * @return {string}
- */
-IntersectCondition.prototype.typename =function(){
-    return this._type.name;
-
-};
-IntersectCondition.prototype.skillEmptyItem=function(){
-    console.log("ぬるぽ");
-    return null;
-};
-
-IntersectCondition.prototype.setEmptyItem=function(){
-    this._getItemFunc = IntersectCondition.prototype.skillEmptyItem;
-}
-
-IntersectCondition.prototype.skillFromNumber=function(){
-    return $dataSkills[this._id];
-};
-
-IntersectCondition.prototype.setSkillID =function(id){
-    this._id =id;
-    this._getItemFunc = IntersectCondition.prototype.skillFromNumber;
-};
-IntersectCondition.prototype.skillFromGameVariables=function(){
-    return $dataSkills[$gameVariables.value(this._id)];
-};
-IntersectCondition.prototype.setSkillVariable =function(id){
-    this._id =id;
-    this._getItemFunc = IntersectCondition.prototype.skillFromGameVariables;
-};
-IntersectCondition.prototype.skillCopy=function(opponentAction){
-    return opponentAction.item()
-};
-
-IntersectCondition.prototype.setSkill=function(value){
-    this.numOrVariable(value, this.setSkillID, this.setSkillVariable );
-};
-
-IntersectCondition.prototype.item =function(){
-    return this._getItemFunc.call(this);
-};
-
-/**
- * @return {Number}
- */
-IntersectCondition.prototype.rate =function(){
-    return this._rate;
-};
-IntersectCondition.prototype.setRate=function(rate){
-    this._rate = rate/100;
-};
-IntersectCondition.prototype.setMode =function(mode){
-    var match = after_counter.modeReg.exec(mode);
-    if(match){
-        this._mode = match[1];
+    //=============================================================================
+    // Counter Class
+    //=============================================================================
+class IntersectCondition {
+    constructor(type) {
+        this.initialize(type);
     }
-};
-IntersectCondition.prototype.priority =function(){
-    return this._priority;
-};
-IntersectCondition.prototype.setPriority =function(p){
-    this._priority = p;
-};
-
-IntersectCondition.prototype.setCondition =function(cond){
-    this._cond=cond;
-};
-
-IntersectCondition.prototype.setCommonEvent =function(eventId){
-    this._commonEvent = Number( eventId);
-};
-/**
- * @param {Game_Battler} subject
- * @param {Game_Action} action
- * @param {any} trait
- * @return {boolean}
- */
-IntersectCondition.prototype.evalCondition=function(subject,action,trait){
-
-    const act       = action;
-    const item      = action.item();
-    const skill     = item;
-    const a         = subject;
-    const b         = action.subject();
-    const elementID = item.damage.elementId;
-    
-    const v         = $gameVariables.value.bind($gameVariables);
-    const s         = $gameSwitches.value.bind($gameSwitches);
-    const result    = subject.result();
-    
-    const skillID = action.isSkill() ? item.id : 0;
-    const itemID  = action.isItem()  ? item.id : 0;
-
-    var condResult = false;
-    try {
-         condResult=!!eval(this._cond);
-        
-    } catch (e) {
-        console.error(e.toString());
-        throw new Error('条件式(cond)が不正です。該当データ('+trait.name+'<'+this.typename()+'>)式:' + this._cond);
+    initialize(type) {
+        this._type = type || INTERSECT_TYPE.COUNTER;
+        this._priority = 0;
+        this._rate = 1;
+        this._cond = null;
+        this._mode = type ? type.defaultMode : 'target';
+        this._commonEvent = 0;
+        this._msg = null;
+        this._element = [];
+        this._state = [];
+        this.setSkillID(0);
     }
-    return condResult;
-};
-IntersectCondition.prototype.numConvertTo =function(func,value){
-    const num = Number(value);
-    if(num !==NaN){
-        func.call(this,num);
+    /**
+     * @return {string}
+     */
+    typename() {
+        return this._type.name;
     }
-
-};
-IntersectCondition.prototype.numOrVariable =function(str,numFunc,variableFunc){
-    let reg =/[(\[](\d)?[)\]]/i;
-    var match = reg.exec(str);
-    if(match){
-//        console.log(match[1]);
-        variableFunc.call(this,match[1]);
-    }else{
-        numFunc.call(this,Number( str ));
+    skillEmptyItem() {
+        console.log("ぬるぽ");
+        return null;
     }
-};
-
-IntersectCondition.prototype.patternMatch=function(key ,value){
-    const k = key[0];
-
-    switch (k) {
-//        case 'cond':
-        case 'c':
-            this.setCondition(value);
-            break;
-//        case 'skill':
-        case 's':
-            this.setSkill(value);
-            break;
-//        case 'priority':
-//        case 'prio':
-        case 'p':
-            this.numConvertTo(this.setPriority,value);
-            break;        
-//        case 'rate':
-        case 'r':
-            this.numConvertTo(this.setRate,value);
-            break;
-//        case 'mode':
-        case 'm':
-            this.setMode(value);
-            break;
-        case 'e':
-        {
-            if(key[1]==='v'){
-            this.setCommonEvent(value);
-            }
+    setEmptyItem() {
+        this._getItemFunc = IntersectCondition.prototype.skillEmptyItem;
+    }
+    /**
+     * @returns {RPG.Skill}
+     */
+    skillFromNumber() {
+        return $dataSkills[this._id];
+    }
+    /**
+     * @param {Number} id 
+     */
+    setSkillID(id) {
+        this._id = id;
+        this._getItemFunc = IntersectCondition.prototype.skillFromNumber;
+    }
+    /**
+     * @returns {RPG.Skill}
+     */
+    skillFromGameVariables() {
+        return $dataSkills[$gameVariables.value(this._id)];
+    }
+    /**
+     * @param {Number} id 
+     */
+    setSkillVariable(id) {
+        this._id = id;
+        this._getItemFunc = IntersectCondition.prototype.skillFromGameVariables;
+    }
+    /**
+     * @param {Game_Action} opponentAction 
+     */
+    skillCopy(opponentAction) {
+        return opponentAction.item();
+    }
+    setSkill(value) {
+        this.numOrVariable(value, this.setSkillID, this.setSkillVariable);
+    }
+    item() {
+        return this._getItemFunc.call(this);
+    }
+    /**
+     * @return {Number}
+     */
+    rate() {
+        return this._rate;
+    }
+    /**
+     * @param {Number} rate 
+     */
+    setRate(rate) {
+        this._rate = rate / 100;
+    }
+    setMode(mode) {
+        var match = after_counter.modeReg.exec(mode);
+        if (match) {
+            this._mode = match[1];
         }
-            break;
-        default:
-            break;
-    };  
-};
-
-IntersectCondition.prototype.setMeta=function(metaStr){
-    const reg = /(|cond|skill|rate|priority|prio|mode|event)\s*=(.+)/g;
-    for(;;){
-        var match = reg.exec(metaStr);
-        if(!match){break;}
-        this.patternMatch(match[1],match[2]);
     }
-};
-IntersectCondition.prototype.selectTargetIndex=function(action,opponent ){
-    if(action.isForOpponent()){
-        action.setTarget( opponent.index()  );
-    }else if(action.isForFriend()){
-        action.setTarget( action.subject().index()  );
+    priority() {
+        return this._priority;
     }
-};
-
-IntersectCondition.prototype.createAction=function(subject,opponentAction)
-{
-    const action = new Game_Action(subject);
-    const item = this.item();
-    if(item){
-        action.setItemObject(item);
-    }else{
-        action.setAttack();
+    setPriority(p) {
+        this._priority = p;
     }
-    this.selectTargetIndex(action,opponentAction.subject());
-    action._counterObject =this;
-    return action;
-};
-IntersectCondition.prototype.modeMathc=function(subject){
-    if(this._mode ==='target'){
-        return !!subject._targetedMA;
+    /**
+     * @param {String} cond 
+     */
+    setCondition(cond) {
+        this._cond = cond;
     }
-
-    if(this._mode ==='hit'){
-        return !!subject._hitMA;
+    
+    setCommonEvent(eventId) {
+        this._commonEvent = Number(eventId);
     }
-    if(this._mode ==='use'){
+    /**
+     * @param {Game_Battler} subject
+     * @param {Game_Action} action
+     * @param {RPG.Trait} trait
+     * @return {boolean}
+     */
+    evalCondition(subject, action, trait) {
+        const act = action;
+        const item = action.item();
+        const skill = item;
+        const a = subject;
+        const b = action.subject();
+        const elementID = item.damage.elementId;
+        const v = $gameVariables.value.bind($gameVariables);
+        const s = $gameSwitches.value.bind($gameSwitches);
+        const result = subject.result();
+        const skillID = action.isSkill() ? item.id : 0;
+        const itemID = action.isItem() ? item.id : 0;
+        var condResult = false;
+        try {
+            condResult = !!eval(this._cond);
+        }
+        catch (e) {
+            console.error(e.toString());
+            throw new Error('条件式(cond)が不正です。該当データ(' + trait.name + '<' + this.typename() + '>)式:' + this._cond);
+        }
+        return condResult;
+    }
+    numConvertTo(func, value) {
+        const num = Number(value);
+        if (!isNaN(num)) {
+            func.call(this, num);
+        }
+        // if(num !==NaN){
+        //     func.call(this,num);
+        // }
+    }
+    numOrVariable(str, numFunc, variableFunc) {
+        let reg = /[(\[](\d)?[)\]]/i;
+        var match = reg.exec(str);
+        if (match) {
+            //        console.log(match[1]);
+            variableFunc.call(this, match[1]);
+        }
+        else {
+            numFunc.call(this, Number(str));
+        }
+    }
+    
+    patternMatch(key, value) {
+        const k = key[0];
+        switch (k) {
+            //        case 'cond':
+            case 'c':
+                this.setCondition(value);
+                break;
+            //        case 'skill':
+            case 's':
+                this.setSkill(value);
+                break;
+            //        case 'priority':
+            //        case 'prio':
+            case 'p':
+                this.numConvertTo(this.setPriority, value);
+                break;
+            //        case 'rate':
+            case 'r':
+                this.numConvertTo(this.setRate, value);
+                break;
+            //        case 'mode':
+            case 'm':
+                this.setMode(value);
+                break;
+            case 'e':
+                {
+                    if (key[1] === 'v') {
+                        this.setCommonEvent(value);
+                    }
+                }
+                break;
+            default:
+                break;
+        }
+        ;
+    }
+    /**
+     * @param {String} metaStr 
+     */
+    setMeta(metaStr) {
+        const reg = /(|cond|skill|rate|priority|prio|mode|event)\s*=(.+)/g;
+        for (; ;) {
+            var match = reg.exec(metaStr);
+            if (!match) {
+                break;
+            }
+            this.patternMatch(match[1], match[2]);
+        }
+    }
+    /**
+     * 
+     * @param {Game_Action} action 
+     * @param {Game_Battler} opponent 
+     */
+    selectTargetIndex(action, opponent) {
+        if (action.isForOpponent()) {
+            action.setTarget(opponent.index());
+        }
+        else if (action.isForFriend()) {
+            action.setTarget(action.subject().index());
+        }
+    }
+    /**
+     * 
+     * @param {Game_Battler} subject 
+     * @param {Game_Action} opponentAction 
+     */
+    createAction(subject, opponentAction) {
+        const action = new Game_Action(subject);
+        const item = this.item();
+        if (item) {
+            action.setItemObject(item);
+        }
+        else {
+            action.setAttack();
+        }
+        this.selectTargetIndex(action, opponentAction.subject());
+        action._counterObject = this;
+        return action;
+    }
+    /**
+     * @param {Game_Battler} subject
+     */
+    modeMathc(subject) {
+        if (this._mode === 'target') {
+            return isTargeted(subject);
+            //        return !!subject._targetedMA;
+        }
+        if (this._mode === 'hit') {
+            return isHited(subject);
+            //        return !!subject._hitMA;
+        }
+        if (this._mode === 'use') {
+            return true;
+        }
+        return false;
+    }
+    /**
+     * 
+     * @param {Game_Battler} subject 
+     * @param {Game_Action} opponentAction 
+     */
+    callCommonEvent(subject, opponentAction) {
+        if (this._commonEvent !== 0) {
+            const inter = new Game_Interpreter();
+            inter.counter = this;
+            inter.a = subject;
+            inter.b = opponentAction.subject();
+            inter.act = opponentAction;
+            inter.setup($dataCommonEvents[this._commonEvent].list);
+            inter.update();
+        }
+    }
+    /**
+     * @param {Game_Battler} subject 
+     */
+    canUse(subject) {
+        const item = this.item();
+        if (item) {
+            return subject.canUse(item);
+        }
         return true;
     }
-
-    return false;
-};
-
-IntersectCondition.prototype.callCommonEvent=function(subject,opponentAction){
-    if(this._commonEvent !==0){
-        const inter = new Game_Interpreter();
-        inter.counter = this;
-        inter.a = subject;
-        inter.b = opponentAction.subject();
-        inter.act = opponentAction;
-
-        inter.setup($dataCommonEvents[this._commonEvent].list);
-        inter.update();
+    /**
+     * 
+     * @param {Game_Battler} subject 
+     * @param {Game_Action} opponentAction 
+     * @param {*} trait 
+     */
+    Judge(subject, opponentAction, trait) {
+        if (!this.modeMathc(subject)) {
+            return false;
+        }
+        if (!(Math.random() < this.rate())) {
+            return false;
+        }
+        this.callCommonEvent(subject, opponentAction);
+        var result = true;
+        if (this._cond) {
+            result = this.evalCondition(subject, opponentAction, trait);
+        }
+        return result && this.canUse(subject);
     }
-};
-IntersectCondition.prototype.canUse =function(subject){
-    const item = this.item();
-    if(item){
-        return subject.canUse(item);
+    createMessage(myAction) {
+        return this._type.message;
     }
-    return true;
-};
+}
 
+/**
+ * @param {Game_Battler} battler 
+ * @returns {Boolean}
+ */
+function isTargeted(battler){
+    const data= BattleManager.findCounterInfo(battler);
+    return data && data.target;
 
-IntersectCondition.prototype.Judge =function(subject,opponentAction,trait){
-    if(!this.modeMathc(subject)){return false;}
-    if(! (Math.random() < this.rate())){return false;}
+    return !!battler._targetedMA;
+}
 
-    this.callCommonEvent(subject,opponentAction);
-    var result = true;
-    if(this._cond){
-        result = this.evalCondition(subject,opponentAction,trait);
-    }
-
-    return result && this.canUse(subject);
-};
-
-IntersectCondition.prototype.createMessage=function(myAction){
-    return this._type.message;
-};
+/**
+ * @param {Game_Battler} battler 
+ * @returns {Boolean}
+ */
+function isHited(battler){
+    const data= BattleManager.findCounterInfo(battler);
+    return data && data.hit;
+    return !!battler._hitMA;
+}
 
 
 //=============================================================================
@@ -593,10 +682,7 @@ Game_Action.prototype.canChainAttack=function(){
     return false;
 };
 
-
-
 Game_Action.prototype.counterSpeed=function(){
-
     var result = this.speed()
     if(this.subject()._targeted){
         result +=10000;
@@ -633,7 +719,6 @@ class IntersectionVisitor{
 //=============================================================================
 // Game_Battler
 //=============================================================================
-
 
 /**
  * @param {Game_Action} opponentAction
@@ -695,8 +780,6 @@ Game_Battler.prototype.findStateCounterAction =function(stateId){
             }
         }
     }
-    
-
 };
 
 Game_Battler.prototype.acceptForStateCounter =function(func){
@@ -710,7 +793,6 @@ Game_Battler.prototype.acceptForStateCounter =function(func){
         }
     }
 };
-
 
 const Game_Battler_addNewState =Game_Battler.prototype.addNewState;
 Game_Battler.prototype.addNewState =function(stateId){
@@ -753,7 +835,6 @@ Scene_Boot.prototype.start= function() {
     setCounterTrait(INTERSECT_TYPE.COUNTER);
     setCounterTrait(INTERSECT_TYPE.CHAIN);
     Scene_Boot_start.apply(this,arguments);
-
 };
 
 //=============================================================================
@@ -761,10 +842,10 @@ Scene_Boot.prototype.start= function() {
 //=============================================================================
 const zz_MA_AfterCounter_BattleManager_initMembers =BattleManager.initMembers;
 BattleManager.initMembers =function(){
-
     zz_MA_AfterCounter_BattleManager_initMembers.call(this);
     this._reservedCounter =[];
     this._reservedChainAttack=[];
+    this._targetsCounterInfo=[];
 };
 
 BattleManager.isCounterReserved =function(){
@@ -799,21 +880,33 @@ BattleManager.intersectCounterAction =function(){
             this._orgSubject = null;
         }
     }
-    var battlers = this.allBattleMembers();
-    for(var i=0,len =battlers.length; i<len; i +=1){
-        battlers[i]._targetedMA=false;
-        battlers[i]._hitMA=false;
-    }
+    // const battlers = this.allBattleMembers();
+    // for(var i=0,len =battlers.length; i<len; i +=1){
+    //     battlers[i]._targetedMA=false;
+    //     battlers[i]._hitMA=false;
+    // }
 };
 
 
+/**
+ * @param {Game_Battler[]} targets 
+ */
+function createTargetsInfo(targets){
+    return targets.map(function(b){
+        return {
+            battler:b,
+            target:false,
+            hit:false
+        };
+    });
+}
 
 const BattleManager_startAction=BattleManager.startAction;
 BattleManager.startAction =function(){
     BattleManager_startAction.call(this);
-    this._targetsCopy = this._targets.clone();
+//  this._targetsCopy = this._targets.clone();
 
-
+    this._targetsCounterInfo = createTargetsInfo(this._targets);
 };
 
 const zz_MA_AfterCounter_BattleManager_updateTurn = BattleManager.updateTurn;
@@ -821,20 +914,42 @@ BattleManager.updateTurn =function(){
     this.intersectCounterAction();
     zz_MA_AfterCounter_BattleManager_updateTurn.call(this);
 };
+/**
+ * 
+ * @param {[]} list 
+ * @param {Game_Battler} battler 
+ */
+function hage(list,battler){
+    for (const data of list) {
+        if(data.battler ===battler){
+            return data;
+        }
+    }
+    return null;
+};
+
+/**
+ * @param {Game_Battler} battler 
+ */
+BattleManager.findCounterInfo =function(battler){
+    return hage(this._targetsCounterInfo,battler);
+};
+
+
 const zz_MA_AfterCounter_BattleManager_invokeNormalAction =BattleManager.invokeNormalAction;
 BattleManager.invokeNormalAction=function(subject,target){
     zz_MA_AfterCounter_BattleManager_invokeNormalAction.apply(this,arguments);
-    target._targetedMA =true;
-    target._hitMA = target._hitMA||target.result().isHit();
-
+    const data = hage(this._targetsCounterInfo,target);
+    if(!!data){
+        data.target=true;
+        data.hit =data.hit||target.result().isHit();
+    }
 };
 BattleManager.counterActionSort =function(){
     this._reservedCounter.sort(function(a,b){
         return b.counterSpeed()-a.counterSpeed();
     });
 };
-
-
 
 const zz_MA_AfterCounter_BattleManager_endAction =BattleManager.endAction;
 BattleManager.endAction =function(){
@@ -845,6 +960,11 @@ BattleManager.endAction =function(){
 BattleManager.pushCounter =function(counterAction){
     this._reservedCounter.push(counterAction);
 };
+/**
+ * @param {Game_Battler} subject
+ * @param {Number} skillId
+ * @param {Game_Battler} target
+ */
 BattleManager.intersectActionFromId =function(subject,skillId,target){
     if(subject){
         const finalTarget = target ||-1;
@@ -855,37 +975,56 @@ BattleManager.intersectActionFromId =function(subject,skillId,target){
     }
 };
 
+/**
+ * @param {Number} enemyIndex 
+ * @param {Number} skillId 
+ * @param {Game_Battler} target 
+ */
 BattleManager.intersectEnemyActionFromId =function(enemyIndex,skillId,target){
     this.intersectActionFromId( $gameTroop.members()[enemyIndex],skillId,target);
 };
 
+/**
+ * @param {Number} enemyIndex 
+ * @param {Number} skillId 
+ * @param {Game_Battler} target 
+ */
 BattleManager.intersectActorActionFromId =function(enemyIndex,skillId,target){
     this.intersectActionFromId( $gameParty.members()[enemyIndex],skillId,target);
 };
 
-
+/**
+ * @param {Game_Action} action
+ */
 BattleManager.canCounter =function(action){
     return action.canCounter();
 };
 
 BattleManager.reserveCounter =function()    {
-    var act =this._action;
+    const act =this._action;
 
     if(this.canCounter(act)){
-        var counterUser = act.opponentsUnit().aliveMembers();
+        const counterUser = act.opponentsUnit().aliveMembers();
 
         for(var i=0;i <counterUser.length;i+=1){
-            var counterAction= counterUser[i].findCounterAciton(act,this._targetsCopy);
+            const counterAction= counterUser[i].findCounterAciton(act);
             if(counterAction){
                 this.pushCounter(counterAction);
-            }        
+            }
         }
         this.counterActionSort();
     }
 };
+/**
+ * @param {Game_Action} action
+ */
 BattleManager.canChainAttack =function(action){
     return !this.isCounterReserved() && !action.isCounter() ;
 };
+
+/**
+ * @param {Game_Action} action 
+ */
 BattleManager.pushChainAttack =function(action){
     this._reservedChainAttack.push(action);
 };
@@ -904,7 +1043,6 @@ BattleManager.reserveChainAttack =function(){
 
 const  zz_MA_AfterCounter_Window_BattleLog_startAction =Window_BattleLog.prototype.startAction;
 Window_BattleLog.prototype.startAction=function(subject,action,targets){
-
     if(action.isCounter()){
         const msg = action.createCounterMessage();
         if(msg){
