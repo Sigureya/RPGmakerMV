@@ -56,6 +56,7 @@
  * Mano_InputConfigと連携する機能がついています。
  * 
  * ■更新履歴
+ * 1.1.1 2018/08/21 YEP_BattleEngineCoreとの競合対策を追加
  * 1.1.0 2018/06/21 全体化時にスプライトが点滅できるようにした
  * 1.0.2 2018/05/21 全体化条件式の機能
  * 1.0.1 2018/05/21 細かいバグの修正
@@ -123,9 +124,7 @@ const setting =(function(){
 
     function fetchButton(paramText){
         if(paramText ===undefined){
-            if(Utils.isOptionValid("test")){
-                console.log("ボタン設定忘れているよ");
-            }
+            console.log("ボタン設定忘れているよ");
             return null;
         }
 
@@ -213,8 +212,14 @@ function hasForAllImple(item){
     }
     return false;
 }
+Game_Action.prototype.hasForAllTrait =function(){
 
-Game_Action.prototype.hasForAllTraits =function(){
+    const item = this.item();
+
+    return (!!item.meta.ForAll);
+
+};
+Game_Action.prototype.isEnabledForAll =function(){
     const item =this.item();
     const metaExpr =item.meta.ForAll;
     if(metaExpr ===true){
@@ -237,7 +242,7 @@ Game_Action.prototype.canForAllSpecialize =function(){
     const forOne =Game_Action_isForOne.call(this);
     if(!forOne){return false;}
 
-    return this.hasForAllTraits();
+    return this.isEnabledForAll();
 };
 
 Game_Action.prototype.isForAllSpecialized =function(){
@@ -262,6 +267,7 @@ function processHandling_ForAll(window){
             if(window.isForAllEnabled()){
                 window.deactivate();
                 window.callHandler("forall");
+//                window.reselect();
             }
         }
     }
@@ -449,7 +455,7 @@ function SelectionEffectSync(battlers){
 Scene_Battle.prototype.onActorForall =function(){
     actionChnageForAll(BattleManager.inputtingAction(),this._actorWindow);
     SelectionEffectSync(this._spriteset._actorSprites);
-    this._actorWindow.activate();    
+    this._actorWindow.activate();
 };
 
 const Scene_Battle_createActorWindow=Scene_Battle.prototype.createActorWindow;
@@ -481,5 +487,19 @@ Scene_Battle.prototype.selectEnemySelection =function(){
     this.forAllCustom(this._enemyWindow);
     Scene_Battle_selectEnemySelection.call(this);
 };
+//YEP対策コード
+(function(){
+const Window_Help_specialSelectionText= Window_Help.prototype.specialSelectionText;
+if(Window_Help_specialSelectionText){
+    Window_Help.prototype.specialSelectionText =function(action){
+        if(action.canForAllSpecialize()){
+            return action.isForAll();
+        }
+        return Window_Help_specialSelectionText.call(this,action);
+    };
+}
 
 })();
+})();
+
+
