@@ -124,8 +124,10 @@ const setting =(function(){
 
     function fetchButton(paramText){
         if(paramText ===undefined){
-            console.log("ボタン設定忘れているよ");
-            return null;
+　　　　　　　if(Utils.isOptionValid("test")){
+        　　　　console.log("ボタン設定忘れているよ");
+                return null;
+            }
         }
 
         const obj =JSON.parse(paramText);
