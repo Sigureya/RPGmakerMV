@@ -39,7 +39,11 @@
  * @param commonH
  * @type Struct<CommonDefine>
  *
- * 
+ * @param debugMode
+ * @desc デバッグモードです。
+ * 設定ミスがある場合、コンソールにエラー文章を表示します。
+ * @type boolean
+ * @default true
  * 
  * @help
  * 1ボタンでコモンイベントを呼び出せるようになります。
@@ -163,40 +167,118 @@
  * @value 5
  * 
  */
-/*~
- * @param description
- * @desc コマンドの簡易説明です
- * Mano_InputConfigと組み合わせて使います
- * 
- */
-function MA_OneButtonCommonEvent(){
-    this.initialize.apply(this,arguments);
-} 
 
 var MA_InputSymbols =MA_InputSymbols||[];
 
-(function () {
+var Mano_OneButtonCommonEventCall = (function () {
     'use strict';
 
 
+class MA_OneButtonCommonEvent {
+    /**
+     * @param {Number} settingId
+     */
+    constructor(settingId) {
+        this._settingId = settingId;
+        this._interpreter = null;
+        this.refresh();
+    }
+    refresh() {
+        const def = this.mySetting();
+        if(!def){
+            this._interpreter =null;
+            return;
+        }
+
+        if (!this._interpreter) {
+            this._interpreter = new Game_Interpreter();
+        }
+    }
+    /**
+     * @return {RPG.Event}
+     */
+    event() {
+        const eventId = this.mySetting().eventId;
+        return $dataCommonEvents[eventId];
+    }
+    commonEventId(){
+        return this._commonEventId;
+    }
+    /**
+     * @return {RPG.EventCommand[]}
+     */
+    list() {
+        return this.event().list;
+    }
+
+    get switchId(){
+        return this.mySetting().enableSwitch;
+    }
+    isSwitchOk() {
+        const switchId =this.switchId;
+        return switchId === 0 || $gameSwitches.value(switchId);
+    }
+    isCallOK() {
+        const def = this.mySetting();
+        if (!Input.isTriggered(def.symbol)) {
+            return false;
+        }
+        return (!SceneManager.isSceneChanging())
+            && (!this._interpreter.isRunning())
+            && (def.interrupt || !$gameMap.isEventRunning())
+            && this.isSwitchOk();
+    }
+    update() {
+        if (this._interpreter) {
+            if (this.isCallOK()) {
+                this._interpreter.setup(this.list());
+            }
+            this._interpreter.update();
+        }
+    }
+
+    onLoad(){
+        this.refresh();
+    }
+
+    mySetting(){
+        return setting.eventList[this._settingId];
+    }
+
+    settingId(){
+        return this._settingId;
+    }
+}
+
+window[MA_OneButtonCommonEvent.name] = MA_OneButtonCommonEvent;
+
 const setting= (function(){
-     function fetchCommonEvent(CommonDefine){
+    const params =PluginManager.parameters('Mano_OneButtonCommonEventCall')
+    const isDebug = Utils.isOptionValid("test") && (params.isDebug==='true');
+    function fetchCommonEvent(CommonDefine){
          if(!CommonDefine){
              return null;
          }
         const obj =JSON.parse(CommonDefine);
         const enabled=(obj.enabled==='true');
+
         if(!enabled){
-//            console.log("無効だから無視したよ")
+            if(isDebug){
+                console.log("無効だから無視したよ");
+            }
             return null;
         }
         const eventId_ = Number(obj.event);
         if(!(eventId_>0)){
-//            console.log("イベント番号が不正だからやめたよ")
+            if(isDebug){
+               console.log("イベント番号が不正だからやめたよ")
+            }
             return null;
         }
         if(!obj.symbol){
-//            console.log("シンボルが設定されてないよ");
+            if(isDebug){
+               console.log("シンボルが設定されてないよ");
+            }
             return null;
         }
 
@@ -224,17 +306,18 @@ const setting= (function(){
             fetchCommonEvent(params.commonH),        
         ];//.filter(function(e){return !!e});
     }
-        const params =PluginManager.parameters('Mano_OneButtonCommonEventCall')
-        const result= {
-            eventList:createCommonEventList(params)
-        };
+    const result= {
+        eventList:createCommonEventList(params),
+        isDebug : isDebug,
+    };
     return result
 })();
 
 (function(){
 
+
+
     /**
-     * 
      * @param {Number} keycode 
      * @param {String} symbol 
      */
@@ -247,6 +330,7 @@ const setting= (function(){
         Input.keyMapper[keycode ] =symbol;
         console.log(Input.keyMapper[keycode ]);
     }
+
 
     setting.eventList.forEach(function(data){
         if(!data){return;}
@@ -265,119 +349,50 @@ const setting= (function(){
             mandatory:data.mandatory,
             text:data.text,
             symbol:data.symbol,
-        })
-    })
-})()
+        });
+    });
+})();
 
-//setMapper();
-/**
- * @param {Number} settingId
- */
-MA_OneButtonCommonEvent.prototype.initialize =function(settingId){
-    this._settingId = settingId;
-    const param =setting.eventList[settingId];
-    this._commonEventId = param.eventId;
-    this._enableSwitch=  param.enableSwitch;
-    this._symbol= param.symbol;
-    this._interpreter = null;
-    this.refresh()
-};
-MA_OneButtonCommonEvent.prototype.refresh = function() {
-    if (!this._interpreter) {
-        this._interpreter = new Game_Interpreter();
-    }
-};
-
-/**
- * @return {RPG.Event}
- */
-MA_OneButtonCommonEvent.prototype.event =function(){
-    return $dataCommonEvents[this._commonEventId];
-};
-/**
- * @return {RPG.EventCommand[]}
- */
-MA_OneButtonCommonEvent.prototype.list = function() {
-    return this.event().list;
-};
-MA_OneButtonCommonEvent.prototype.isSwitchOk =function(){
-    return this._enableSwitch ===0||$gameSwitches.value(this._enableSwitch);
-};
-
-// MA_OneButtonCommonEvent.prototype.isCalled=function(){
-//     return Input.isTriggered(this._symbol);
-// };
-MA_OneButtonCommonEvent.prototype.isCallOK=function(){
-    const def = setting.eventList[this._settingId];
-    if(!Input.isTriggered(def.symbol)){
-        return false;
-    }
-
-    return (!SceneManager.isSceneChanging())
-    && (!this._interpreter.isRunning())
-    && (def.interrupt || !$gameMap.isEventRunning())
-    && (def.enableSwitch ===0 || $gameSwitches.value(def.enableSwitch));
-};
-
-
-MA_OneButtonCommonEvent.prototype.update=function(){
-    if(this._interpreter){
-        if(this.isCallOK()){
-            this._interpreter.setup(this.list());            
-        }
-        this._interpreter.update();
-    }
-    return;
-};
-/**
- * @return {MA_OneButtonCommonEvent[]}
- */
-function createOneButtonEvents(){
-    const result =[];
-    const len =setting.eventList.length
-    for(var i=0; i < len; ++i){
-        var e =setting.eventList[i]
-        if(e && e.eventId !==0 ){
-            result.push( new MA_OneButtonCommonEvent(i));
-        }
-    }
-    return result;
+function createOneButtonEvents2(){
+   return setting.eventList.map(function(e,index){
+       const result = new MA_OneButtonCommonEvent(index);
+       return result;
+   });
 }
-
 const Game_Map_initialize=Game_Map.prototype.initialize;
 Game_Map.prototype.initialize =function(){
     Game_Map_initialize.apply(this,arguments);
-    this._oneButtonEvents =[];
+    this.initOneButtonEvents();
 };
 
-const  Game_Map_setupEvents=Game_Map.prototype.setupEvents;
-Game_Map.prototype.setupEvents =function(){
-    Game_Map_setupEvents.call(this);
-    this.setupOneButtonEvents();
+Game_Map.prototype.initOneButtonEvents =function(){
+    if(!this._oneButtonEvents){
+        this._oneButtonEvents =createOneButtonEvents2();
+    }
 };
 
-Game_Map.prototype.setupOneButtonEvents =function(){
-    this._oneButtonEvents=createOneButtonEvents();          
-};
 
 const  Game_Map_updateEvents=Game_Map.prototype.updateEvents;
 Game_Map.prototype.updateEvents =function(){
-    const len = this._oneButtonEvents.length;
-    for(var i =0;i <len;++i){
-        this._oneButtonEvents[i].update();
+    for (const one of this._oneButtonEvents) {
+        if(one){
+            one.update();
+        }
     }
-    // this._oneButtonEvents.forEach(function(event){
-    //     event.update();
-    // });
     Game_Map_updateEvents.call(this);
 };
 
-const Scene_Load_reloadMapIfUpdated =Scene_Load.prototype.reloadMapIfUpdated;
-Scene_Load.prototype.reloadMapIfUpdated =function (){
-    Scene_Load_reloadMapIfUpdated.call(this);
-    if($gameMap._oneButtonEvents){
-        $gameMap.setupOneButtonEvents();
+const DataManager_extractSaveContents=DataManager.extractSaveContents;
+DataManager.extractSaveContents=function(contents){
+    DataManager_extractSaveContents.call(this,contents);
+    $gameMap.initOneButtonEvents();
+    for (const iterator of $gameMap._oneButtonEvents) {
+        iterator.onLoad();
     }
-} ;
+};
+
+return {
+    Event:MA_OneButtonCommonEvent,
+};
 
 })();
