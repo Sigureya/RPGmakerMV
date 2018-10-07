@@ -78,6 +78,7 @@
  * @desc 属性アイコン用にスキルデータを参照します。
  * （属性が重複している場合、未定義の動作）
  * @type skill[]
+ * @default []
  *  
  * @param hiddenState
  * @desc 指定したステートが発生している場合、
