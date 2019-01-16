@@ -13,6 +13,16 @@
  * 条件式や反撃時の行動も設定できます。
  * @author しぐれん（魔のささやき）
  * 
+ * @param enabledCounter
+ * @desc カウンター機能を有効化します。
+ * @type boolean
+ * @default true
+ * 
+ * @param enabledChain
+ * @desc 連続攻撃機能を有効化します。
+ * @type boolean
+ * @default true
+ * 
  * @param counterTag
  * @desc カウンターの条件設定に使うタグ名を指定します。
  * @default CounterExt
@@ -206,6 +216,8 @@
  *    cond = b.isStateAffected(6)
  * >
  * 
+ * 
+ * 
  * ■その他
  * スキルやアイテムに<CanNotCounter>タグを指定することで、
  * カウンターされないスキルが作れます。
@@ -256,7 +268,7 @@ Imported.Mano_AfterCounter =true;
 
 const params = PluginManager.parameters('Mano_AfterCounter');
 
-const after_counter={
+const setting={
     counterTag :String(params['tagName']||'CounterExt'),
     chainAttackTag :String(params.chainTag),
     modeReg:/(target|use|hit)/,
@@ -271,9 +283,9 @@ const after_counter={
             c_base.setMeta(note_X);
             result.push(c_base);
         }
-        var max = after_counter.definableAmmount;
+        var max = setting.definableAmmount;
         for(var i=1;i <=max;i+=1 ){
-            const note =obj.meta[intersect_type.tagName+1];
+            const note =obj.meta[intersect_type.tagName+i];
             if(note){
                 var c_base = new IntersectCondition(intersect_type);
                 c_base.setMeta(note);
@@ -312,7 +324,7 @@ function createIntersectType(
 //createIntersectType(after_counter.counterTag,"target",1,'counter_MA',params.co)
 const INTERSECT_TYPE={    
     COUNTER :{
-        name:after_counter.counterTag,
+        name:setting.counterTag,
         defaultMode:'target',
         id:1,
         targetMember:'counter_MA',
@@ -320,7 +332,7 @@ const INTERSECT_TYPE={
         tagName:String(params.counterTag),
     },
     CHAIN :{
-        name:after_counter.chainAttackTag,
+        name:setting.chainAttackTag,
         defaultMode:'use',
         id:2,
         targetMember:'chain_MA',
@@ -331,18 +343,48 @@ const INTERSECT_TYPE={
         id:3        
     },
 };
+class NumberProxyC {
 
-    //=============================================================================
-    // Counter Class
-    //=============================================================================
+    /**
+     * @param {Number} id 
+     */
+    constructor(id){
+        this._id =id;
+    }
+    valueOf(){
+        return $gameVariables.value(this._id);
+    }
+    get value(){
+        return this.valueOf();
+    }
+}
+
+/**
+ * @param {String} value 
+ */
+function asNumber(value){
+    let reg = /[(\[](\d)?[)\]]/i;
+    const match = reg.exec(value);
+    if(match){
+        const a =Number(match[1]);
+        return new NumberProxyC(a);
+    }
+
+    return Number(value);
+}
+
+//=============================================================================
+// Counter Class
+//=============================================================================
 class IntersectCondition {
+
     constructor(type) {
         this.initialize(type);
     }
     initialize(type) {
         this._type = type || INTERSECT_TYPE.COUNTER;
         this._priority = 0;
-        this._rate = 1;
+        this._rate = 100;
         this._cond = null;
         this._mode = type ? type.defaultMode : 'target';
         this._commonEvent = 0;
@@ -351,25 +393,29 @@ class IntersectCondition {
         this._state = [];
         this.setSkillID(0);
     }
+
+    setSourceObject(){
+    }
+
     /**
      * @return {string}
      */
     typename() {
         return this._type.name;
     }
-    skillEmptyItem() {
-        console.log("ぬるぽ");
-        return null;
-    }
-    setEmptyItem() {
-        this._getItemFunc = IntersectCondition.prototype.skillEmptyItem;
-    }
-    /**
-     * @returns {RPG.Skill}
-     */
-    skillFromNumber() {
-        return $dataSkills[this._id];
-    }
+    // skillEmptyItem() {
+    //     console.log("ぬるぽ");
+    //     return null;
+    // }
+    // setEmptyItem() {
+    //     this._getItemFunc = IntersectCondition.prototype.skillEmptyItem;
+    // }
+    // /**
+    //  * @returns {RPG.Skill}
+    //  */
+    // skillFromNumber() {
+    //     return $dataSkills[this._id];
+    // }
     /**
      * @param {Number} id 
      */
@@ -377,12 +423,12 @@ class IntersectCondition {
         this._id = id;
         this._getItemFunc = IntersectCondition.prototype.skillFromNumber;
     }
-    /**
-     * @returns {RPG.Skill}
-     */
-    skillFromGameVariables() {
-        return $dataSkills[$gameVariables.value(this._id)];
-    }
+    // /**
+    //  * @returns {RPG.Skill}
+    //  */
+    // skillFromGameVariables() {
+    //     return $dataSkills[$gameVariables.value(this._id)];
+    // }
     /**
      * @param {Number} id 
      */
@@ -397,32 +443,39 @@ class IntersectCondition {
         return opponentAction.item();
     }
     setSkill(value) {
-        this.numOrVariable(value, this.setSkillID, this.setSkillVariable);
+        this._id = (value);
     }
     item() {
+        return $dataSkills[this._id.valueOf()];
         return this._getItemFunc.call(this);
     }
     /**
      * @return {Number}
      */
     rate() {
-        return this._rate;
+        return this._rate/100;
     }
     /**
      * @param {Number} rate 
      */
     setRate(rate) {
-        this._rate = rate / 100;
+        this._rate =rate;
     }
     setMode(mode) {
-        var match = after_counter.modeReg.exec(mode);
+        var match = setting.modeReg.exec(mode);
         if (match) {
             this._mode = match[1];
         }
     }
+    /**
+     * @returns {Number}
+     */
     priority() {
-        return this._priority;
+        return this._priority.valueOf();
     }
+    /**
+     * @param {Number} p 
+     */
     setPriority(p) {
         this._priority = p;
     }
@@ -432,9 +485,11 @@ class IntersectCondition {
     setCondition(cond) {
         this._cond = cond;
     }
-    
+    /**
+     * @param {Number} eventId 
+     */
     setCommonEvent(eventId) {
-        this._commonEvent = Number(eventId);
+        this._commonEvent = (eventId);
     }
     /**
      * @param {Game_Battler} subject
@@ -465,6 +520,9 @@ class IntersectCondition {
         return condResult;
     }
     numConvertTo(func, value) {
+        throw Error("廃止されました");
+
+
         const num = Number(value);
         if (!isNaN(num)) {
             func.call(this, num);
@@ -474,6 +532,7 @@ class IntersectCondition {
         // }
     }
     numOrVariable(str, numFunc, variableFunc) {
+        throw Error("廃止されました");
         let reg = /[(\[](\d)?[)\]]/i;
         var match = reg.exec(str);
         if (match) {
@@ -484,7 +543,10 @@ class IntersectCondition {
             numFunc.call(this, Number(str));
         }
     }
-    
+    /**
+     * @param {String} key 
+     * @param {String} value 
+     */
     patternMatch(key, value) {
         const k = key[0];
         switch (k) {
@@ -494,16 +556,18 @@ class IntersectCondition {
                 break;
             //        case 'skill':
             case 's':
-                this.setSkill(value);
+                this.setSkill(asNumber( value));
                 break;
             //        case 'priority':
             //        case 'prio':
             case 'p':
-                this.numConvertTo(this.setPriority, value);
+                this.setPriority(asNumber( value));
+//                this.numConvertTo(this.setPriority, value);
                 break;
             //        case 'rate':
             case 'r':
-                this.numConvertTo(this.setRate, value);
+                this.setRate(asNumber( value));
+//                this.numConvertTo(this.setRate, value);
                 break;
             //        case 'mode':
             case 'm':
@@ -512,7 +576,7 @@ class IntersectCondition {
             case 'e':
                 {
                     if (key[1] === 'v') {
-                        this.setCommonEvent(value);
+                        this.setCommonEvent(Number(value));
                     }
                 }
                 break;
@@ -719,7 +783,6 @@ class IntersectionVisitor{
 //=============================================================================
 // Game_Battler
 //=============================================================================
-
 /**
  * @param {Game_Action} opponentAction
  * @return {Game_Action}
@@ -808,7 +871,7 @@ function setCounterTrait_ForObjectList(objList,intersect_type){
     const len = objList.length;
     for(var i =1; i< len;i+=1){
         const obj = objList[i];
-        obj[intersect_type.targetMember]=after_counter.fetchIntersectTrait(obj,intersect_type);
+        obj[intersect_type.targetMember]=setting.fetchIntersectTrait(obj,intersect_type);
     }
 }
 function setCounterTrait(intersect_type){
@@ -855,7 +918,7 @@ BattleManager.isChainAttackReserved =function(){
     return this._reservedChainAttack.length > 0;
 };
 BattleManager.isIntersectActionReserved =function(){
-    return this.isCounterReserved() ;//|| this.isChainAttackReserved();
+    return this.isCounterReserved() ;
 };
 
 
@@ -880,11 +943,6 @@ BattleManager.intersectCounterAction =function(){
             this._orgSubject = null;
         }
     }
-    // const battlers = this.allBattleMembers();
-    // for(var i=0,len =battlers.length; i<len; i +=1){
-    //     battlers[i]._targetedMA=false;
-    //     battlers[i]._hitMA=false;
-    // }
 };
 
 
@@ -1000,7 +1058,7 @@ BattleManager.canCounter =function(action){
     return action.canCounter();
 };
 
-BattleManager.reserveCounter =function()    {
+BattleManager.reserveCounter =function(){
     const act =this._action;
 
     if(this.canCounter(act)){
