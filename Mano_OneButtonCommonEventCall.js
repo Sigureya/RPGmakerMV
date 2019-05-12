@@ -122,6 +122,14 @@
  * @type boolean
  * @default false
  * 
+ * @param canMove
+ * @desc このコモンイベント実行中にプレイヤーが移動できるかを決めます。
+ * アクションゲームの場合、trueにすると良いと思います。
+ * @on 移動できる
+ * @off 移動できない
+ * @type boolean
+ * @default false
+ *
  * @param mandatory
  * @desc inputConfigの方で必須指定されたものとして扱います。
  * @type boolean
@@ -248,6 +256,14 @@ class MA_OneButtonCommonEvent {
     settingId(){
         return this._settingId;
     }
+
+    isRunning() {
+        return this._interpreter && this._interpreter.isRunning();
+    }
+
+    canMoveWhileRunning() {
+        return this.mySetting().canMove;
+    }
 }
 
 window[MA_OneButtonCommonEvent.name] = MA_OneButtonCommonEvent;
@@ -292,6 +308,7 @@ const setting= (function(){
             padButtonNumber:Number(obj.padButton),
             mandatory:(obj.mandatory==='true'),   
             interrupt:(obj.interrupt==='true'),
+            canMove:(obj.canMove==='true'),
         };
     }
     function createCommonEventList(params){
@@ -371,6 +388,21 @@ Game_Map.prototype.initOneButtonEvents =function(){
     }
 };
 
+Game_Map.prototype.runningOneButtonEvent =function(){
+    if (!this._oneButtonEvents) {
+        return undefined;
+    }
+    return this._oneButtonEvents.find(event => event.isRunning());
+}
+
+Game_Map.prototype.oneButtonEventIsRunning =function(){
+    return !!this.runningOneButtonEvent();
+}
+
+Game_Map.prototype.nonMovableOneButtonEventIsRunnning =function(){
+    const runningEvent = this.runningOneButtonEvent();
+    return !!runningEvent && !runningEvent.canMoveWhileRunning();
+}
 
 const  Game_Map_updateEvents=Game_Map.prototype.updateEvents;
 Game_Map.prototype.updateEvents =function(){
@@ -381,6 +413,22 @@ Game_Map.prototype.updateEvents =function(){
     }
     Game_Map_updateEvents.call(this);
 };
+
+const Game_Player_executeEncounter=Game_Player.prototype.executeEncounter;
+Game_Player.prototype.executeEncounter =function(){
+    if ($gameMap.oneButtonEventIsRunning()) {
+        return false;
+    }
+    return Game_Player_executeEncounter.call(this);
+}
+
+const Game_Player_canMove=Game_Player.prototype.canMove;
+Game_Player.prototype.canMove =function(){
+    if ($gameMap.nonMovableOneButtonEventIsRunnning()) {
+        return false;
+    }
+    return Game_Player_canMove.call(this);
+}
 
 const DataManager_extractSaveContents=DataManager.extractSaveContents;
 DataManager.extractSaveContents=function(contents){
