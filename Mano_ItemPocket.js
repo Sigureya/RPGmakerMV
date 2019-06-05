@@ -23,15 +23,17 @@
  */
 /*:
  * 改造した場合、この後ろに「改変者（〇〇）」などの形で表記してください。
- * @author しぐれん
+ * @author しぐれん(https://github.com/Sigureya/RPGmakerMV)
  * @plugindesc キャラクターごとに個別にアイテムを所持します。
  *
  * @param menuCommand
+ * @text コマンド名
  * @desc メニュー画面におけるアイテム所持のコマンド名
  * @type string
  * @default アイテム所持
  * 
  * @param menuCommandPosition
+ * @text コマンドの位置
  * @desc アイテム所持コマンドの位置を調整します
  * @type select
  * @option オリジナルコマンドの位置
@@ -41,6 +43,7 @@
  * @default 0
  * 
  * @param usingWeight
+ * @text 「重さ機能」の有効化
  * @desc アイテムの重さ機能を使うかどうかを定義します
  * ※ゲーム実行中は変更できません
  * @type boolean
@@ -49,6 +52,7 @@
  * @default false
  *  
  * @param defaultWeight
+ * @text 重さ初期値
  * @desc アイテムのデフォルトの重さ
  * メモに何も書かなかった場合、ここに指定した数値が代入されます。
  * @type number
@@ -279,6 +283,17 @@
  * DS版DQ4には世界樹の葉を大量に所持できてしまうバグがあるのですが、
  * そういった現象への対策です。
  * 
+ * ◆Pocket SaveTemporary
+ * パーティにいるアクターが所持しているアイテムを一時的に通常の所持アイテムへ戻します。
+ * これと同時に、所持アイテムの状態を別の場所へ記録します。
+ * このデータはセーブデータの一部として、$gamePartyに記録されます。
+ * 既に記録している場合、例外を投げます。（エラーで落ちます）
+ * 
+ * ◆Pocket LoadTemporary
+ * SaveTemporaryで解放したデータを元に戻します。
+ * 同時に、一時データを削除します。
+ * データがない状態でこの関数を呼ぶと、エラーで落ちます。
+ * 
  * ■メモについて
  * メモ欄で、アクターの初期アイテムが設定できます。
  * 以下のような内容で書き込むと、
@@ -350,6 +365,9 @@
  * 
  * TODO
  * 
+ * Pocket_Baseクラスを実装し、機能を改善する。
+ * ドラクエ風所持モードを本体の標準に。
+ * 
  * 表示部分の改善
  * スクロール時に、表示がおかしい
  * 
@@ -404,10 +422,102 @@
  * <MaxAmount:2>
 */ 　
 
-'use strict';
 
-class MA_itemPocket {
+
+var Mano_ItemPocket =(function () {
+    'use strict';
+    function getParam(){
+        return PluginManager.parameters('Mano_ItemPocket');
+    }
+/**
+ * @param {RPG.Item} item 
+ */
+function getItemWeight(item){
+    if(item){
+        return item.weight_MA;
+    }
+    return 0;
+}
+class MA_ItemPocket_Base{
+    /**
+     * @param {Number} index 
+     */
+    amount(index){
+        return 0;
+    }
+    clear(){}
+    // nullや、空っぽのアイテムを取り除く
+    normalize() {}
+    /**
+     * @param {RPG.Item} item
+     * @return {boolean}
+     */
+    hasItem(item) {
+        return false;
+    }
+
+    /**
+     * @returns {MA_ItemPocket_Base}
+     */
+    clone(){
+        return null;
+    }
+
+    /**
+     * @returns {RPG.Item | RPG.Weapon|RPG.Armor}
+     * @param {Number} index 
+     */
+    item(index){
+        return null;
+    }
+    /**
+     * @param {Number} index 
+     */
+    numItemsForParty(index) {
+        return $gameParty.numItems(this.item(index));
+    }
+    /**
+     * @param {number} index
+     */
+    weight(index) {
+        const amount = this.amount(index);
+        const item = this.item(index);
+        if (item) {
+            return getItemWeight(item) *amount;
+        }
+        return 0;
+    }
+
+    /**
+     * @return {number} 残り重量
+     */
+    weightCapacity() {
+        return 100;
+    }
+    /**
+     * @param {RPG.BaseItem} item
+     * @param {Number} [start = 0]
+     */
+    indexOf(item, start) {
+        const s = start ||0;
+        const len = this.maxItems();
+        for(var i =s ; i < len; ++i){
+            if(this.item(i) ===item){
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    maxItems(){
+        return 0;
+    }
+}
+
+
+class MA_itemPocket extends MA_ItemPocket_Base {
     constructor() {
+        super();
         this.initialize.apply(this, arguments);
     }
     /**
@@ -424,6 +534,9 @@ class MA_itemPocket {
     }
     length() {
         return this.array().length;
+    }
+    maxItems(){
+        return this.length();
     }
     /**
      * @param {function(RPG.Item,RPG.Item)=>number} func
@@ -482,21 +595,30 @@ class MA_itemPocket {
     hasItem(item) {
         return this.findItem(item) !== null;
     }
+    _cloneArray(){
+        return this._data.map(function (obj) {
+            const result = {};
+            Object.assign(result, obj);
+            return result;
+        });
+    }
     /**
      * @return {MA_itemPocket}
      */
     clone() {
-        var array = this._data.map(function (obj) {
-            var result = {};
-            Object.assign(result, obj);
-            return result;
-        });
-        return new MA_itemPocket(array);
+        return new MA_itemPocket(this._cloneArray());
+    }
+
+    /**
+     * @desc マイセット用のデータを生成して返す
+     */
+    createMySet(){
+        return new MA_ItemPocketMyset(this._cloneArray());
     }
     /**
      * @desc 指定した位置にあるアイテムのデータを返す　所持数が0ならnullを返す
      * @param {number} index
-     * @return {RPG.Item} included null
+     * @return {RPG.Item } included null
      */
     item(index) {
         const obj = this._data[index];
@@ -583,7 +705,8 @@ class MA_itemPocket {
         const amount = this.amount(index);
         const item = this.item(index);
         if (item) {
-            return item.weight_MA * amount;
+            return getItemWeight(item) *amount;
+//            return item.weight_MA * amount;
         }
         return 0;
     }
@@ -861,13 +984,142 @@ class MA_itemPocket {
         return DataManager.isItem(item) && item.occasion <= 1;
     }
 }
+window[MA_itemPocket.name] =MA_itemPocket;
 MA_itemPocket.pocketSize =0;
 
 MA_itemPocket.TYPE_ITEM=0;
 MA_itemPocket.TYPE_WEAPON =1;
 MA_itemPocket.TYPE_ARMOR =2;
+class MA_ItemPocketMyset extends MA_itemPocket{
 
-var Mano_ItemPocket =(function () {
+}
+window[MA_ItemPocketMyset.name] =MA_ItemPocketMyset; 
+
+
+function createWithEquipList(){
+    const list =[];
+    list.length=setting.pocketSize;
+
+    for(var i =0; i < list.length; ++i){
+        const item =new Game_Item();
+        item.pocketItem=true;
+        list[i] = item;
+    }
+    return list;
+}
+/**
+ * 
+ * @param {Game_Item[]} list 
+ */
+function WithEquipFilter(list){
+    return list.filter(function(item){
+        if(item.pocketItem){
+            return true;
+        }
+        return !item.isNull();
+    });
+
+}
+
+class Game_PocketItem extends Game_Item{
+    isPocketItem(){
+        return true;
+    }
+}
+
+// アイテムをGame_Itemの形で記録する実装 テスト中
+//メニュー画面で動かすときは、操作用のプロキシを返す？
+class MA_ItemPocketWithEquip extends MA_ItemPocket_Base{
+    constructor(){
+        super();
+        this._resetList(createWithEquipList());
+        this._actorId =0;
+        this._originList =[];
+    }
+    /**
+     * @param {Game_Item[]} list 
+     */
+    _resetList(list){
+        this._list =list;
+    }
+
+    /**
+     * @param {Number} actorId 
+     */
+    setActorId(actorId){
+        this._actorId =actorId;
+    }
+
+    actor(){
+        return $gameActors.actor(this._actorId);
+    }
+    amount(index){
+        const item = this._list[index];
+        if(item){
+            if(!item.isNull()){
+                return 1;
+            }
+        }
+        return 0;
+    }
+    _getEquips(){
+        const actor = this.actor();
+        if(!actor){
+            return [];
+        }
+
+        return actor._equips.filter(function(item){
+            return item.isEquipItem();
+        });
+    }
+    normalize(){
+        this._resetList(WithEquipFilter(this._list));
+    }
+}
+
+
+//セーブデータに含めるための、マイセット一覧クラス
+class MA_PocketMysetList{
+    constructor(){
+        /**
+         * @type {MysetListItem[]}
+         */
+        this._list=createDefaultMyset(setting.mysetSize);
+    }
+    loadDefault(){
+        this._list = createDefaultMyset(setting.mysetSize);
+    }
+    item(index){
+        return this._list[index];
+    }
+    /**
+     * @param {Number}index
+     * @param {MA_itemPocket} pocket
+     */
+    save(index,pocket){
+        const item = this.item(index);
+        if(item){
+            item.pocket = pocket.createMySet();
+        }
+    }
+    /**
+     * @param {Number}index
+     * @param {String} name
+     */
+    rename(index ,name){
+        const item = this.item(index);
+        if(item){
+            item.name = name;
+        }
+    }
+
+    maxItems(){
+        return this._list.length;
+    }
+
+
+}
+
 
     class ModeSymbol{
         /**
@@ -883,118 +1135,6 @@ var Mano_ItemPocket =(function () {
         }
     };
 
-const setting = (function(){
-
-
-
-    const param = PluginManager.parameters('Mano_ItemPocket');
-    MA_itemPocket.pocketSize =Number(param.pocketSize);
-
-    /**
-     * @param {String} symbol
-     */
-    function createCommandSetting(symbol,objText){
-        const result = new ModeSymbol();
-        result.setSymbol(symbol);
-        result.makeFromJSON(JSON.parse(objText));
-        return result;
-    }
-    const mode ={
-        use:createCommandSetting("use",param.use),
-        swap:createCommandSetting("swap",param.swap),
-        add:createCommandSetting("add",param.add),
-        remove:createCommandSetting("remove",param.remove),
-        pass:createCommandSetting("pass",param.pass),
-        myset:createCommandSetting("myset",param.myset),
-    };
-    /**
-     * @return {ModeSymbol[]}  
-     */
-    function createModeList( ){
-        const list= JSON.parse(param.command);
-        const len = list.length;
-        const result =[];
-        for(var i=0;i<len;++i){
-            const symbol = list[i];
-            const x = mode[symbol];
-            if(x){
-                result.push(x);
-            }
-        }
-        return result;
-    }
-
-
-    const result=  {
-        
-        maxAmount : Number (param.maxAmount),
-        weight:Number(param.defaultWeight),
-        canDuplicate:Boolean(param.canDuplicate==='true'),
-        pocketSize :Number(param.pocketSize),
-        pocketKeepByremoveActor:Number(param.pocketKeepByremoveActor),
-        menuCommandPostion :Number(param.menuCommandPosition),
-
-        usingMyset:Boolean(param.usingMyset==='true'),
-        usingWeight:Boolean(param.usingWeight==='true'),
-        mysetSize :Number(param.mysetSize ||8),
-        mysetFormat:String(param.mysetFormat),
-        saveMyset:String(param.saveMyset),
-        saveMysetHelp:String(param.saveMysetHelp),
-        loadMyset:String(param.loadMyset),
-        loadMysetHelp:String(param.loadMysetHelp),
-        renameMyset:String(param.renameMyset),
-        weightText:String(param.weightText),
-        
-
-        commandKey :"actorItemEquip",
-        commandName:String(param.menuCommand),
-
-        /**
-         * @type {String[]}
-         */
-        commandList:(JSON.parse(param.command)),
-        use:mode.use,
-        swap:mode.swap,
-        add:mode.add,
-        remove:mode.remove,
-        pass:mode.pass,
-        myset:mode.myset,
-        modeList :createModeList(),
-
-        numberSelectHelp:String(param.numberSelectHelp),
-
-        wordUse:String(param.CommandUse),
-        symbolUse:'use',
-        wordSwap:String(param.CommandSwap),
-        symbolSwap:'swap',
-        wordRemove:String(param.CommandRemove),
-        symbolRemove:'remove',
-        wordAdd:String(param.CommandAdd),
-        symbolAdd:'add',
-        wordMyset:String(param.CommandMyset),
-        symbolMyset:'myset',
-        wordPass:String(param.CommandPass),
-        symbolPass:'pass',
-
-        wordSort:'整列',
-        symbolSort:'sort',
-        symbolOutOfWindow :'outwindow',
-        symbolNon:'non',
-        pocketWindow:{
-            w:function(){return Graphics.boxWidth/2;},
-            h:function(){return 240;},
-            smallH:function(){return 240;}
-        },
-        color:{
-            max:Number(param.MaxColor) || 18,
-        },
-        tag:{
-            maxAmount:'MaxAmount',
-            weight:'Weight'
-        },
-    };
-    return result;
-})();
     const Mano_ItemPocket_State={
         includeParty:false,
         includeAll:false,
@@ -1049,10 +1189,17 @@ const pocketFunction={
     pocketSize :function(){
         return setting.pocketSize;
     },
+    hasItem:hasItem,
+    playSaveMysetSound:function(){
+        SoundManager.playSave();
+    },
+};
     /**
      * @param {RPG.Item} item
      */
-    bootEachItem:function(item){
+    function bootEachItem(item){
+        if(!item){return;}
+
         if(!MA_itemPocket.canPutInPocket(item) ){
             item.maxAmount_MA =0;
             item.weight_MA =Number.MAX_SAFE_INTEGER;
@@ -1072,23 +1219,15 @@ const pocketFunction={
                 item.weight_MA = setting.weight;
             }
         }
-    },
-    hasItem:hasItem,
-    playSaveMysetSound:function(){
-        SoundManager.playSave();
-    },
-};
-
+    }
 
 const Scene_Boot_start =Scene_Boot.prototype.start;
 Scene_Boot.prototype.start= function() {
     Scene_Boot_start.apply(this,arguments);
     const len = $dataItems.length;
     for(var i =1; i < len;i+=1){
-        pocketFunction.bootEachItem($dataItems[i]);
+        bootEachItem($dataItems[i]);
     }
-    setting;
-
 };
 
 
@@ -1200,6 +1339,113 @@ MA_itemPocket.prototype.createIndexTable=function(){
 
 MA_itemPocket.PocketIndex = PocketIndex;
 
+const setting = (function(){
+    const param = getParam();
+    MA_itemPocket.pocketSize =Number(param.pocketSize);
+
+    /**
+     * @param {String} symbol
+     */
+    function createCommandSetting(symbol,objText){
+        const result = new ModeSymbol();
+        result.setSymbol(symbol);
+        result.makeFromJSON(JSON.parse(objText));
+        return result;
+    }
+    const mode ={
+        use:createCommandSetting("use",param.use),
+        swap:createCommandSetting("swap",param.swap),
+        add:createCommandSetting("add",param.add),
+        remove:createCommandSetting("remove",param.remove),
+        pass:createCommandSetting("pass",param.pass),
+        myset:createCommandSetting("myset",param.myset),
+    };
+    /**
+     * @return {ModeSymbol[]}  
+     */
+    function createModeList( ){
+        const list= JSON.parse(param.command);
+        const len = list.length;
+        const result =[];
+        for(var i=0;i<len;++i){
+            const symbol = list[i];
+            const x = mode[symbol];
+            if(x){
+                result.push(x);
+            }
+        }
+        return result;
+    }
+
+    const result=  {
+        maxAmount : Number (param.maxAmount),
+        weight:Number(param.defaultWeight),
+        canDuplicate:Boolean(param.canDuplicate==='true'),
+        pocketSize :Number(param.pocketSize),
+        pocketKeepByremoveActor:Number(param.pocketKeepByremoveActor),
+        menuCommandPostion :Number(param.menuCommandPosition),
+
+        usingMyset:Boolean(param.usingMyset==='true'),
+        usingWeight:Boolean(param.usingWeight==='true'),
+        mysetSize :Number(param.mysetSize ||8),
+        mysetFormat:String(param.mysetFormat),
+        saveMyset:String(param.saveMyset),
+        saveMysetHelp:String(param.saveMysetHelp),
+        loadMyset:String(param.loadMyset),
+        loadMysetHelp:String(param.loadMysetHelp),
+        renameMyset:String(param.renameMyset),
+        weightText:String(param.weightText),
+        
+
+        commandKey :"actorItemEquip",
+        commandName:String(param.menuCommand),
+
+        /**
+         * @type {String[]}
+         */
+        commandList:(JSON.parse(param.command)),
+        use:mode.use,
+        swap:mode.swap,
+        add:mode.add,
+        remove:mode.remove,
+        pass:mode.pass,
+        myset:mode.myset,
+        modeList :createModeList(),
+
+        numberSelectHelp:String(param.numberSelectHelp),
+
+        wordUse:String(param.CommandUse),
+        symbolUse:'use',
+        wordSwap:String(param.CommandSwap),
+        symbolSwap:'swap',
+        wordRemove:String(param.CommandRemove),
+        symbolRemove:'remove',
+        wordAdd:String(param.CommandAdd),
+        symbolAdd:'add',
+        wordMyset:String(param.CommandMyset),
+        symbolMyset:'myset',
+        wordPass:String(param.CommandPass),
+        symbolPass:'pass',
+
+        wordSort:'整列',
+        symbolSort:'sort',
+        symbolOutOfWindow :'outwindow',
+        symbolNon:'non',
+        pocketWindow:{
+            w:function(){return Graphics.boxWidth/2;},
+            h:function(){return 240;},
+            smallH:function(){return 240;}
+        },
+        color:{
+            max:Number(param.MaxColor) || 18,
+        },
+        tag:{
+            maxAmount:'MaxAmount',
+            weight:'Weight'
+        },
+    };
+    return result;
+})();
 
 
 class Window_PocketNumber extends Window_Selectable{
@@ -1488,76 +1734,6 @@ class Window_PocketModeSelect_V2 extends Window_Selectable{
 
 }
 
-class Window_PocketModeSelect extends Window_Command{
-    initialize(x, y) {
-        Window_HorzCommand.prototype.initialize.call(this, x, y);
-        this.deactivate();
-        this.deselect();
-    }
-    windowWidth() {
-        return Graphics.boxWidth;
-    }
-    maxCols() {
-        return 4;
-    }
-    addUseCommand() {
-        const data = setting.use;
-        this.addCommand(data.name, data.symbol);
-    }
-    addRemoveCommand() {
-        this.addCommand(setting.wordRemove, setting.symbolRemove);
-    }
-    addSwapCommand() {
-        this.addCommand(setting.wordSwap, setting.symbolSwap);
-    }
-    addAddCommand() {
-        this.addCommand(setting.wordAdd, setting.symbolAdd);
-    }
-    addPassCommand() {
-        this.addCommand(setting.wordPass, setting.symbolPass);
-    }
-    addMysetCommand() {
-        if (setting.usingMyset) {
-            this.addCommand(setting.wordMyset, setting.symbolMyset);
-        }
-    }
-    makeCommandList() {
-        for (const func of Window_PocketModeSelect.commandListDefine) {
-            func.call(this);
-        }
-    }
-    processPageup() {
-        SoundManager.playCursor();
-        this.updateInputData();
-        this.callHandler('pageup');
-    }
-    processPagedown() {
-        SoundManager.playCursor();
-        this.updateInputData();
-        this.callHandler('pagedown');
-    }
-}
-
-function createModeselectCommands(){
-    const result =[];
-    const table ={
-        add:Window_PocketModeSelect.prototype.addAddCommand,
-        remove:Window_PocketModeSelect.prototype.addRemoveCommand,
-        use:Window_PocketModeSelect.prototype.addUseCommand,
-        swap:Window_PocketModeSelect.prototype.addSwapCommand,
-        myset: Window_PocketModeSelect.prototype.addMysetCommand,
-        pass: Window_PocketModeSelect.prototype.addPassCommand,
-    };
-
-    for( const command of setting.commandList){
-        const func = table[command];
-        if(func){
-            result.push(func);
-        }
-    }
-    return result;
-}
-Window_PocketModeSelect.commandListDefine =createModeselectCommands();
 
 /**
  * @param {Game_Actor} actor 
@@ -1605,10 +1781,13 @@ class Window_Pocket  extends Window_Selectable {
     initialize(x, y, w, h) {
         this.usingHelp(true);
 
+        /**
+         * @type {MA_itemPocket}
+         */
         this._pocket = new MA_itemPocket();
         super.initialize(x,y,w,h)
         this.deactivate();
-        this.deselect();
+//        this.
         this.setActor(null);
         this.setEnableJudge(function(){return true;})
         this._pushLastNull = false;
@@ -1717,7 +1896,6 @@ class Window_Pocket  extends Window_Selectable {
      */
     setActorChangeHandle(func){
         this._onActorChangeFunc=func;
-
     }
     processActorChange(){
         if(this._onActorChangeFunc){
@@ -2194,7 +2372,7 @@ Window_MysetCommand.SYMBOL_RENAME='rename';
 class MysetListItem{
     /**
      * @param {String} name 
-     * @param {any} pocket 
+     * @param {MA_itemPocket} pocket 
      */
     constructor(name,pocket){
         this.name =name;
@@ -2208,13 +2386,13 @@ class Window_MysetList extends Window_Selectable {
         super.initialize(x,y,w,h);
     }
     makeItemList() {
-        this._list = $gameParty.pocketMysetList();
+        this._myset = Party_GetPocketMyset($gameParty);
     }
     maxCols() {
         return 2;
     }
     maxItems() {
-        return this._list.length;
+        return  this._myset.maxItems();
     }
     playOkSound() { }
     updateHelp() {
@@ -2228,10 +2406,11 @@ class Window_MysetList extends Window_Selectable {
      * @return {string}
      */
     name() {
+//        this._myset.name()
         return this.currentItem().name;
     }
     currentItem() {
-        return this._list[this.index()];
+        return this._myset.item(this._index);
     }
     /**
      * @return {MA_itemPocket}
@@ -2243,7 +2422,7 @@ class Window_MysetList extends Window_Selectable {
      * @param {Number} index
      */
     drawItem(index) {
-        const item = this._list[index];
+        const item = this._myset.item(index);
         if (item) {
             const rect = this.itemRect(index);
             this.drawText(item.name, rect.x, rect.y, rect.width);
@@ -2380,7 +2559,6 @@ Window_MysetRenameEdit.prototype.underlineColor =function(){
     return this.normalColor();
 };
 
-
 class Window_AddItem extends Window_ItemList{
     initialize(x, y, w, h) {
         
@@ -2418,7 +2596,7 @@ class Window_AddItem extends Window_ItemList{
 /**
  * @member {RPG.Item} item
  */
-class  PocketTemporary{
+class PocketTemporary{
     /**
      * @param {Game_Actor} actor
      */
@@ -2432,7 +2610,6 @@ class  PocketTemporary{
         this.setupPassParam(Number.NaN,Number.NaN);
     }
     /**
-     * 
      * @param {number} index 
      * @param {number} amount 直前の所持数
      */
@@ -2541,7 +2718,20 @@ class  PocketTemporary{
     }
 }
 
+class SwapTask{
+    setMainWindow(){
 
+    }
+    setSubWindow(){
+
+    }
+    setMainActor(){
+
+    }
+    setSubActor(){
+
+    }
+}
 
 class Scene_ItemPocket extends Scene_ItemBase {
     initialize() {
@@ -2616,7 +2806,6 @@ class Scene_ItemPocket extends Scene_ItemBase {
         this.addNameWindows();
 
         this.derayInitWindow();
-
     }
     derayInitWindow(){
         this._pocketWindow.setEnableJudge(this.isItemEnabled.bind(this));
@@ -2763,7 +2952,6 @@ class Scene_ItemPocket extends Scene_ItemBase {
         const rect = this.subWindowRect();
         const num = new Window_PocketNumber(rect.x, rect.y, rect.width, this.smallPocketHegiht());
         this._numberWindow = num;
-//        num.setHelpWindow(this._helpWindow);
         num.setHandler('cancel', this.onNumberCancel.bind(this));
         num.setHandler('ok', this.onNumberOk.bind(this));
         num.openness = 0;
@@ -2892,8 +3080,6 @@ class Scene_ItemPocket extends Scene_ItemBase {
         if(this._pocketWindow.actor()===this._pocketWindow2.actor()){
             return false
         }
-
-
         const mode = this.currentModeObject();
         return mode.isItemEnabled(item);
     }
@@ -2902,7 +3088,6 @@ class Scene_ItemPocket extends Scene_ItemBase {
         this._pocketWindow.select(0);
         this.selectSubPocketActor();
         this.openSubPocketWindow();
-//        this.subPocketWindowSetActor($gameParty.menuActor());
     }
     endPassMode() {
         this.closeSubPocketWindow();
@@ -2973,12 +3158,9 @@ class Scene_ItemPocket extends Scene_ItemBase {
         else {
             this;
         }
- //       this._pocketWindow.setActorLock(false);
         this._pocketWindow.activate();
         this._pocketWindow2.deselect();
         this.passItemResetLock();
-        //    const tmpA = this.pocketTemporary(this._pocketWindow.actor());
-        //    tmpA.
     }
     /**
      * @param {Window_Pocket} pocketWindow
@@ -3000,14 +3182,12 @@ class Scene_ItemPocket extends Scene_ItemBase {
         this._pocketWindow2.deselect();
         this._pocketWindow2.deactivate();
         this._pocketWindow.activate();
-//        this._pocketWindow.setActorLock(false);
         if (!this._pocketWindow.item()) {
             this._pocketWindow.selectBack();
         }
         this.passItemResetLock();
     }
     /**
-     * 
      * @param {RPG.Item} item 
      * @param {Number} max 
      */
@@ -3043,13 +3223,9 @@ class Scene_ItemPocket extends Scene_ItemBase {
         const amount =this.defaultPassAmount(item,amountMax);
         this.executePassItem(amount);
     }
-
-    
-
     passItem() {
         this._pocketWindow.setActorLock(true);
         this.passItemSelectAmount();
-
     }
     selectSubPocketActor() {
         const mainActor = this._pocketWindow.actor();
@@ -3062,13 +3238,9 @@ class Scene_ItemPocket extends Scene_ItemBase {
     startSwapMode() {
         this.selectSubPocketActor();
         this.subPocketWindowSetActor($gameParty.menuActor());
-        //    this.openSubPocketWindow();
-        //    this._pocketWindow2.open();
-        //    this._pocketWindow2.deactivate();
         this._pocketWindow.setLastNull(true);
         this._pocketWindow.activate();
         this._pocketWindow.select(0);
-        const pocket = this.pocket();
     }
     endSwapMode() {
         $gameParty.setMenuActor(this._pocketWindow.actor());
@@ -3469,7 +3641,7 @@ class Scene_ItemPocket extends Scene_ItemBase {
         this.createModeMyset();
     }
     createModeSelectWindow() {
-        var a = new Window_PocketModeSelect_V2(0, this._helpWindow.y + this._helpWindow.height);
+        const a = new Window_PocketModeSelect_V2(0, this._helpWindow.y + this._helpWindow.height);
         this._modeSelectWindow = a;
         a.setHelpWindow(this._helpWindow);
         a.setHandler('cancel', this.onModeCancel.bind(this));
@@ -3832,8 +4004,8 @@ if(setting.menuCommandPostion===1){
         Window_MenuCommand_paddOriginalCommands.call(this);
         this.addPocketCommand();
     };
-
 }
+
 const zz_Scene_Menu_prototype_createCommandWindow=Scene_Menu.prototype.createCommandWindow;
 Scene_Menu.prototype.createCommandWindow = function() {
     zz_Scene_Menu_prototype_createCommandWindow.call(this);
@@ -3858,7 +4030,7 @@ function repairMyset(list){
         return;
     }
     for (const mysetData of list) {
-        mysetData.pocket=new MA_itemPocket(  mysetData.pocket._data);        
+        mysetData.pocket=new MA_ItemPocketMyset(  mysetData.pocket._data);        
     }
 }
 
@@ -3871,18 +4043,15 @@ const zz_MA_DataManager_extractSaveContents =DataManager.extractSaveContents;
 DataManager.extractSaveContents =function(){
     zz_MA_DataManager_extractSaveContents.apply(this,arguments);
     savedataVersionUpdate();
-
     actorSetPocket();
     $gameParty.setupPocketMyset();
 };
 function actorSetPocket(){
-    $gameActors._data.forEach(function(actor) {
-        if(!actor){return;}
-
-        if(!actor.pocket_MA){
-            actor.pocket_MA=[];
-        }
-    });;
+    for (const actor of $gameActors._data) {
+        if(actor){
+            actor.setupPocket();
+        }        
+    }
 }
 
 
@@ -3943,7 +4112,7 @@ const Game_Party_hasItem = Game_Party.prototype.hasItem;
 Game_Party.prototype.hasItem =function(item){
     const result = Game_Party_hasItem.call(this,item);
     if(result){return true;}
-    const members =pocketFunction.includeMembers();
+///    const members =pocketFunction.includeMembers();
     Mano_ItemPocket_State.includeAll =false;
     Mano_ItemPocket_State.includeParty=false;
 
@@ -3967,9 +4136,25 @@ Game_Party.prototype.initialize =function(){
     this.setupPocketMyset();
 };
 Game_Party.prototype.setupPocketMyset=function(){
-    if(!this._pocketMyset){
-        this._pocketMyset =  createDefaultMyset(setting.mysetSize);
+//    旧バージョンの処理
+    // if(!this._pocketMyset){
+    //     this._pocketMyset =  createDefaultMyset(setting.mysetSize);
+    // }
+    if(!this._pocketMysetClass){
+        this._pocketMysetClass = new  MA_PocketMysetList();
     }
+};
+
+/**
+ * @returns {MA_PocketMysetList}
+ * @param {Game_Party} party 
+ */
+function Party_GetPocketMyset(party){
+    return party._pocketMysetClass;
+}
+
+Game_Party.prototype.pocketMyset =function(){
+    return Party_GetPocketMyset(this);
 };
 
 Game_Party.prototype.pocketMysetList =function(){
@@ -3980,32 +4165,106 @@ Game_Party.prototype.pocketMysetList =function(){
  * @param {MA_itemPocket} pocket
  */
 Game_Party.prototype.saveMyset = function(index ,pocket){
-    if(this._pocketMyset[index]){
-        this._pocketMyset[index].pocket =pocket.clone();
-    }
+    Party_GetPocketMyset(this).save(index,pocket);
+
+    // if(this._pocketMyset[index]){
+    //     this._pocketMyset[index].pocket =pocket.createMySet();
+    // }
 };
 /**
  * @param {Number}index
  * @param {String} name
  */
 Game_Party.prototype.renameMyset = function(index ,name){
-    if(this._pocketMyset[index]){
-        this._pocketMyset[index].name = name;
-    }
+    Party_GetPocketMyset(this).rename(index,name);
+    // if(this._pocketMyset[index]){
+    //     this._pocketMyset[index].name = name;
+    // }
 };
-
 
 /**
  * @param {Number} index
  * @return {MA_itemPocket}
  */
 Game_Party.prototype.getPocketMyset =function(index){
+    return Party_GetPocketMyset(this).item(index);
+
     const myset = this._pocketMyset[index];
     if(myset){
         return myset;
     }
     return null;
 };
+
+Game_Party.prototype.savePocketTemporary =function(){
+    if(this._pocketTempprarySave){
+        throw new Error("既にアイテムが退避されています");
+    }
+    const tmp =new MA_ItemPocketTemporarySave(this);
+    this._pocketTempprarySave = tmp;
+    for (const actor of this.allMembers()) {
+        const p =actor.itemPocket();
+        if(p){
+            p.releaseAllItem();
+        }
+    }
+};
+Game_Party.prototype.loadPocketTemporary =function(){
+
+    if(!this._pocketTempprarySave){
+        throw new Error("アイテムが記録されていません");
+    }
+    /**
+     * @type {MA_ItemPocketTemporarySave}
+     */
+    const tmp =this._pocketTempprarySave;
+    tmp.loadAllMySet();
+    this._pocketTempprarySave=null;
+};
+/**
+ * @param {Game_Party} party 
+ */
+function saveTemporarPocket(party){
+    return party.allMembers().map(function(actor){
+        /**
+         * @type {MA_itemPocket}
+         */
+        const pocket = actor.itemPocket();
+        const m = pocket.createMySet();
+        pocket.releaseAllItem();
+        return {
+            actorId:actor.actorId(),
+            pocket:m
+        };
+    });
+}
+
+class MA_ItemPocketTemporarySave{
+    /**
+     * @param {Game_Party} party 
+     */
+    constructor(party){
+        this._list= saveTemporarPocket(party);
+    }
+    loadAllMySet(){
+        for (const iterator of this._list) {
+            const actor =$gameActors.actor(iterator.actorId);
+            if(actor){
+                /**
+                 * @type {MA_itemPocket}
+                 */
+                const pocket = actor.itemPocket();
+                pocket.loadMyset(iterator.pocket);
+            }
+        }
+        this.destory();
+    }
+    destory(){
+        this._list.length =0;
+    }
+}
+
+window[MA_ItemPocketTemporarySave.name]=MA_ItemPocketTemporarySave;
 
 const zz_MA_itemPocket_BattleManager_startAction=BattleManager.startAction;
 BattleManager.startAction =function(){
@@ -4026,13 +4285,11 @@ Game_Actor.prototype.setup = function(actorId) {
     zz_MA_Game_Actor_setup.call(this,actorId);
     this.setupPocket();
 };
-
-Game_Actor.prototype.setupPocket =function(){
-    if(!!this.pocket_MA){
-        return;
-    }
-
-    const actorData =$dataActors[this._actorId];
+/**
+ * 
+ * @param {RPG.Actor} actorData
+ */
+function loadActodPocketData(actorData){
     const reg =/PocketItem\[(\d{1,4})\]/;
     var matched=false;
     const pocket =new MA_itemPocket([]);
@@ -4049,7 +4306,15 @@ Game_Actor.prototype.setupPocket =function(){
             }
         }
     }
-    this.pocket_MA=pocket.array();
+    return pocket;
+}
+
+Game_Actor.prototype.setupPocket =function(){
+    if(!!this.pocket_MA){
+        return;
+    }
+
+    this.pocket_MA = loadActodPocketData(this.actor());
 };
 
 
@@ -4061,7 +4326,7 @@ Game_Battler.prototype.itemPocket =function(){
 };
 
 Game_Actor.prototype.itemPocket=function(){
-    return new MA_itemPocket(this.pocket_MA);
+    return (this.pocket_MA);
 };
 /**
  * @param {number} itemId
@@ -4076,37 +4341,37 @@ Game_Battler.prototype.pocketWeightCapacity=function(){
     return 100;
 };
 
-    class Window_BattlePocket extends Window_Pocket{
-        initialize() {
-            Window_Pocket.prototype.initialize.apply(this, arguments);
-            this.hide();
-        }
-        createAllButtons() { }
-        maxCols() {
-            return 2;
-        }
-        selectLast() {
-            this.select(0);
-        }
-        show() {
-            this.selectLast();
-            this.showHelpWindow();
-            super.show();
-//            Window_Pocket.prototype.show.call(this);
-        }
-        drawActorName() { }
-        hide() {
-            this.hideHelpWindow();
-            super.hide();
-        }
-        /**
-         * @param {RPG.Item} item
-         * @return {Boolean}
-         */
-        isEnabled(item) {
-            return this._actor.canUse(item);
-        }
+class Window_BattlePocket extends Window_Pocket{
+    initialize() {
+        Window_Pocket.prototype.initialize.apply(this, arguments);
+        this.hide();
     }
+    createAllButtons() { }
+    maxCols() {
+        return 2;
+    }
+    selectLast() {
+        this.select(0);
+    }
+    show() {
+        this.selectLast();
+        this.showHelpWindow();
+        super.show();
+//            Window_Pocket.prototype.show.call(this);
+    }
+    drawActorName() { }
+    hide() {
+        this.hideHelpWindow();
+        super.hide();
+    }
+    /**
+     * @param {RPG.Item} item
+     * @return {Boolean}
+     */
+    isEnabled(item) {
+        return this._actor.canUse(item);
+    }
+}
 
 
 
@@ -4206,13 +4471,19 @@ Game_Interpreter.prototype.pluginCommand =function(command,args){
         Game_Interpreter_pluginCommand.call(this,command,args);
         return;
     }
-    const param = args[0][0];
+    const param = args[0];
     switch (param) {
-        case 'P':
+        case 'PartyInclude':
             Mano_ItemPocket_State.includeParty =true;
             break;
-        case 'A':
+        case 'AllInclude':
             Mano_ItemPocket_State.includeAll =true;
+            break;
+        case "SaveTemporary":
+            $gameParty.savePocketTemporary();
+            break;
+        case "LoadTemporary":
+            $gameParty.loadPocketTemporary();
             break;
     }
 };
