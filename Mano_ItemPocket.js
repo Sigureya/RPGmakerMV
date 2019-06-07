@@ -85,31 +85,31 @@
  * @param use
  * @type struct<CommandSetting>
  * @desc アイテムを使うコマンド名
- * @default {"name":"","description":""}
+ * @default {"name":"使う","description":""}
  * @parent command
  * 
  * @param swap
  * @type struct<CommandSetting>
  * @desc アイテムを入れ替えるコマンド名
- * @default {"name":"","description":""}
+ * @default {"name":"入れ替え","description":""}
  * @parent command
  * 
  * @param remove
  * @type struct<CommandSetting>
  * @desc アイテムをしまうコマンド名
- * @default {"name":"","description":""}
+ * @default {"name":"しまう","description":""}
  * @parent command
  * 
  * @param add
  * @type struct<CommandSetting>
  * @desc アイテムを入れるコマンド名
- * @default {"name":"","description":""}
+ * @default {"name":"入れる","description":""}
  * @parent command
  * 
  * @param pass
  * @type struct<CommandSetting>
  * @desc アイテムを渡すコマンド名
- * @default {"name":"","description":""}
+ * @default {"name":"わたす","description":""}
  * @parent command
  * 
  * 
@@ -122,7 +122,7 @@
  * @param sort
  * @type struct<CommandSetting>
  * @desc アイテムのソートのコマンド名
- * @default {"name":"","description":""}
+ * @default {"name":"整列","description":""}
  * @parent command
  * 
  * @param numberSelectHelp
@@ -1020,6 +1020,10 @@ function WithEquipFilter(list){
     });
 
 }
+
+Game_Item.prototype.isPocketItem =function(){
+    return false;
+};
 
 class Game_PocketItem extends Game_Item{
     isPocketItem(){
@@ -2718,20 +2722,6 @@ class PocketTemporary{
     }
 }
 
-class SwapTask{
-    setMainWindow(){
-
-    }
-    setSubWindow(){
-
-    }
-    setMainActor(){
-
-    }
-    setSubActor(){
-
-    }
-}
 
 class Scene_ItemPocket extends Scene_ItemBase {
     initialize() {
@@ -3949,6 +3939,7 @@ class Scene_ItemPocket extends Scene_ItemBase {
         this._actorWindow.setCursorAll(selectAll);
     }
 }
+
 if(setting.usingWeight){
     Scene_ItemPocket.prototype.finalCapacity =Scene_ItemPocket.prototype.finalCapacityWithWeight;
 }
