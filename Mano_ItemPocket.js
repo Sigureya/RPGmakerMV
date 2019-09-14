@@ -986,7 +986,6 @@ class MA_itemPocket extends MA_ItemPocket_Base {
 }
 window[MA_itemPocket.name] =MA_itemPocket;
 MA_itemPocket.pocketSize =0;
-
 MA_itemPocket.TYPE_ITEM=0;
 MA_itemPocket.TYPE_WEAPON =1;
 MA_itemPocket.TYPE_ARMOR =2;
@@ -1081,7 +1080,6 @@ class MA_ItemPocketWithEquip extends MA_ItemPocket_Base{
     }
 }
 
-
 //セーブデータに含めるための、マイセット一覧クラス
 class MA_PocketMysetList{
     constructor(){
@@ -1120,11 +1118,8 @@ class MA_PocketMysetList{
     maxItems(){
         return this._list.length;
     }
-
-
 }
-
-
+window[MA_PocketMysetList.name]=MA_PocketMysetList;
     class ModeSymbol{
         /**
          * 
@@ -4015,7 +4010,9 @@ Scene_Menu.prototype.onPersonalOk =function(){
  * @param {[]} list
  */
 function repairMyset(list){
-    if(list.length <=0){return;}
+    if(!list){return }
+    
+    if(list.length <=0){return ;}
     
     if(typeof(list[0].pocket)===  MA_itemPocket ){
         return;
@@ -4025,15 +4022,10 @@ function repairMyset(list){
     }
 }
 
-function savedataVersionUpdate(){
-    repairMyset($gameParty.pocketMysetList());
-//    $dataSystem.
-}
 
 const zz_MA_DataManager_extractSaveContents =DataManager.extractSaveContents;
 DataManager.extractSaveContents =function(){
     zz_MA_DataManager_extractSaveContents.apply(this,arguments);
-    savedataVersionUpdate();
     actorSetPocket();
     $gameParty.setupPocketMyset();
 };
@@ -4041,7 +4033,7 @@ function actorSetPocket(){
     for (const actor of $gameActors._data) {
         if(actor){
             actor.setupPocket();
-        }        
+        }
     }
 }
 
@@ -4148,9 +4140,7 @@ Game_Party.prototype.pocketMyset =function(){
     return Party_GetPocketMyset(this);
 };
 
-Game_Party.prototype.pocketMysetList =function(){
-    return this._pocketMyset;
-};
+
 /**
  * @param {Number}index
  * @param {MA_itemPocket} pocket
