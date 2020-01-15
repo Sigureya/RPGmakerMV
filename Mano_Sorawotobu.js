@@ -14,7 +14,10 @@
  * @author しぐれん
  * 
  * @param menuCommandSwtich
- * @type Swtich
+ * @text コマンド有効化スイッチ
+ * @desc 指定したスイッチがONの場合にのみワープが使えます
+ * 指定しない場合、ワープは常に有効です。
+ * @type switch
  * @default 0
  * 
  * @param windowOffsetX
@@ -50,10 +53,10 @@
  * @parent menuCommandSwtich
  * 
  * @param defineEvent
+ * @text 登録イベント
  * @desc 移動先を設定するためのコモンイベントです。
  * @type common_event
  * @default 0
- * 
  * 
  * @param executeEvent
  * @text 実行用イベント
@@ -97,15 +100,22 @@
  * 
  * @help
  * １．プラグインパラメータを調整します。
- * 次のマップ・次のX・次のYという変数を作成し、プラグインパラメータのnextMapIdなどに設定します。
+ * 次のマップ・次のX・次のYという変数を作成し、
+ * プラグインパラメータのnextMapIdなどに設定します。
  * ２．登録イベントを作成します。
  * 条件分岐と、場所移動で移動先を登録します。
- * また、場所移動の前に「乗り物の移動」を設定すると、ワープ時に乗り物を指定位置へ動かします。
+ * また、場所移動の前に「乗り物の移動」を設定すると、
+ * ワープ時に乗り物を指定位置へ動かします。
  * この乗り物の移動は特定のスイッチがONの場合にのみ機能します。
  * 
  * ．実行用イベントを設定します。
- * １で設定した変数を使って、場所移動を行いましょう。
+ * 以下のような内容にします
+ * ◆アニメーションの表示：プレイヤー, 光の柱1 (ウェイト)
+ * ◆画面のフェードアウト
+ * ◆乗り物の乗降
+ * ◆乗り物の位置設定：小型船, {小型船 MAP} ({小型船 X},{小型船 Y})
  * ◆場所移動：{次のマップ} ({次のX},{次のY})
+ * ◆画面のフェードイン
  * 場所移動の前にアニメーションを付けるといい感じですよ。
  * 
  * 表示名は、マップのデータ上の名前に依存します。
@@ -113,6 +123,7 @@
  * 広大なワールドマップを使うゲームの場合を想定して表示名改造があります。
  * プラグインコマンドで「name 好きな名前」とすればOKです。
  * （このプラグインコマンドでは、他のプラグインのコマンドは動きません）
+ * 
  * ■プラグインコマンド
  * いずれも、場所移動の前に入れてください。
  * desc 文字列
@@ -125,6 +136,13 @@
  * ■スクリプト
  * 任意の場所で以下の内容を実行することで、ワープ用のシーンに移動します。
  * SceneManager.push(Mano_Sorawotobu.Scene);
+ * スキルからワープしたい場合、
+ * 上記の内容をスクリプトで呼び出すコモンイベントを作成してください。
+ * 
+ * ■余談
+ * ドラクエのルーラもDQ7(2000年)の段階で消費MPが1に、
+ * DQ9(2009年)で消費MPが0になってます。
+ * スキルにしてMPのコストを付ける必要は無いと思いますね。
  * 
 */
 /*~struct~BoundaryValue:
@@ -147,6 +165,7 @@ function getPluginParam(){ return PluginManager.parameters("Mano_Sorawotobu");}
 const setting =(function(){
     const param =getPluginParam();
     const result ={
+        menuCommandSwtich:Number(param.menuCommandSwtich),
         boatFlag:Number(param.boatFlag),
         shipFlag:Number(param.shipFlag),
         airShipFlag:Number(param.airShipFlag),
@@ -375,7 +394,20 @@ class MapDefinePlayer extends MapDefine{
         $gameTemp.reserveCommonEvent(setting.executeEvent);
     }
 }
+//GBAのポケモンみたいに、飛ぶ場所をマップで表示するアレ
+class Window_SorawotobuMap{
+    mapBitmapName(){
+        return "";
+    }
+    cursorCharacterName(){
+        return "";
+    }
 
+    createCursorCharacter(){
+        
+    }
+
+}
 
 class SorawotobuInterpriter extends Game_Interpreter{
     constructor(){
@@ -466,9 +498,6 @@ class SorawotobuInterpriter extends Game_Interpreter{
             default:
                 break;
         }
-
-
-
     }
 
 
@@ -626,11 +655,21 @@ class Window_Sorawotobu extends Window_Selectable{
         this.addWindow(window);
     };
 
+
+    function sorawotobuEnabled(){
+        if(setting.menuCommandSwtich>0){
+            return $gameSwitches.value(setting.menuCommandSwtich); 
+        }
+
+        return true;
+
+    }
+
     const Window_MenuCommand_addOriginalCommands=  Window_MenuCommand.prototype.addOriginalCommands;
     Window_MenuCommand.prototype.addOriginalCommands =function(){
     Window_MenuCommand_addOriginalCommands.call(this);
         const name =setting.commandName;
-        this.addCommand(name,MySceneSymbol);
+        this.addCommand(name,MySceneSymbol,sorawotobuEnabled());
     };
 
 class Scene_Sorawotobu extends Scene_MenuBase{
