@@ -146,6 +146,7 @@
  * ■更新履歴
  * 2020/01/17
  * 更新　バグ修正
+ * 2019/01/27　公開
 */
 /*~struct~BoundaryValue:
  * @param mapId
@@ -201,6 +202,39 @@ function xxxx(vehicle,def){
         vehicle.setLocation(def.mapId,def.x,def.y);
     }
 }
+
+class SorawotobuTaskManager_T{
+    constructor(){
+        this._task =null;
+    }
+    onMapLoaded(){
+        if(this._task){
+            sonobaShipGetOff($gamePlayer);
+            this._task.moveVehicle();
+            this.clear();
+        }
+    }
+    executeWARP(){
+        if(this._task){
+            this._task.player.executeWARP();
+            this.clear();
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * @param {SorawotobuTask} task 
+     */
+    setTask(task){
+        this._task =task;
+    }
+    clear(){
+        this._task=null;
+    }
+}
+
+const SorawotobuTaskManager = new SorawotobuTaskManager_T();
 
 class SorawotobuTask{
 
@@ -279,30 +313,18 @@ class SorawotobuTask{
         this.description =desc;
     }
 }
-/**
- * @type {SorawotobuTask}
- */
-let sorawotobuTask =null;
-Scene_Map.prototype.forceGetoffVehicle_MA =function(){
-    if(this._transfer){
-        if(sorawotobuTask){
-            sonobaShipGetOff($gamePlayer);
-            sorawotobuTask.moveVehicle();
-            sorawotobuTask =null;
-        }
-    }
-};
 
 const Scene_Map_onMapLoaded =Scene_Map.prototype.onMapLoaded;
 Scene_Map.prototype.onMapLoaded =function(){
-    this.forceGetoffVehicle_MA();
+    if(this._transfer){
+        SorawotobuTaskManager.onMapLoaded();
+    }
     Scene_Map_onMapLoaded.call(this);
 };
 
-
 const Scene_Load_onLoadSuccess =Scene_Load.prototype.onLoadSuccess;
 Scene_Load.prototype.onLoadSuccess =function(){
-    sorawotobuTask =null;
+    SorawotobuTaskManager.clear();
     Scene_Load_onLoadSuccess.call(this);
 };
 
@@ -323,8 +345,10 @@ function sonobaShipGetOff(player){
  * @param {SorawotobuTask} task 
  */
 function executeWARP(task){
-    task.player.executeWARP();
-    sorawotobuTask = task;
+    if(task){
+        task.player.executeWARP();
+        sorawotobuTask = task;    
+    }
 }
 
 class MapDefine{
@@ -631,10 +655,12 @@ class Window_Sorawotobu extends Window_Selectable{
 
     Scene_Menu.prototype.onSorawotobuOk =function(){
         const def =(this._sorawotobuWindow.currentItem());
+        SorawotobuTaskManager.setTask(def);
+        SorawotobuTaskManager.executeWARP();
 
-        if(def){
-            executeWARP(def);
-        }
+        // if(def){
+        //     executeWARP(def);
+        // }
         if($gameTemp.isCommonEventReserved()){
             this.popScene();
             return;
@@ -707,9 +733,8 @@ class Scene_Sorawotobu extends Scene_MenuBase{
 
     onSorawotobuOk(){
         const def = this._sorawotobuWindow.currentItem();
-        if(def){
-            executeWARP(def);
-        }
+        SorawotobuTaskManager.setTask(def);
+        SorawotobuTaskManager.executeWARP();
         if($gameTemp.isCommonEventReserved()){
             this.popScene();
             return;
