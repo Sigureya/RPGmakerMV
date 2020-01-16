@@ -143,7 +143,9 @@
  * ドラクエのルーラもDQ7(2000年)の段階で消費MPが1に、
  * DQ9(2009年)で消費MPが0になってます。
  * スキルにしてMPのコストを付ける必要は無いと思いますね。
- * 
+ * ■更新履歴
+ * 2020/01/17
+ * 更新　バグ修正
 */
 /*~struct~BoundaryValue:
  * @param mapId
@@ -594,6 +596,9 @@ class Window_Sorawotobu extends Window_Selectable{
     currentItem(){
         return this.item(this._index);
     }
+    isCurrentItemEnabled(){
+        return !!this.currentItem();
+    }
     drawItem(index){
         const item = this._list[index];
         if(item){
@@ -626,7 +631,10 @@ class Window_Sorawotobu extends Window_Selectable{
 
     Scene_Menu.prototype.onSorawotobuOk =function(){
         const def =(this._sorawotobuWindow.currentItem());
-        executeWARP(def);
+
+        if(def){
+            executeWARP(def);
+        }
         if($gameTemp.isCommonEventReserved()){
             this.popScene();
             return;
@@ -654,23 +662,24 @@ class Window_Sorawotobu extends Window_Selectable{
         this._sorawotobuWindow = window;
         this.addWindow(window);
     };
-
-
-    function sorawotobuEnabled(){
-        if(setting.menuCommandSwtich>0){
-            return $gameSwitches.value(setting.menuCommandSwtich); 
-        }
-
-        return true;
-
-    }
-
     const Window_MenuCommand_addOriginalCommands=  Window_MenuCommand.prototype.addOriginalCommands;
     Window_MenuCommand.prototype.addOriginalCommands =function(){
     Window_MenuCommand_addOriginalCommands.call(this);
         const name =setting.commandName;
         this.addCommand(name,MySceneSymbol,sorawotobuEnabled());
     };
+
+
+    /**
+     * @param {Window_Sorawotobu} sorawotobuWindow 
+     */
+    function sorawotobuEnabled(){
+        if(setting.menuCommandSwtich>0){
+            return $gameSwitches.value(setting.menuCommandSwtich); 
+        }
+        return true;
+    }
+
 
 class Scene_Sorawotobu extends Scene_MenuBase{
     create(){
@@ -699,7 +708,7 @@ class Scene_Sorawotobu extends Scene_MenuBase{
     onSorawotobuOk(){
         const def = this._sorawotobuWindow.currentItem();
         if(def){
-            def.executeWARP();
+            executeWARP(def);
         }
         if($gameTemp.isCommonEventReserved()){
             this.popScene();
