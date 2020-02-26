@@ -32,6 +32,7 @@
  * @default true
  * 
  * @param overwriteWarning
+ * @text 上書き警告
  * @desc このプラグインで割り当てたボタン設定が、既存の入力に対して上書きしている場合にconsoleへ警告を出します
  * @type boolean
  * @default true
@@ -41,6 +42,13 @@
  * @desc ゲームパッドが接続されていない場合の文章です。
  * @type note
  * @default "ゲームパッドが接続されていません\nボタンを押して再度試してください"
+ * 
+ * @param needButtonDetouch
+ * @text ボタンから手を放すように促すメッセージ
+ * @desc キーコンフィグはボタンから手を離さない限り終了しません。
+ * 手を放すように促すメッセージを設定します。
+ * @type note
+ * @default "コンフィグを終了するためには\nボタンから手を放してください。"
  * 
  * @param text
  * @param CommandWidth
@@ -604,6 +612,7 @@ var Mano_InputConfig=( function(){
     
 const moveSymbols =['up','down','left','right'];
 
+
 function getParam(){
     return PluginManager.parameters('Mano_InputConfig');
 }
@@ -690,8 +699,12 @@ function unknowSymbols(mapper,KnownSymbolList){
 }
 /**
  * @param {String} text 
+ * @returns {String}
  */
 function noteOrString(text){
+    if(text ==undefined){
+        return "undefined"
+    }
     const last = text[text.length-1]
     if(text[0]==='"'&&last ==='"'){
         return JSON.parse(text);
@@ -747,7 +760,7 @@ const setting = (function(){
         right:String(params.textKeyRight),
         left:String(params.textKeyLeft),
     };
-    const gamepadIsNotConnected =noteOrString(params.GamepadIsNotConnected);
+//    const gamepadIsNotConnected =noteOrString(params.GamepadIsNotConnected);
 
     const result= {
         unknowSymbolAutoImport:(params.unknowSymbolAutoImport!=='false'),
@@ -759,7 +772,14 @@ const setting = (function(){
         symbolText:helpText,
         buttonInfo:buttonInfo,
 //        textPadInfo:String(params.textPadInfo),
-        gamepadIsNotConnected:gamepadIsNotConnected,
+        /**
+         * @type {String}
+         */
+        needButtonDetouch:noteOrString(params.needButtonDetouch),
+        /**
+         * @type {String}
+         */
+        gamepadIsNotConnected: noteOrString(params.GamepadIsNotConnected),
         buttonList: createButtonList(params),
         mandatorySymbols:createMandatorySymbols(params),
         symbolAutoSelect:(params.symbolAutoSelect==='true'),
@@ -800,6 +820,8 @@ const setting = (function(){
     }
     return result;
 })();
+
+
 /**
  * @param {*} target 
  * @param {String} key 
@@ -954,9 +976,9 @@ ConfigManager.applyData =function(config){
 };
 
 function createNormalizedInputMapper(mapper){
-    var result={};
+    const result={};
     for(var key in mapper){
-        var val =mapper[key];
+        const val =mapper[key];
         if(val){
             result[key] = val
         }
@@ -1005,7 +1027,16 @@ function playSymbolSetSound(){
     SoundManager.playOk();
 }
 
-class Window_InputSymbolList extends Window_Selectable {
+class Window_Selectable_InputConfigVer extends Window_Selectable{
+    isOkTriggered(){
+        return Input.isTriggered("ok");
+    }
+    isCancelTriggered(){
+        return Input.isTriggered('cancel');
+    }
+}
+
+class Window_InputSymbolList extends Window_Selectable_InputConfigVer {
     initialize(x, y) {
         this.makeCommandList();
         const width = setting.windowCustom.symbolWidth; // (Graphics.boxWidth -x).clamp(148,180);
@@ -1126,7 +1157,7 @@ function createPadinfoText(pad) {
     }
     return setting.gamepadIsNotConnected;
 }
-class Window_GamepadConfig_MA extends Window_Selectable {
+class Window_GamepadConfig_MA extends Window_Selectable_InputConfigVer {
     initialize() {
         this.setGamepadMapper(Input.gamepadMapper);
         
@@ -1525,7 +1556,31 @@ class Window_GamepadConfig_MA extends Window_Selectable {
 }
 
 class Scene_InputConfigBase_MA extends Scene_MenuBase{
+    constructor(){
+        super();
+        this._popSceneMode=false;
+    }
+    popScene(){
+        this._popSceneMode=true;
+    }
+    isAllButtonDetouch(){
+        return Input._latestButton===null;
+    }
 
+    update(){
+        if(this._popSceneMode ){
+            if(Input._pressedTime >60){
+                if(this._helpWindow){
+                    this._helpWindow.setText(setting.needButtonDetouch);
+                }
+            }
+            if(this.isAllButtonDetouch()){
+                super.popScene();
+                return;
+            }
+        }        
+        super.update();
+    }
 
     currentSymbol() {
         return '';
@@ -1654,6 +1709,11 @@ class Scene_GamepadConfigMA extends Scene_InputConfigBase_MA{
 
     saveGamepadMapper(){
         Input.gamepadMapper = this._gamepadWindow.cloneGamepadMapper();
+    }
+
+    isAnyPressed(){
+//        Input.
+//        Input.
     }
     terminate() {
         super.terminate();
@@ -2024,7 +2084,7 @@ const KEYLAYOUT_US =[
     KEYS.NULL,
 ];
 
-class Window_KeyConfig_MA extends Window_Selectable {
+class Window_KeyConfig_MA extends Window_Selectable_InputConfigVer {
 
     mapper(){
         return Input.keyMapper;
