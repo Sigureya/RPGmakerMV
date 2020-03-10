@@ -519,6 +519,12 @@
  * 
  * 更新履歴
  * 
+ * 2020/02/26
+ * コンフィグから抜けた際にボタンが連打されてしまう問題を対策。
+ * RPGアツマールにおいて、他のゲームとコンフィグ設定が混ざる問題を修正。
+ * 別プラグインとの競合があったので対策
+ * symbolAutoSelectがキーコンフィグで機能していなかったのを修正。
+ * 
  * 2019/07/12
  * ゲームパッドのハードごとの識別情報を表示する機能を追加。
  * 
@@ -729,6 +735,7 @@ const setting = (function(){
         default_:String(params.textDefault),
         exit:String(params.textExit),
         changeLayout:String(params.textChangeLayout),
+        WASD_Move:String(params.textWASD_Move||"WASD Move"),
     };
 
     const helpText = createHelpText();
@@ -925,11 +932,21 @@ function buttonName(buttonNumber){
     return setting.buttonInfo[buttonNumber].buttonName;
 }
 
+const IS_Atsumaru = location.hostname==="html5.nicogame.jp";
 
-//Input.gamepadMapper = createGamepadMapper();
-const MA_KEYBOARD_CONFIG ='KEYBOARD_CONFIG';
-const MA_GAMEPAD_CONFIG = 'GAMEPAD_CONFIG';
-const MA_KEYBOARD_LAYOUT ='KEYBOARD_LAYOUT';
+/**
+ * @param {String} base 
+ */
+function makeCONFIG_KEY(base) {
+    if(IS_Atsumaru){
+        return base +location.pathname;
+    }
+    return base;
+}
+
+const MA_KEYBOARD_CONFIG =makeCONFIG_KEY('KEYBOARD_CONFIG');
+const MA_GAMEPAD_CONFIG = makeCONFIG_KEY('GAMEPAD_CONFIG');
+const MA_KEYBOARD_LAYOUT =makeCONFIG_KEY('KEYBOARD_LAYOUT');
 
 
 function readGamePadConfig( config ){
@@ -1062,6 +1079,10 @@ class Window_InputSymbolList extends Window_Selectable_InputConfigVer {
     maxItems() {
         return this._list.length;
     }
+    /**
+     * 
+     * @param {String} symbol 
+     */
     findSymbol(symbol) {
         for (var i = 0; i < this._list.length; ++i) {
             if (this._list[i].symbol === symbol) {
@@ -1558,8 +1579,26 @@ class Window_GamepadConfig_MA extends Window_Selectable_InputConfigVer {
 class Scene_InputConfigBase_MA extends Scene_MenuBase{
     constructor(){
         super();
+        //メモ
+        //popSceneModeとapplyOnExitは別
+        //前者はシーン切り替え検知で、後者は一度設定が変更されたことの検知
+        //混ぜてはいけない
         this._popSceneMode=false;
     }
+    createSymbolListWindow() {
+        const pos = this.symbolListWindowPostion();
+        const asw = new Window_InputSymbolList(pos.x, pos.y);
+        asw.setHandler('ok', this.onSymbolListOk.bind(this));
+        asw.setHandler('cancel', this.onSymbolListCancel.bind(this));
+        asw.hide();
+        asw.refresh();
+        if (this.symbolCenter()) {
+            asw.moveCenter();
+        }
+        this.addWindow(asw);
+        this._symbolListWindow = asw;
+    }
+    
     popScene(){
         this._popSceneMode=true;
     }
@@ -1567,9 +1606,13 @@ class Scene_InputConfigBase_MA extends Scene_MenuBase{
         return Input._latestButton===null;
     }
 
+    isAnyButtonLongPressed(){
+        return Input._pressedTime >60;
+    }
+
     update(){
         if(this._popSceneMode ){
-            if(Input._pressedTime >60){
+            if(this.isAnyButtonLongPressed()){
                 if(this._helpWindow){
                     this._helpWindow.setText(setting.needButtonDetouch);
                 }
@@ -1578,7 +1621,7 @@ class Scene_InputConfigBase_MA extends Scene_MenuBase{
                 super.popScene();
                 return;
             }
-        }        
+        }
         super.update();
     }
 
@@ -1620,19 +1663,6 @@ class Scene_InputConfigBase_MA extends Scene_MenuBase{
     }
     symbolCenter() {
         return false;
-    }
-    createSymbolListWindow() {
-        const pos = this.symbolListWindowPostion();
-        const asw = new Window_InputSymbolList(pos.x, pos.y);
-        asw.setHandler('ok', this.onSymbolListOk.bind(this));
-        asw.setHandler('cancel', this.onSymbolListCancel.bind(this));
-        asw.hide();
-        asw.refresh();
-        if (this.symbolCenter()) {
-            asw.moveCenter();
-        }
-        this.addWindow(asw);
-        this._symbolListWindow = asw;
     }
 }
 
@@ -1688,6 +1718,9 @@ class Scene_GamepadConfigMA extends Scene_InputConfigBase_MA{
         this.addWindow(gcw);
     }
 
+    /**
+     * @param {String} symbol 
+     */
     changeSymbol(symbol) {
         const index = this._gamepadWindow.index();
         this._gamepadWindow.changeKeyMap(index, symbol);
@@ -1769,33 +1802,286 @@ Scene_GamepadConfigMA.prototype.SymbolListWindowRect=function(){
     return new Rectangle(x,this._gamepadWindow.y,0,0);
 };
 
+class Key_Base{
+    /**
+     * @returns {String}
+     */
+    get handle(){
+        return "ok";
+    }
+    get locked(){
+        return false;
+    }
+    get char(){
+        return "";
+    }
+    get isLink(){
+        return false;
+    }
+    get keycord(){
+        return 0;
+    }
+    /**
+     * @param {Window_KeyConfig_MA} keyWindow 
+     * @param {Number} index 
+     */
+    draw(keyWindow,index){
+        this.drawBasicChar(keyWindow,index);
+    }
+    /**
+     * @param {Window_KeyConfig_MA} keyWindow 
+     * @param {Number} index 
+     */
+    redraw(keyWindow,index){
+        this.drawBasicChar(keyWindow,index);
+    }
+    /**
+     * @param {Number} index 
+     * @desc 一部の複数マスにまたがるキーのための機能 基本実装しないでいい
+     */
+    setIndex(index){
 
-
-function keyinfoEX(char,keycord,special,locked){
-    return {
-        char:char,
-        keycord:String(keycord),
-        isLink:Boolean(  !!special||false ),
-        locked:Boolean( locked),
-    };
+    }
+    /**
+     * @param {Window_KeyConfig_MA} keyWindow 
+     * @param {Number} index 
+     */
+    drawBasicChar(keyWindow,index){
+        const rect = keyWindow.itemRect(index);
+        const symbol = keyWindow.symbol(index);
+        keyWindow.drawItemRect(!!symbol,rect);
+        keyWindow.drawKeyName(this.char,rect);
+        keyWindow.drawKeySymbol(index,rect);
+    }
+    /**
+     * @param {Window_KeyConfig_MA} keyWindow 
+     * @param {Number} index 
+     */
+    rect(keyWindow,index){
+        return keyWindow.baseRect(index);
+    }
 }
+class Key_Null extends Key_Base{
+    get locked(){
+        return true;
+    }
+    /**
+     * @param {Window_KeyConfig_MA} keyWindow 
+     * @param {Number} index 
+     */
+    draw(keyWindow,index){
+    }
+
+}
+
+class Key_Char extends Key_Base{
+    /**
+     * @param {String} char 
+     * @param {Number} keycord 
+     */
+    constructor(char,keycord){
+        super();
+        this._char = char;
+        this._keycord = keycord;
+    }
+    get char(){
+        return this._char;
+    }
+    get keycord(){
+        return this._keycord;
+    }
+}
+
+class Key_Locked extends Key_Char{
+    get locked(){
+        return true;
+    }
+}
+
+class Key_Big extends Key_Char{
+    /**
+     * @param {String} char 
+     * @param {Number} keycord 
+     * @param {Number} width 
+     * @param {Number} height 
+     * @param {boolean} looked
+     */
+    constructor(char,keycord,width,height,looked){
+        super(char,keycord);
+        this._widthEx=Math.max(width,1);
+        this._heightEx=Math.max(height,1);
+        this._locked = looked||false; 
+    }
+    get locked(){
+        return this._locked;
+    }
+    /**
+     * @param {Window_KeyConfig_MA} keyWindow 
+     */
+    rect(keyWindow){
+        const rect = keyWindow.baseRect(this._index);
+        rect.width *=this._widthEx;
+        rect.height *= this._heightEx;
+        return rect;
+    }
+    /**
+     * @param {Number} index 
+     */
+    setIndex(index){
+        if(isNaN( this._index)){
+            this._index = index;
+
+        }
+    }
+    /**
+     * @param {Window_KeyConfig_MA} keyWindow 
+     * @param {Number} index 
+     */
+    draw(keyWindow,index){
+        if(index ===this._index){
+            super.draw(keyWindow,index);
+        }
+    }
+    /**
+     * @param {Window_KeyConfig_MA} keyWindow 
+     * @param {Number} index 
+     */
+    redraw(keyWindow,index){
+        super.draw(keyWindow,this._index);
+    }
+}
+class Key_Wide extends Key_Char{
+    /** 
+     * @param {String} text
+     * @param {Number} keycord
+     * @param {Number} width 
+     */
+    constructor(text,keycord,width,locked){
+        super(text,keycord,width);
+        this._widthEx =width;
+        this.setIndex(NaN);
+        this._locked =!!locked;
+    }
+    /**
+     * @param {Window_KeyConfig_MA} keyWindow 
+     * @param {Number} index 
+     */
+    draw(keyWindow,index){
+        if(index ===this._index){
+            super.draw(keyWindow,index);
+        }
+    }
+    /**
+     * @param {Number} index 
+     */
+    setIndex(index){
+        if(isNaN( this._index)){
+            this._index = index;
+        }
+    }
+
+    /**
+     * @param {Window_KeyConfig_MA} keyWindow 
+     */
+    rect(keyWindow){
+        const rect = keyWindow.baseRect(this._index);
+        rect.width *=this._widthEx;
+        return rect;
+    }
+
+}
+
+class Key_Command extends Key_Char{
+    get isLink(){
+        return this._widthEx >1;
+    }
+    get locked(){
+        return false;
+    }
+    get keycord(){
+        return 0;
+    }
+    get isCommand(){
+        return true;
+    }
+    get handle(){
+        return this._callBackHandle;
+    }
+
+    /**
+     * @param {String} handlerName 
+     * @param {String} text 
+     * @param {Number} width 
+     */
+    constructor(handlerName,text,width){
+        super(text,0);
+        this._callBackHandle =handlerName;
+        this._widthEx =width;
+        this.setIndex(NaN);
+    }
+    /**
+     * @param {Number} index 
+     */
+    setIndex(index){
+        if(isNaN(this._index)){
+            this._index = index;
+        }
+    }
+    /**
+     * @param {Window_KeyConfig_MA} keyConfigWindow 
+     */
+    onOk(keyConfigWindow){
+        keyConfigWindow.callHandler(this._callBackHandle);
+    }
+    /**
+     * @param {Window_KeyConfig_MA} keyWindow 
+     * @param {Number} index
+     */
+    rect(keyWindow,index){
+        const rect = keyWindow.baseRect(this._index);
+        rect.width *=this._widthEx;
+        return rect;
+    }
+
+
+    /**
+     * @param {Window_KeyConfig_MA} keyWindow 
+     */
+    draw(keyWindow,index){
+        if(index ===this._index){
+            const rect = this.rect(keyWindow,index);
+            keyWindow.drawCommand(this._char,rect);
+        }
+    }
+}
+
 /**
  * @param {string} char 
  * @param {number} keycord 
  */
 function keyinfo(char,keycord){
-    return keyinfoEX(char,keycord,false,false);
+    return new Key_Char(char,keycord);
 }
 
+const WASD_KEYMAP={
+    81:"pageup",    //Q
+    69:"pagedown",  //E
+    87:"up",        //W
+    65:"left",      //A
+    83:"down",      //S
+    68:"right",     //D
+};
+
 const KEYS ={
-    SPACE:keyinfoEX('Space',32,true),
-    NULL:keyinfoEX('NULL',0,true,true),
-    UP:keyinfoEX(setting.keyText.up,38,false,true),
-    DOWN:keyinfoEX(setting.keyText.down,40,false,true),
-    LEFT:keyinfoEX(setting.keyText.left,37,false,true),
-    RIGHT :keyinfoEX(setting.keyText.right,39,false,true),
-    ENTER:keyinfoEX('enter',13,true,true),
-    TENKEY0:keyinfoEX('0',96,true),
+    SPACE: new Key_Big("Space",32,4,1,false),
+    ENTER_JIS: new Key_Big('Enter',13,2,2,true),
+    ENTER_US:new Key_Big("Entre",13,3,1,true),
+    NULL:new Key_Null(),
+    UP:new Key_Locked(setting.keyText.up,38),
+    DOWN:new Key_Locked(setting.keyText.down,40),
+    LEFT:new Key_Locked(setting.keyText.left,37),
+    RIGHT:new Key_Locked(setting.keyText.right,39),
+    TENKEY0:new Key_Big('0',96,2,1,false),
     TENKEY1:keyinfo('1',97),
     TENKEY2:keyinfo('2',98),
     TENKEY3:keyinfo('3',99),
@@ -1846,14 +2132,14 @@ const KEYS ={
     Z:keyinfo('Z',90),
 
     SHIFT:keyinfo('Shift',16),
-    CTRL:keyinfoEX('CTRL',17,false,true),
+    CTRL:new Key_Locked('CTRL',17),
     INSERT:keyinfo('Ins',45),
     BACK:keyinfo('Back',8),
     HOME:keyinfo('Home',36),
     END:keyinfo('End',35),
     PAGEUP:keyinfo('PgUp',33),
     PAGEDOWN:keyinfo('PgDn',34),
-    ESC:keyinfoEX('esc',27,false,true),
+    ESC:new Key_Locked('esc',27),
 
     ATMARK:keyinfo("@", 192),
 
@@ -1876,6 +2162,29 @@ const KEYS ={
     SQUARE_BRACKETS_OPEN :keyinfo('[',219),
     SQUARE_BRACKETS_CLOSE :keyinfo(']',221),
 };
+const KEY_COMMAND ={
+    DEFAULT : new Key_Command("default",setting.commandText.default_,setting.commandWidth.DEFAULT),
+    APPLY:new Key_Command("apply",setting.commandText.apply,setting.commandWidth.APPLY,setting.commandWidth.APPLY),
+    EXIT : new Key_Command("exit",setting.commandText.exit, setting.commandWidth.EXIT),
+    LAYOUT :new Key_Command("keylayout",setting.commandText.changeLayout,setting.commandWidth.LAYOUT),
+    WASD_MOVE :new Key_Command("WASD",setting.commandText.WASD_Move,3),
+};
+const KEY_COMMAND_LIST =[
+    KEY_COMMAND.DEFAULT,
+    KEY_COMMAND.APPLY,
+    KEY_COMMAND.EXIT,
+    KEY_COMMAND.LAYOUT
+//    KEY_COMMAND.WASD_MOVE
+];
+function makeCommandList_ForKeyLayout(){
+    const result =[];
+    for (const iterator of KEY_COMMAND_LIST) {
+        for(var i=0; i <iterator._widthEx;++i){
+            result.push(iterator);
+        }
+    }
+    return result;
+}
 const KEYLAYOUT_JIS =[
     KEYS.ESC,
     KEYS._1 ,
@@ -1911,8 +2220,8 @@ const KEYLAYOUT_JIS =[
     KEYS.P ,
     KEYS.ATMARK,
     KEYS.SQUARE_BRACKETS_OPEN,
-    KEYS.ENTER,
-    KEYS.ENTER,
+    KEYS.ENTER_JIS,
+    KEYS.ENTER_JIS,
     KEYS.TENKEY7 ,
     KEYS.TENKEY8 ,
     KEYS.TENKEY9 ,
@@ -1930,8 +2239,8 @@ const KEYLAYOUT_JIS =[
     KEYS.SEMICOLON,
     KEYS.COLON,
     KEYS.SQUARE_BRACKETS_CLOSE, 
-    KEYS.ENTER,
-    KEYS.ENTER,
+    KEYS.ENTER_JIS,
+    KEYS.ENTER_JIS,
     KEYS.TENKEY4 ,
     KEYS.TENKEY5 ,
     KEYS.TENKEY6 ,
@@ -1978,7 +2287,8 @@ const KEYLAYOUT_JIS =[
     KEYS.TENKEY0,
     KEYS.TENKEY_DOT,
     KEYS.NULL,
-];
+].concat(makeCommandList_ForKeyLayout());
+
 const KEYLAYOUT_US =[
     KEYS.ESC,
     KEYS._1 ,
@@ -2032,9 +2342,9 @@ const KEYLAYOUT_US =[
     KEYS.L ,
     KEYS.SEMICOLON,
     KEYS.APOSTROPHE, //元COLON
-    KEYS.ENTER,
-    KEYS.ENTER,
-    KEYS.ENTER,
+    KEYS.ENTER_US,
+    KEYS.ENTER_US,
+    KEYS.ENTER_US,
 
     KEYS.TENKEY4 ,
     KEYS.TENKEY5 ,
@@ -2082,10 +2392,25 @@ const KEYLAYOUT_US =[
     KEYS.TENKEY0,
     KEYS.TENKEY_DOT,
     KEYS.NULL,
-];
+].concat(makeCommandList_ForKeyLayout());
+
+/**
+ * @param {Key_Base[]} keyList 
+ */
+function keylayout_SetupIndex(keyList){
+    for (let index = 0; index < keyList.length; index++) {
+        const element = keyList[index];
+        element.setIndex(index);
+    }
+}
+keylayout_SetupIndex(KEYLAYOUT_JIS);
+keylayout_SetupIndex(KEYLAYOUT_US);
 
 class Window_KeyConfig_MA extends Window_Selectable_InputConfigVer {
 
+    commandList(){
+        return Window_KeyConfig_MA.COMMAND_LIST;
+    }
     mapper(){
         return Input.keyMapper;
     }
@@ -2105,12 +2430,17 @@ class Window_KeyConfig_MA extends Window_Selectable_InputConfigVer {
         const p = this.textPadding();
         this._itemWidth = Math.round((x - p * 6) / this.maxCols());
     }
+    /**
+     * @param {Number} index 
+     * @param {String} symbol 
+     */
     changeKeyMap(index, symbol) {
         const keyNumber = this.keyNumber(index);
         this._map[keyNumber] = symbol;
         this.redrawItem(index);
-        this.redrawApplyCommand();
     }
+
+
     /**
      * @param {String} layoutText
      */
@@ -2122,8 +2452,7 @@ class Window_KeyConfig_MA extends Window_Selectable_InputConfigVer {
         if (layoutText === 'JIS') {
             this._extraIndex = KEY_INDEX_JIS;
             this._list = KEYLAYOUT_JIS;
-        }
-        else {
+        }else {
             this._extraIndex = KEY_INDEX_US;
             this._list = KEYLAYOUT_US;
         }
@@ -2171,14 +2500,16 @@ class Window_KeyConfig_MA extends Window_Selectable_InputConfigVer {
         this.playApplySound();
         this.callHandler('apply');
     }
+
     processDefault() {
-        playApplySound();
+        this.playApplySound();
         this.callHandler('default');
     }
 
     playJIS_US_ChangeSound(){
         playApplySound();
     }
+
     processChangeLayout() {
         this.playJIS_US_ChangeSound();
         const L = this.getKeyLayout();
@@ -2196,31 +2527,18 @@ class Window_KeyConfig_MA extends Window_Selectable_InputConfigVer {
             return;
         }
         const item = this._list[index];
-        if (item === Window_KeyConfig_MA.COMMAND_APPLY) {
-            this.processApply();
-            return;
-        }
-        if (item === Window_KeyConfig_MA.COMMAND_DEFAULT) {
-            this.processDefault();
-            return;
-        }
-        if (item === Window_KeyConfig_MA.COMMAND_EXIT) {
-            SoundManager.playCancel();
-            this.callCancelHandler();
-            return;
-        }
-        if (item === Window_KeyConfig_MA.COMMAND_CHANGE_LAYOUT) {
-            this.processChangeLayout();
-            return;
-        }
-        if (item.locked) {
+        if(item.locked){
             this.playBuzzerSound();
             return;
         }
-        this.playSymbolSetSound()
-        this.updateInputData();
-        this.deactivate();
-        this.callOkHandler();
+        if(item.handle==="ok"){
+            this.playSymbolSetSound()
+            this.updateInputData();
+            this.deactivate();
+            this.callOkHandler();
+            return
+        }
+        this.callHandler(item.handle);
     }
     playSymbolSetSound(){
         playSymbolSetSound();
@@ -2249,45 +2567,21 @@ class Window_KeyConfig_MA extends Window_Selectable_InputConfigVer {
         rect.height *= this._extraIndex.ENTER_HEIGHT;
         return rect;
     }
-    spaceRect() {
-        const rect = super.itemRect(this.spaceIndex());
-        rect.width *= Window_KeyConfig_MA.spaceItems;
-        return rect;
-    }
-    tenkeyZeroRect() {
-        const rect = super.itemRect(this.tenkeyZeroIndex());
-        rect.width *= 2;
-        return rect;
-    }
-    itemRect(index) {
-        const item = this._list[index];
-        if (item.isLink) {
-            if (item === KEYS.ENTER) {
-                return this.enterRect();
-            }
-            if (this.isSpaceIndex(index)) {
-                return this.spaceRect();
-            }
-            if (item === KEYS.TENKEY0) {
-                return this.tenkeyZeroRect();
-            }
-            if (item === Window_KeyConfig_MA.COMMAND_DEFAULT) {
-                return this.defaultCommandRect();
-            }
-            if (item === Window_KeyConfig_MA.COMMAND_DEFAULT) {
-                return this.defaultCommandRect();
-            }
-            if (item === Window_KeyConfig_MA.COMMAND_APPLY) {
-                return this.applyCommandRect();
-            }
-            if (item === Window_KeyConfig_MA.COMMAND_EXIT) {
-                return this.exitCommandRect();
-            }
-            if (item === Window_KeyConfig_MA.COMMAND_CHANGE_LAYOUT) {
-                return this.changeLayoutCommandRect();
-            }
-        }
+    /**
+     * @param {Number} index 
+     */
+    baseRect(index){
         return super.itemRect(index);
+    }
+    /**
+     * @param {Number} index 
+     */
+    itemRect(index){
+        const item = this._list[index];
+        if(!item){
+            return new Rectangle(Number.MIN_SAFE_INTEGER,Number.MIN_SAFE_INTEGER,0,0);
+        }
+        return item.rect(this,index);
     }
     maxItems() {
         return this._list.length;
@@ -2306,27 +2600,15 @@ class Window_KeyConfig_MA extends Window_Selectable_InputConfigVer {
         return this.keyNumber(this.index());
     }
     keyName(index) {
-        return this._list[index].char;
+        return this._list[index]._char;
     }
     isEnterIndex(index) {
-        return this._list[index] === KEYS.ENTER;
+        return this._list[index] === KEYS.ENTER_JIS;
     }
     enterIndex() {
         return this._extraIndex.ENTER;
     }
-    spaceIndex() {
-        return this._extraIndex.SPACE;
-    }
-    tenkeyZeroIndex() {
-        return this.maxCols() * 4 + 15;
-    }
-    isTenkeyZeroIndex(index) {
-        return this._list[index] === KEYS.TENKEY0;
-    }
-    isSpaceIndex(index) {
-        const spaceStart = this.spaceIndex();
-        return spaceStart <= index && index < spaceStart + Window_KeyConfig_MA.spaceItems;
-    }
+
     /**
      * @param {Rectangle} rect
      */
@@ -2387,38 +2669,25 @@ class Window_KeyConfig_MA extends Window_Selectable_InputConfigVer {
     symbolTextColor() {
         return this.textColor(4);
     }
-    redrawItem(index) {
-        this.clearItem(index);
-        const item = this._list[index];
-        if (item === KEYS.ENTER) {
-            this.drawEnter();
-        }
-        else if (item === KEYS.SPACE) {
-            this.drawSpace();
-        }
-        else if (item === KEYS.TENKEY0) {
-            this.drawTenkeyZero();
-        }
-        else {
-            this.drawItem(index);
-        }
+    /**
+     * 
+     * @param {String} keyname 
+     * @param {Rectangle} rect 
+     */
+    drawKeyName(keyname,rect){
+        this.changeTextColor(this.normalColor());
+        this.drawText(keyname, rect.x, rect.y, rect.width, 'center'); //,this.itemTextAlign());
+        this.changeTextColor(this.textColor(4));
     }
-    drawAllItems() {
-        const last = this.maxPageItems();
-        for (var i = 0; i < last; i++) {
-            var index = i;
-            var item = this._list[i];
-            if (item && !item.isLink) {
-                this.drawItem(index);
-            }
+    /**
+     * @param {Number} index
+     * @param {Rectangle} rect 
+     */
+    drawKeySymbol(index,rect){
+        const symbolText = this.symbolText(index);
+        if(symbolText){
+            this.drawText(symbolText, rect.x, rect.y + this.lineHeight(), rect.width, 'center');
         }
-        this.drawEnter();
-        this.drawSpace();
-        this.drawTenkeyZero();
-        this.drawDefaultCommand();
-        this.drawApplyCommand();
-        this.drawexitCommand();
-        this.drawChangeLayoutCommand();
     }
     drawItemText(keyName, symobolText, x, y, width) {
         this.changeTextColor(this.normalColor());
@@ -2428,14 +2697,7 @@ class Window_KeyConfig_MA extends Window_Selectable_InputConfigVer {
             this.drawText(symobolText, x, y + this.lineHeight(), width, 'center');
         }
     }
-    drawSpace() {
-        const index = this.spaceIndex();
-        const rect = this.spaceRect();
-        this.drawItemRect(!!this.symbol(index), rect);
-        const x = rect.x + this.itemWidth();
-        const width = rect.width / 2;
-        this.drawItemText(this.keyName(index), this.symbolText(index), rect.x, rect.y, rect.width);
-    }
+    //エンターキーの描画修正に使うので、残しておく
     drawEnter() {
         const rect = this.enterRect();
         var y = rect.y; // + rect.height;
@@ -2446,16 +2708,23 @@ class Window_KeyConfig_MA extends Window_Selectable_InputConfigVer {
         this.drawItemRect(!!this.symbol(index), rect);
         this.drawItemText(this.keyName(index), this.symbolText(index), rect.x, y, rect.width);
     }
-    drawTenkeyZero() {
-        const rect = this.tenkeyZeroRect();
-        const index = this.tenkeyZeroIndex();
-        this.drawItemRect(!!this.symbol(index), rect);
-        this.drawItemText(this.keyName(index), this.symbolText(index), rect.x, rect.y, rect.width);
-    }
+
+    /**
+     * @param {Number} index 
+     * @returns {String}
+     */
     symbol(index) {
         const keyNumber = this.keyNumber(index);
         return this._map[keyNumber];
     }
+
+    currentSymbol(){
+        return this.symbol(this._index);
+    }
+    
+    /**
+     * @param {Number} index 
+     */
     symbolText(index) {
         const symbol = this.symbol(index);
         return symbol;
@@ -2463,17 +2732,24 @@ class Window_KeyConfig_MA extends Window_Selectable_InputConfigVer {
     rectColor() {
         return this.textColor(2);
     }
-    drawItem(index) {
-        const rect = this.itemRect(index);
-        this.drawItemRect(!!this.symbol(index), rect);
-        this.drawItemText(this.keyName(index), this.symbolText(index), rect.x, rect.y, rect.width);
+    item(index){
+        return this._list[index];
     }
-    commandWidth() {
-        return this.itemWidth() * 8;
+    
+    drawItem(index){
+        const item = this.item(index);
+        if(item){
+            item.draw(this,index);
+        }
     }
-    commandHeight() {
-        return this.itemHeight();
+    redrawItem(index){
+        const item = this._list[index];
+        if(item){
+            this.clearItem(index);
+            item.redraw(this,index);
+        }
     }
+
     makeCommandList() {
     }
     commandBackColor() {
@@ -2482,24 +2758,16 @@ class Window_KeyConfig_MA extends Window_Selectable_InputConfigVer {
     commandColor() {
         return this.normalColor();
     }
+    /**
+     * @param {String} commandName 
+     * @param {Rectangle} rect 
+     */
     drawCommand(commandName, rect) {
-        this.changeTextColor(this.commandColor());
         this.drawRect(rect, this.commandBackColor());
+        this.changeTextColor(this.commandColor());
         this.drawText(commandName, rect.x, rect.y, rect.width, 'center');
     }
-    /**
-     * @return {Rectangle}
-     */
-    defaultCommandRect() {
-        const index = this._extraIndex.COMMAND_DEFAULT;
-        const rect = super.itemRect( index);
-        rect.width *= setting.commandWidth.DEFAULT;
-        return rect;
-    }
-    drawDefaultCommand() {
-        const rect = this.defaultCommandRect();
-        this.drawCommand(setting.commandText.default_, rect);
-    }
+
     /**
      * @return {Rectangle}
      */
@@ -2509,63 +2777,9 @@ class Window_KeyConfig_MA extends Window_Selectable_InputConfigVer {
         rect.width *= setting.commandWidth.APPLY;
         return rect;
     }
-    redrawApplyCommand() {
-        this.clearItem(this._extraIndex.COMMAND_APPLY); //   Window_KeyConfig_MA.INDEX_APPLY_COMMAND);
-        this.drawApplyCommand();
-    }
-    drawApplyCommand() {
-        const rect = this.applyCommandRect();
-        this.drawRect(rect, this.commandBackColor());
-        this.changeTextColor(this.commandColor());
-        this.drawText(setting.commandText.apply, rect.x, rect.y, rect.width, 'center');
-    }
-    /**
-     * @return {Rectangle}
-     */
-    exitCommandRect() {
-        const exitIndex = this._extraIndex.COMMAND_EXIT;
-        const rect = super.itemRect(exitIndex); // Window_KeyConfig_MA.INDEX_EXIT_COMMAND);
-        rect.width *= setting.commandWidth.EXIT;
-        return rect;
-    }
-    /**
-     * @return {Rectangle}
-     */
-    changeLayoutCommandRect() {
-        const index = this._extraIndex.COMMAND_LAYOUT;
-        const rect = super.itemRect( index);
-        rect.width *= setting.commandWidth.LAYOUT;
-        return rect;
-    }
-    drawChangeLayoutCommand() {
-        const rect = this.changeLayoutCommandRect();
-        this.drawCommand(setting.commandText.changeLayout, rect);
-    }
-    drawexitCommand() {
-        const rect = this.exitCommandRect();
-        this.drawCommand(setting.commandText.exit, rect);
-    }
 }
-
-
-Window_KeyConfig_MA.COMMAND_DEFAULT =keyinfoEX(setting.commandText.default_,0,true);
-Window_KeyConfig_MA.COMMAND_APPLY =keyinfoEX(setting.commandText.apply,0,true);
-Window_KeyConfig_MA.COMMAND_EXIT =keyinfoEX(setting.commandText.exit,0,true);
-Window_KeyConfig_MA.COMMAND_CHANGE_LAYOUT =keyinfoEX(setting.commandText.changeLayout,0,true);
 
 (function(){
-
-function pushKeyconfigCommand(data,count){
-    for(var i=0; i< count;++i){
-        KEYLAYOUT_US.push(data);
-        KEYLAYOUT_JIS.push(data);        
-    }
-}
-// コマンドの並び順を変えたいときは、ここを編集してください
-pushKeyconfigCommand(Window_KeyConfig_MA.COMMAND_DEFAULT,  setting.commandWidth.DEFAULT);
-pushKeyconfigCommand(Window_KeyConfig_MA.COMMAND_APPLY,  setting.commandWidth.APPLY);
-pushKeyconfigCommand(Window_KeyConfig_MA.COMMAND_EXIT,  setting.commandWidth.EXIT);
-pushKeyconfigCommand(Window_KeyConfig_MA.COMMAND_CHANGE_LAYOUT,  setting.commandWidth.LAYOUT);
 
 for(var i =KEYLAYOUT_JIS.length ; i<114;++i){
     KEYLAYOUT_JIS.push(KEYS.NULL);
@@ -2582,7 +2796,7 @@ for(var i =KEYLAYOUT_US.length ; i<114;++i){
  */
 function makeKeylayoutIndex(keyLayout){
     return {
-        ENTER:keyLayout.indexOf(KEYS.ENTER),
+        ENTER:keyLayout.indexOf(KEYS.ENTER_JIS),
         ENTER_WIDTH:2,
         ENTER_HEIGHT:2,
         SPACE:keyLayout.indexOf(KEYS.SPACE),
@@ -2590,6 +2804,7 @@ function makeKeylayoutIndex(keyLayout){
         COMMAND_APPLY:keyLayout.indexOf(Window_KeyConfig_MA.COMMAND_APPLY),
         COMMAND_EXIT:keyLayout.indexOf(Window_KeyConfig_MA.COMMAND_EXIT),
         COMMAND_LAYOUT:keyLayout.indexOf(Window_KeyConfig_MA.COMMAND_CHANGE_LAYOUT),
+        COMMAND_WASD:keyLayout.indexOf(Window_KeyConfig_MA.COMMAND_WASD_MOVE)
     };
 };
 const KEY_INDEX_JIS = makeKeylayoutIndex(KEYLAYOUT_JIS);
@@ -2603,6 +2818,9 @@ class Scene_KeyConfig_MA extends Scene_InputConfigBase_MA{
     symbolCenter() {
         return true;
     }
+    currentSymbol(){
+        return this._keyconfigWindow.currentSymbol();
+    }
     create() {
         Scene_MenuBase.prototype.create.call(this);
         this.createKeyboradConfigWindow();
@@ -2615,11 +2833,20 @@ class Scene_KeyConfig_MA extends Scene_InputConfigBase_MA{
         const index = this._keyconfigWindow.index();
         this._keyconfigWindow.changeKeyMap(index, symbol);
     }
+    onKeyLayoutOk(){
+        this._keyconfigWindow.processChangeLayout();
+ //       this._keyconfigWindow.setKeyLayout()
+    }
     onConfigOk() {
 //        const keyNumber = this._keyconfigWindow.currentKeyNumber();
         this.selectSymbol();
     }
+    onLoadDefaultOk(){
+        playDefaultSound()
+        this.loadDefaultConfig();
+    }
     loadDefaultConfig() {
+        
         this._keyconfigWindow.setKeyboradMapper(Mano_InputConfig.defaultKeyMapper);
         this._keyconfigWindow.refresh();
     }
@@ -2642,15 +2869,27 @@ class Scene_KeyConfig_MA extends Scene_InputConfigBase_MA{
         this._applyOnExit = true;
         this.popScene();
     }
+    setWASD_Move(){
+        for (const key in WASD_KEYMAP) {
+            if (WASD_KEYMAP.hasOwnProperty(key)) {
+                const element = WASD_KEYMAP[key];
+                this._keyconfigWindow.changeKeyMap(key,element);
+            }
+        }
+    }
     createKeyboradConfigWindow() {
         const kcw = new Window_KeyConfig_MA();
         kcw.setHandler('cancel', this.onConfigCancel.bind(this));
         kcw.setHandler('ok', this.onConfigOk.bind(this));
-        kcw.setHandler('default', this.loadDefaultConfig.bind(this));
-        kcw.setHandler('apply', this.applyKeyboardConfig.bind(this));
+        kcw.setHandler(KEY_COMMAND.DEFAULT.handle, this.onLoadDefaultOk.bind(this));
+        kcw.setHandler(KEY_COMMAND.APPLY.handle, this.applyKeyboardConfig.bind(this));
+        kcw.setHandler(KEY_COMMAND.WASD_MOVE.handle,this.setWASD_Move.bind(this));
+        kcw.setHandler(KEY_COMMAND.LAYOUT.handle,this.onKeyLayoutOk.bind(this));
+        kcw.setHandler(KEY_COMMAND.EXIT.handle,this.onConfigCancel.bind(this));
         this.addWindow(kcw);
         this._keyconfigWindow = kcw;
     }
+
     mainWidnow() {
         return this._keyconfigWindow;
     }
@@ -2830,4 +3069,3 @@ const exportClass ={
 
 return exportClass;
 })();
-
