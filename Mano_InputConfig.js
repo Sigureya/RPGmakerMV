@@ -328,15 +328,20 @@
  * @param CommandLayoutWidth
  * @type number
  * @min 1
- * @default 4
+ * @default 3
  * @parent CommandWidth
  * 
  * @param CommandExitWidth
  * @type number
  * @min 1
- * @default 4
+ * @default 3
  * @parent CommandWidth
  * 
+ * @param CommandWASD_Width
+ * @type number
+ * @min 1
+ * @default 4
+ * @parent CommandWidth
  * 
  * @param gamepadConfigPositionMode
  * @text ゲームパッドコンフィグの位置
@@ -502,38 +507,32 @@
  * シンボルの大文字・小文字が間違っていると動かないので注意。
  * シンボルを調べる場合、プラグインを開いてCTRL+Fで「input」を検索すると見つかります。
  * 
- * 
  * ■スクリプトで遷移を制御したい場合
  * 他のプラグインを改造したり、スクリプトで直接シーンを切り替える時に使います。
  * SceneManager.push(Mano_InputConfig.Scene_GamepadConfig  );  //ゲームパッドコンフィグ
  * SceneManager.push(Mano_InputConfig.Scene_KeyConfig );       // キーボードコンフィグ
  * これで、指定されたシーンに移動できます。
  * 
- * 
- * ■謝辞
- * KeyBoradConfig部分の作成に当たって、YEP_KeyboardConfig.jsを参考にしました。
- * Yanfly様、素敵なプラグインの作成、ありがとうございます。
- * 
- * I made it as KeyBoradConfig part and looked at YEP_KeyboardConfig.js.
- * Yanfly.Thank you for creating a nice plugin!
- * 
  * 更新履歴
  * 
- * 2020/02/26
+ * 2020/03/14 ver3.0
+ * WASD移動を設定できる機能を追加。
+ * キーコンフィグの内部実装を大幅改造。
+ * 
+ * 2020/02/26 ver2.9
  * コンフィグから抜けた際にボタンが連打されてしまう問題を対策。
  * RPGアツマールにおいて、他のゲームとコンフィグ設定が混ざる問題を修正。
  * 別プラグインとの競合があったので対策
  * symbolAutoSelectがキーコンフィグで機能していなかったのを修正。
  * 
- * 2019/07/12
+ * 2019/07/12 ver2.81
  * ゲームパッドのハードごとの識別情報を表示する機能を追加。
  * 
- * 
- * 2019/07/06
+ * 2019/07/06 ver2.8
  * 外部プラグインによって追加されたmapperのsymbolを強制的に取り込む機能。
  * プラグインパラメータで無効化できます。
  * 
- * 2019/03/19
+ * 2019/03/19 ver2.7
  * キーボードに任意の初期設定を割り当てる機能を追加。
  * 
  * 2018/09/28 ver2.6
@@ -605,6 +604,7 @@
 var  MA_InputSymbols = MA_InputSymbols ||[];
 var Imported = Imported || {};
 Imported.Mano_InputConfig = true;
+
 var Mano_InputConfig=( function(){
     'use strict'
 
@@ -810,6 +810,7 @@ const setting = (function(){
             APPLY:Number(params.CommandApplyWidth),
             LAYOUT:Number(params.CommandLayoutWidth),
             EXIT:Number(params.CommandExitWidth),
+            WASD:Number(params.CommandWASD_Width)
         },
         windowCustom:{
             gamepadWidth :Number(params.gamepadWindowItemWitdh),
@@ -967,13 +968,19 @@ ConfigManager.setKeyLayoutMA =function(layout){
     ConfigManager.keyLayout_MA =layout;
 };
 
+function defaultKeyLayout() {
+    if($dataSystem.locale ==="ja-JP"){
+        return 'JIS';
+    }
+    return 'US';
+}
 //saveconfig
 const  ConfigManager_makeData = ConfigManager.makeData;
 ConfigManager.makeData =function(){
     const result = ConfigManager_makeData.call(this);
     result[MA_GAMEPAD_CONFIG] =Input.gamepadMapper;
     result[MA_KEYBOARD_CONFIG] = Input.keyMapper;
-    result[MA_KEYBOARD_LAYOUT] = ConfigManager.keyLayout_MA ||'JIS';
+    result[MA_KEYBOARD_LAYOUT] = ConfigManager.keyLayout_MA ||defaultKeyLayout();
     return result;
 };
 //loadconfig
@@ -1032,7 +1039,6 @@ function isValidMapper(mapper){
     }
     return true;
 }
-
 
 function playDefaultSound() {
     SoundManager.playEquip();
@@ -1950,46 +1956,6 @@ class Key_Big extends Key_Char{
         super.draw(keyWindow,this._index);
     }
 }
-class Key_Wide extends Key_Char{
-    /** 
-     * @param {String} text
-     * @param {Number} keycord
-     * @param {Number} width 
-     */
-    constructor(text,keycord,width,locked){
-        super(text,keycord,width);
-        this._widthEx =width;
-        this.setIndex(NaN);
-        this._locked =!!locked;
-    }
-    /**
-     * @param {Window_KeyConfig_MA} keyWindow 
-     * @param {Number} index 
-     */
-    draw(keyWindow,index){
-        if(index ===this._index){
-            super.draw(keyWindow,index);
-        }
-    }
-    /**
-     * @param {Number} index 
-     */
-    setIndex(index){
-        if(isNaN( this._index)){
-            this._index = index;
-        }
-    }
-
-    /**
-     * @param {Window_KeyConfig_MA} keyWindow 
-     */
-    rect(keyWindow){
-        const rect = keyWindow.baseRect(this._index);
-        rect.width *=this._widthEx;
-        return rect;
-    }
-
-}
 
 class Key_Command extends Key_Char{
     get isLink(){
@@ -2071,6 +2037,7 @@ const WASD_KEYMAP={
     83:"down",      //S
     68:"right",     //D
 };
+
 
 const KEYS ={
     SPACE: new Key_Big("Space",32,4,1,false),
@@ -2173,9 +2140,10 @@ const KEY_COMMAND_LIST =[
     KEY_COMMAND.DEFAULT,
     KEY_COMMAND.APPLY,
     KEY_COMMAND.EXIT,
-    KEY_COMMAND.LAYOUT
-//    KEY_COMMAND.WASD_MOVE
+    KEY_COMMAND.LAYOUT,
+    KEY_COMMAND.WASD_MOVE
 ];
+
 function makeCommandList_ForKeyLayout(){
     const result =[];
     for (const iterator of KEY_COMMAND_LIST) {
@@ -2341,7 +2309,7 @@ const KEYLAYOUT_US =[
     KEYS.K ,
     KEYS.L ,
     KEYS.SEMICOLON,
-    KEYS.APOSTROPHE, //元COLON
+    KEYS.APOSTROPHE, 
     KEYS.ENTER_US,
     KEYS.ENTER_US,
     KEYS.ENTER_US,
@@ -2440,6 +2408,16 @@ class Window_KeyConfig_MA extends Window_Selectable_InputConfigVer {
         this.redrawItem(index);
     }
 
+    setWASD_Move(){
+        for (const key in WASD_KEYMAP) {
+            if (WASD_KEYMAP.hasOwnProperty(key)) {
+                const element = WASD_KEYMAP[key];
+                this._map[key]=(element);
+            }
+        }
+        this.refresh();
+    }
+
 
     /**
      * @param {String} layoutText
@@ -2481,29 +2459,16 @@ class Window_KeyConfig_MA extends Window_Selectable_InputConfigVer {
         SoundManager.playCancel();
         this.updateInputData();
         const index = this.index();
-        const exitIndex = this._extraIndex.COMMAND_EXIT;
-        if (index === exitIndex) {
+        if (index === KEY_COMMAND.EXIT._index) {
             this.callCancelHandler();
         }
         else {
-            this.select(exitIndex);
+            this.select(KEY_COMMAND.EXIT._index);
         }
     }
 
     playApplySound(){
         playApplySound();
-    }
-
-    processApply() {
-        this.updateInputData();
-        this.deactivate();
-        this.playApplySound();
-        this.callHandler('apply');
-    }
-
-    processDefault() {
-        this.playApplySound();
-        this.callHandler('default');
     }
 
     playJIS_US_ChangeSound(){
@@ -2600,7 +2565,7 @@ class Window_KeyConfig_MA extends Window_Selectable_InputConfigVer {
         return this.keyNumber(this.index());
     }
     keyName(index) {
-        return this._list[index]._char;
+        return this._list[index].char;
     }
     isEnterIndex(index) {
         return this._list[index] === KEYS.ENTER_JIS;
@@ -2767,16 +2732,6 @@ class Window_KeyConfig_MA extends Window_Selectable_InputConfigVer {
         this.changeTextColor(this.commandColor());
         this.drawText(commandName, rect.x, rect.y, rect.width, 'center');
     }
-
-    /**
-     * @return {Rectangle}
-     */
-    applyCommandRect() {
-        const index = this._extraIndex.COMMAND_APPLY;
-        const rect = super.itemRect( index);
-        rect.width *= setting.commandWidth.APPLY;
-        return rect;
-    }
 }
 
 (function(){
@@ -2784,9 +2739,12 @@ class Window_KeyConfig_MA extends Window_Selectable_InputConfigVer {
 for(var i =KEYLAYOUT_JIS.length ; i<114;++i){
     KEYLAYOUT_JIS.push(KEYS.NULL);
 }
+KEYLAYOUT_JIS.length =114;
 for(var i =KEYLAYOUT_US.length ; i<114;++i){
     KEYLAYOUT_US.push(KEYS.NULL);
 }
+KEYLAYOUT_US.length=114;
+
 })();
 
 
@@ -2827,6 +2785,7 @@ class Scene_KeyConfig_MA extends Scene_InputConfigBase_MA{
         this.createSymbolListWindow();
     }
     onConfigCancel() {
+        SoundManager.playCancel();
         SceneManager.pop();
     }
     changeSymbol(symbol) {
@@ -2866,16 +2825,13 @@ class Scene_KeyConfig_MA extends Scene_InputConfigBase_MA{
         }
     }
     applyKeyboardConfig() {
+        playApplySound();
         this._applyOnExit = true;
         this.popScene();
     }
     setWASD_Move(){
-        for (const key in WASD_KEYMAP) {
-            if (WASD_KEYMAP.hasOwnProperty(key)) {
-                const element = WASD_KEYMAP[key];
-                this._keyconfigWindow.changeKeyMap(key,element);
-            }
-        }
+        this._keyconfigWindow.setWASD_Move();
+        this._keyconfigWindow.playApplySound();
     }
     createKeyboradConfigWindow() {
         const kcw = new Window_KeyConfig_MA();
