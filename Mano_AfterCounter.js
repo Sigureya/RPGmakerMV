@@ -1,5 +1,5 @@
  //=============================================================================
-// Manosasayaki_AfterCounter.js
+// Mano_AfterCounter.js
 // ----------------------------------------------------------------------------
 // Copyright (c) 2017-2017 Sigureya
 // This software is released under the MIT License.
@@ -46,7 +46,20 @@
  * @desc CounterExt5などで、設定できる最大数を設定します。
  * @default 10
  * 
+ * @param commonElementId
+ * @desc コモンイベント呼び出し時に属性番号を格納します。
+ * @type variable
+ * @default 0
  * 
+ * @param commonSkillId
+ * @desc コモンイベント呼び出し時にスキル番号を格納します。
+ * @type variable
+ * @default 0
+ * 
+ * @param commonItemId
+ * @desc コモンイベント呼び出し時にアイテム番号を格納します。
+ * @type variable
+ * @default 0
  * 
  * @help
  * 
@@ -228,6 +241,9 @@
  * this.isCounter() ? 500:100
  * 
  * ■更新履歴
+ * ver 1.1.0
+ * 条件を複数指定した際に、一部が無効だったバグを修正。
+ * 
  * ver 1.0.0(2017/07/17)
  * 公開後目立ったバグ報告がないので1.0にバージョンを格上げ。
  * また、味方の攻撃に連携できる機能を暫定的に追加。
@@ -274,6 +290,9 @@ const setting={
     modeReg:/(target|use|hit)/,
     msg_format :String( params['msg_format']),
     definableAmmount:Number(params.DefinableAmmount),
+    commonElementId:Number(params.commonElementId),
+    commonSkillId:Number(params.commonSkillId),
+    commonItemId:Number(params.commonItemId),
 
     fetchIntersectTrait:function(obj,intersect_type) {
         var result =[];
@@ -492,7 +511,7 @@ class IntersectCondition {
         this._commonEvent = (eventId);
     }
     /**
-     * @param {Game_Battler} subject
+     * @param {Game_Actor} subject
      * @param {Game_Action} action
      * @param {RPG.Trait} trait
      * @return {boolean}
@@ -601,7 +620,7 @@ class IntersectCondition {
     /**
      * 
      * @param {Game_Action} action 
-     * @param {Game_Battler} opponent 
+     * @param {Game_Actor} opponent 
      */
     selectTargetIndex(action, opponent) {
         if (action.isForOpponent()) {
@@ -613,7 +632,7 @@ class IntersectCondition {
     }
     /**
      * 
-     * @param {Game_Battler} subject 
+     * @param {Game_Actor} subject 
      * @param {Game_Action} opponentAction 
      */
     createAction(subject, opponentAction) {
@@ -630,7 +649,7 @@ class IntersectCondition {
         return action;
     }
     /**
-     * @param {Game_Battler} subject
+     * @param {Game_Actor} subject
      */
     modeMathc(subject) {
         if (this._mode === 'target') {
@@ -646,13 +665,23 @@ class IntersectCondition {
         }
         return false;
     }
+
+
     /**
-     * 
-     * @param {Game_Battler} subject 
+     * @param {Game_Actor} subject 
      * @param {Game_Action} opponentAction 
      */
     callCommonEvent(subject, opponentAction) {
         if (this._commonEvent !== 0) {
+            const item = opponentAction.item();
+            $gameVariables.setValue(setting.commonSkillId,item.damage.elementId);
+            if(DataManager.isSkill(item)){
+                $gameVariables.setValue(setting.commonSkillId,item.id);
+                $gameVariables.setValue(setting.commonItemId,0);
+            }else if(DataManager.isItem(item)){
+                $gameVariables.setValue(setting.commonSkillId,0);
+                $gameVariables.setValue(setting.commonItemId,item.id);
+            }
             const inter = new Game_Interpreter();
             inter.counter = this;
             inter.a = subject;
@@ -663,7 +692,7 @@ class IntersectCondition {
         }
     }
     /**
-     * @param {Game_Battler} subject 
+     * @param {Game_Actor} subject 
      */
     canUse(subject) {
         const item = this.item();
@@ -674,7 +703,7 @@ class IntersectCondition {
     }
     /**
      * 
-     * @param {Game_Battler} subject 
+     * @param {Game_Actor} subject 
      * @param {Game_Action} opponentAction 
      * @param {*} trait 
      */
@@ -698,7 +727,7 @@ class IntersectCondition {
 }
 
 /**
- * @param {Game_Battler} battler 
+ * @param {Game_Actor} battler 
  * @returns {Boolean}
  */
 function isTargeted(battler){
@@ -709,7 +738,7 @@ function isTargeted(battler){
 }
 
 /**
- * @param {Game_Battler} battler 
+ * @param {Game_Actor} battler 
  * @returns {Boolean}
  */
 function isHited(battler){
@@ -857,10 +886,9 @@ Game_Battler.prototype.acceptForStateCounter =function(func){
     }
 };
 
-const Game_Battler_addNewState =Game_Battler.prototype.addNewState;
-Game_Battler.prototype.addNewState =function(stateId){
+const Game_Battler_addNewState =Game_Actor.prototype.addNewState;
+Game_Actor.prototype.addNewState =function(stateId){
     Game_Battler_addNewState.call(this,stateId);
-    
 };
 Game_Battler.prototype.counterTraitObjects=function(){
     return this.traitObjects();
@@ -947,7 +975,7 @@ BattleManager.intersectCounterAction =function(){
 
 
 /**
- * @param {Game_Battler[]} targets 
+ * @param {Game_Actor[]} targets 
  */
 function createTargetsInfo(targets){
     return targets.map(function(b){
@@ -975,7 +1003,7 @@ BattleManager.updateTurn =function(){
 /**
  * 
  * @param {[]} list 
- * @param {Game_Battler} battler 
+ * @param {Game_Actor} battler 
  */
 function hage(list,battler){
     for (const data of list) {
@@ -987,7 +1015,7 @@ function hage(list,battler){
 };
 
 /**
- * @param {Game_Battler} battler 
+ * @param {Game_Actor} battler 
  */
 BattleManager.findCounterInfo =function(battler){
     return hage(this._targetsCounterInfo,battler);
@@ -1019,9 +1047,9 @@ BattleManager.pushCounter =function(counterAction){
     this._reservedCounter.push(counterAction);
 };
 /**
- * @param {Game_Battler} subject
+ * @param {Game_Actor} subject
  * @param {Number} skillId
- * @param {Game_Battler} target
+ * @param {Game_Actor} target
  */
 BattleManager.intersectActionFromId =function(subject,skillId,target){
     if(subject){
@@ -1036,7 +1064,7 @@ BattleManager.intersectActionFromId =function(subject,skillId,target){
 /**
  * @param {Number} enemyIndex 
  * @param {Number} skillId 
- * @param {Game_Battler} target 
+ * @param {Game_Actor} target 
  */
 BattleManager.intersectEnemyActionFromId =function(enemyIndex,skillId,target){
     this.intersectActionFromId( $gameTroop.members()[enemyIndex],skillId,target);
@@ -1045,7 +1073,7 @@ BattleManager.intersectEnemyActionFromId =function(enemyIndex,skillId,target){
 /**
  * @param {Number} enemyIndex 
  * @param {Number} skillId 
- * @param {Game_Battler} target 
+ * @param {Game_Actor} target 
  */
 BattleManager.intersectActorActionFromId =function(enemyIndex,skillId,target){
     this.intersectActionFromId( $gameParty.members()[enemyIndex],skillId,target);
@@ -1063,13 +1091,20 @@ BattleManager.reserveCounter =function(){
 
     if(this.canCounter(act)){
         const counterUser = act.opponentsUnit().aliveMembers();
-
-        for(var i=0;i <counterUser.length;i+=1){
-            const counterAction= counterUser[i].findCounterAciton(act);
+        for (const battler of counterUser) {
+            const counterAction= battler.findCounterAciton(act);
             if(counterAction){
                 this.pushCounter(counterAction);
             }
+            
         }
+
+        // for(var i=0;i <counterUser.length;i+=1){
+        //     const counterAction= counterUser[i].findCounterAciton(act);
+        //     if(counterAction){
+        //         this.pushCounter(counterAction);
+        //     }
+        // }
         this.counterActionSort();
     }
 };
@@ -1090,12 +1125,19 @@ BattleManager.reserveChainAttack =function(){
     const act = this._action;
     if(this.canChainAttack(act)){
         var chainUser = act.friendsUnit().aliveMembers();
-        for(var i=0;i <chainUser.length;i+=1){
-            var chainAction = chainUser[i].findChainAciton(act);
+        for (const battler of chainUser) {
+            const chainAction = battler.findChainAciton(act);
             if(chainAction){
                 this.pushChainAttack(chainAction);
             }
+            
         }
+        // for(var i=0;i <chainUser.length;i+=1){
+        //     var chainAction = chainUser[i].findChainAciton(act);
+        //     if(chainAction){
+        //         this.pushChainAttack(chainAction);
+        //     }
+        // }
     }
 };
 
