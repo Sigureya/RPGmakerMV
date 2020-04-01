@@ -12,9 +12,10 @@
 //=============================================================================
 
 
-/*:
- * @plugindesc ゲームパッドの設定を変更するプラグインです。
- * ユーザーが入力を拡張する場合の補助も行います
+
+/*:ja
+ * @plugindesc コントローラ(ゲームパッド)・キーボードの設定を変更できます。
+ * ユーザーが入力を拡張する場合の補助も行います。
  * @author しぐれん(https://github.com/Sigureya/RPGmakerMV)
  * 
  * @param debugMode
@@ -514,6 +515,9 @@
  * これで、指定されたシーンに移動できます。
  * 
  * 更新履歴
+ *
+ * 2020/04/01 ver 3.1
+ * 英語対応につきヘルプを追加。
  * 
  * 2020/03/14 ver3.0
  * WASD移動を設定できる機能を追加。
@@ -557,8 +561,524 @@
  * 
  */
 
+/*:
+ * @plugindesc You can change the controller (gamepad) and keyboard settings.
+ * It also helps users expand their input.
+ * @author Shiguren (https://github.com/Sigureya/RPGmakerMV)
+ *
+ * @param debugMode
+ * @text debug mode
+ * @desc Write some debugging information to the console.
+ * Output at startup.
+ * @type boolean
+ * @default true
+ *
+ * @param unknowSymbolAutoImport
+ * @text Automatic capture of unknown symbols
+ * @desc Read all keyboard and gamepad symbols and list them.
+ * If you do not understand the detailed meaning of the symbol, it is better to turn it on.
+ * @type boolean
+ * @default true
+ *
+ * @param overwriteWarning
+ * @text overwrite warning
+ * @desc Warn the console if the button settings assigned by this plugin overwrite existing inputs
+ * @type boolean
+ * @default true
+ * @param GamepadIsNotConnected
+ * @desc The sentence when the gamepad is not connected.
+ * @type note
+ * @default "Gamepad not connected \ nPlease press button and try again"
+ *
+ * @param needButtonDetouch
+ * A message prompting you to let go of the @text button
+ * @desc key configuration will not finish unless you release the button.
+ * Set a message that prompts you to let go.
+ * @type note
+ * @default "Release \ n button to exit config."
+ *
+ * @param text
+ * @param CommandWidth
+ * 
+ * @param textApply
+ * @desc This command applies the settings.
+ * If you select this, the configuration will end.
+ * Save @default settings
+ * @parent text
+ *
+ * @param textRollback
+ * @desc This command returns to the state before starting the configuration.
+ * @default Undo before change
+ * @parent text
+ *
+ * @param textDefault
+ * @desc This command returns to the default setting.
+ * @default Restore default settings
+ * @parent text
+ *
+ * @param textChangeLayout
+ * @desc This is a command to switch the key arrangement in JIS / US.
+ * @default JIS / US
+ * @parent text
+ *
+ * @param textExit
+ * @desc This is the command to end the configuration.
+ * @default quit
+ * @parent text
+ *
+ * @param textEmpty
+ * @desc Explanation when nothing is assigned
+ * Explanation when no function is assigned Clear 
+ * @default settings
+ * @parent text
+ * 
+ *
+ * @param textOK
+  * Description of @desc ok function
+  * Description of ok's function
+  * @default decision
+  * @parent text
+  *
+  * @param textCancel
+  * Description of @desc cancel function
+  * Description of cancel function
+  * @default cancel
+  * @parent text
+  *
+  * @param textShift
+  * Description of @desc shift function
+  * Description of shift function
+  * @default dash
+  * @parent text
+  *
+  * @param textMenu
+  * Description of @desc menu functions
+  * @default menu
+  * @parent text
+  * *
+  * @param textPageup
+  * Description of @desc pageup function
+  * @default before
+  * @parent text
+  *
+  * @param textPagedown
+  * Description of @desc pagedown function
+  * @default next
+  * @parent text
+  *
+  * @param textEscape
+  * Description of @desc escape function (cancel and menu key)
+  * @default Cancel / Menu
+  * @parent text
+  *
+  * @param textSymbol6
+  * @desc Extended user action 6 description
+  * 6 is because existing functions are counted from 0.
+  * @default action 6
+  * * @param extendSymbol6
+  * @desc User extended action 6.
+  * You can get input by Input.pressed ('Character set here').
+  * @parent textSymbol6
+  *
+  * @param textSymbol7
+  * @desc Extended user action 7 description
+  * @default action 7
+  *
+  * @param extendSymbol7
+  * @desc User extended action 7.
+  * You can get input by Input.pressed ('Character set here').
+  * @parent textSymbol7
+  *
+  * @param textSymbol8
+  * @desc Extended user action 8 description
+  * @default action 8
+  * 
+  * @param extendSymbol8
+  * @desc User extended action 8.
+  * You can get input by Input.pressed ('Character set here').
+  * @parent textSymbol8
+  * 
+  * 
+  * @param symbols
+  * @desc This is the list of changes in the config.
+ * User defined commands can be mixed.
+   * @default ["ok", "cancel", "shift", "menu", "pageup", "pagedown", "escape"]
+   * @type combo []
+   * @option ok
+   * @option cancel
+   * @option shift
+   * @option menu
+   * @option pageup
+   * @option pagedown
+   * @option escape
+   *
+   * @param mandatorySymbols
+   * @desc Required symbol.
+   * You can only save changes if you have all these symbols.
+   * @type combo []
+   * @option ok
+   * @option cancel
+   * @option shift
+   * @option menu
+   * @option pageup
+   * @option pagedown
+   * @default ["ok", "cancel", "menu"]
+   * @param button0
+   * @desc PS2 controller: ×
+   * @default {"buttonName": "B", "action": ""}
+   * @type struct <ButtonInfo>
+   * @parent buttons
+   *
+   * @param button1
+   * @desc PS2 controller: 〇
+   * @type struct <ButtonInfo>
+   * @default {"buttonName": "A", "action": ""}
+   * @parent buttons
+   *
+   * @param button2
+   * @desc PS2 controller: □
+   * @type struct <ButtonInfo>
+   * @default {"buttonName": "Y", "action": ""}
+   * @parent buttons
+   *
+   * @param button3
+   * @desc PS2 controller: △
+   * @type struct <ButtonInfo>
+   * @default {"buttonName": "X", "action": ""}
+   * @parent buttons
+   *
+   * @param button4
+   * @desc PS2 controller: L1
+   * @type struct <ButtonInfo>
+   * @default {"buttonName": "L1", "action": ""}
+   * @parent buttons
+   *
+   * @param button5
+   * @desc PS2 controller: R1
+   * @type struct <ButtonInfo>
+   * @default {"buttonName": "R1", "action": ""}
+   * @parent buttons
+   *
+   * @param button6
+   * @desc PS2 controller: L2
+   * @type struct <ButtonInfo>
+   * @default {"buttonName": "L2", "action": ""}
+   * @parent buttons
+   *
+   * @param button7
+   * @desc PS2 controller: R2
+   * @type struct <ButtonInfo>
+   * @default {"buttonName": "R2", "action": ""}
+   * @parent buttons
+   *
+   * @param button8
+   * @desc PS2 controller: select
+   * @type struct <ButtonInfo>
+   * @default {"buttonName": "select", "action": ""}
+   * @parent buttons
+   *
+   * @param button9
+   * @desc PS2 controller: start
+   * @type struct <ButtonInfo>
+   * @default {"buttonName": "start", "action": ""}
+   * @parent buttons
+   *
+   * @param button10
+   * @desc PS2 controller: Left stick pressed down
+   * @type struct <ButtonInfo>
+   * @default {"buttonName": "L push", "action": ""}
+   * @parent buttons
+   *
+   * @param button11
+   * @desc PS2 controller: push right stick
+   * @type struct <ButtonInfo>
+   * @default {"buttonName": "R push", "action": ""}
+   * @parent buttons
+   *
+   * @param moveButtons
+   * @desc Includes the cross key in the configuration range.
+   * Top, bottom, left and right are automatically added to required buttons.
+   * @type boolean
+   * @default false
+   *
+   * @param button12
+   * @desc UP key / UP_BUTTON
+   * @type struct <ButtonInfo>
+   * @default {"buttonName": "UP", "action": ""}
+   * @parent moveButtons
+   *
+   * @param textUp
+   * @desc Description of up button
+   * @default ↑
+   * @parent moveButtons
+   *
+   * @param button13
+   * @desc Down key / DOWN_BUTTON
+   * @type struct <ButtonInfo>
+   * @default {"buttonName": "DOWN", "action": ""}
+   * @parent moveButtons
 
+   * @param textDown
+   * @desc down button description
+   * Description of ok's function
+   * @default ↓
+   * @parent moveButtons
+   *
+   * @param button14
+   * @desc left key / LEFT_BUTTON
+   * @type struct <ButtonInfo>
+   * @default {"buttonName": "LEFT", "action": ""}
+   * @parent moveButtons
+   *
+   * @param textLeft
+   * @desc left description
+   * @default ←
+   * @parent moveButtons
+   *
+   * @param button15
+   * @desc right key / RIGHT_BUTTON
+   * @type struct <ButtonInfo>
+   * @default {"buttonName": "RIGHT", "action": ""}
+ * @parent moveButtons
+ *
+ * @param textRight
+ * @desc right explanation
+ * @default →
+ * @parent moveButtons
+ *
+ * @param button16
+ * @desc PS2 controller:
+ * @type struct <ButtonInfo>
+ * @default {"buttonName": "button16", "action": ""}
+ * @parent buttons
+ * @param button_unknow
+ * 
+ *
+ * @param CommandDefaultWidth
+    * @type number
+    * @min 1
+    * @default 4
+    * @parent CommandWidth
+    *
+    * @param CommandApplyWidth
+    * @type number
+    * @min 1
+    * @default 4
+    * @parent CommandWidth
+    *
+    * @param CommandLayoutWidth
+    * @type number
+    * @min 1
+    * @default 3
+    * @parent CommandWidth
+    *
+    * @param CommandExitWidth
+    * @type number
+    * @min 1
+    * @default 3
+    * @parent CommandWidth
+    *
+    * @param CommandWASD_Width
+    * @type number
+    * @min 1
+    * @default 4
+    * @parent CommandWidth
+    *
+    * @param gamepadConfigPositionMode
+    * @text Gamepad config location
+    * @desc window position
+    * @type select
+    * @option center
+    * @value center
+    * @option Numeric value specification
+    * @value custom
+    * @default center
+    *
+    * @param gamepadConfigPositionX
+    * @desc X coordinate of the window.
+    * @type number
+    * @default 100
+    * @parent gamepadConfigPositionMode
+    *
+    * @param gamepadConfigPositionY
+    * @desc Y coordinate of the window.
+    * @type number
+    * @default 100
+    * @parent gamepadConfigPositionMode
+    *
+    * @param gamepadSymbolPositionMode
+    * @text symbol list position
+    * @desc window position
+    * @option right
+    * @value right
+    * @type select
+    * @option center
+    * @value center
+    * @default right
 
+    *
+    * @param gamepadWindowItemWitdh
+    * @desc Drawing area.
+    * The size of the window is * cols + padding.
+    * @type number
+    * @default 260
+    *
+    * @param numVisibleRows
+    * @desc is the number of vertical elements to display
+    * @type number
+    * @default 16
+    *
+    * @param cols
+    * @desc is the number of horizontal elements in the gamepad config
+    * @type number
+    * @min 1
+    * @default 2
+    *
+    * @param textKeyUp
+    * @desc The display name of the key above the key configuration
+    * @default ↑
+    *
+    * @param textKeyDown
+    * @desc Display name of the lower key of the key configuration
+    * @default ↓
+    *
+    * @param textKeyRight
+    * @desc Display name of right key of key config
+    * @default →
+    *
+    * @param textKeyLeft
+    * @desc Display name of left key of key config
+    * @default ←
+    *
+    
+* @param symbolWindowWidth
+* @desc Width of window for selecting symbol type
+* @type number
+* @default 148
+*
+* @param symbolAutoSelect
+* When switching the symbol corresponding to the @desc key,
+* Automatically move the cursor to the symbol set for that key.
+* @type boolean
+* Match on @on symbol
+* @off fit to the beginning
+* @default true
+*
+* @param gamepadConfigEnabled
+* @desc Gamepad config activation setting
+* @type boolean
+* @default true
+*
+* @param keyboardConfigEnabled
+* @desc This is the setting to enable Keyboard Config.
+* @type boolean
+* @default trues
+ *
+ * @param commandName
+ * @desc The name of the command to open the gamepad config
+ * @type string
+ * @default gamepad config
+ *
+ * @param keyconfigCommandName
+ * @desc The name of the command to open the key config
+ * @type string
+ * @default key config
+ *
+ * @param hookPoint
+ * @desc Set how to open Gamepad Config.
+ * It may be changed depending on the plug-in introduction order.
+ * @type select
+ * @option at the bottom of the options screen
+ * @value option
+ * @option before volume setting
+ * @value beforeVolume
+ * @option After volume setting
+ * @value afterVolume
+ * Open from @option title / menu
+ * @value menu
+ * @default option
+ *
+ * @help
+ * Load the settings when the game starts as default values.
+ * Detects input changes regardless of where the plugin is installed.
+ * It is OK even if the button is modified by another plugin.
+ *
+ * The configuration data set by this plugin is recorded in a file.
+ * If you insert a new plugin,
+ * After starting the game, reset the config with "Return to initial settings".
+ *
+ * ■ extSymbols
+ * You can define a new action by defining it.
+ * If you enter Key here, you can get input by Input.isPressed ('Key').
+ * Don't forget to register for symbols.
+ * When examining the input (action / Symbol) added by other plugins,
+ * Open Key Config and look at the small letters there and copy them.
+ * (Do not confuse uppercase and lowercase letters)
+ *
+ * ■ About symbols
+ * Defines the order to be displayed in the list after pressing ENTER on the button selection screen.
+ * If you enable "Automatic capture of unknown symbols", the plugin will add it to the list.
+ * The display will be a temporary one, please rewrite and adjust.
+ * It looks like unknow: xxx. 
+ * 
+
+* ■ About mandatorySymbols
+ * A list of buttons that are required to operate the game.
+ * If you change the decision or cancellation settings and the game does not work,
+ * Settings cannot be saved if some buttons are missing.
+ * By default, three items are assigned: OK, Cancel, Menu.
+ *
+ * There are relatively few problems with gamepads,
+ * Problems with keyboard.
+ * The insert key is difficult to work on some PCs.
+ *
+ * ■ About the second parameter and action of the button
+ * It is data that should have been symbol.
+ * In addition to the default settings,
+ * The default setting is the one added here by overwriting the contents set here.
+ * 
+
+* ■ About setting new symbols
+ * To set game-specific operations, do so here.
+ * For example, let's say you want to set a new symbol called shot to fire a bullet.
+ * In this case, set "Symbol description" with textSymbol6.
+ * Next, enter "shot" in extendSymbol6.
+ * Next, add a shot to symbols.
+ * Add it to mandatorySymbols if you use it all the time during the game.
+ * After all this, input.pressed ('shot') etc.
+ * You can get input status.
+ *
+ * Note that the symbol will not work if the case is incorrect.
+ * To check a symbol, open the plugin and search for "input" with CTRL + F.
+ *
+ * ■ If you want to control the transition by script
+ * Used to modify other plug-ins or switch scenes directly with a script.
+ * SceneManager.push (Mano_InputConfig.Scene_GamepadConfig); // Gamepad config
+ * SceneManager.push (Mano_InputConfig.Scene_KeyConfig); // Keyboard config
+ * You can now go to the specified scene.
+ * 
+ * 
+ * ■ About English version help
+ * The English help uses contents translated by Google.
+ * There may be some strange translations.
+ * However, it is basically made to operate minimally without reading help.
+ * If you have any troubles, please go to my Twitter (https://twitter.com/Sigureya) or github (https://github.com/Sigureya/RPGmakerMV).
+ * 
+ * Change log
+ *
+ * 2020/04/01 ver 3.1
+ * Added help for English language support.
+ *
+ * 2020/03/14 ver3.0
+ * Added a function to set WASD movement.
+ * Significantly modified the internal implementation of Key Config.
+ * 
+ * 2018-2019 ver2.0~ver2.9
+ * Various updates.
+ * I omit it because it is long when I write it. 
+ * 
+ * 2017/10/05 ver 1.0 release
+ * */
  /**
  * TODO
  * 複数ボタン押し対応
@@ -690,16 +1210,15 @@ function createHelpText(){
 function unknowSymbols(mapper,KnownSymbolList){
     const result =[];
     const systemKeys =new Set(["debug","control","tab","up","down","left","right"]);
-
     for (const key in mapper) {
-        if (mapper.hasOwnProperty(key)) {
-            const value = mapper[key];
-            if(!systemKeys.has(value)){
-                if(!KnownSymbolList.contains(value)){
-                    result.push(value);
-                }
+      if (mapper.hasOwnProperty(key)) {
+        const value = mapper[key];
+          if(!systemKeys.has(value)){
+            if(!KnownSymbolList.contains(value)){
+              result.push(value);
             }
-        }
+          }
+      }
     }
     return result;
 }
@@ -726,8 +1245,6 @@ const setting = (function(){
     function createButtonList(params){
         return JSON.parse(params.buttons);
     }
-
-
     const params = getParam();
     const commandText={
         apply:String(params.textApply),
@@ -767,7 +1284,6 @@ const setting = (function(){
         right:String(params.textKeyRight),
         left:String(params.textKeyLeft),
     };
-//    const gamepadIsNotConnected =noteOrString(params.GamepadIsNotConnected);
 
     const result= {
         unknowSymbolAutoImport:(params.unknowSymbolAutoImport!=='false'),
@@ -1222,30 +1738,15 @@ class Window_GamepadConfig_MA extends Window_Selectable_InputConfigVer {
         });
     }
 
-    // updateHelp(){
-    //     const item = this.command(this._index);
-    //     if(item){
-    //         if(item.help){
-    //             this._helpWindow.show();
-    //             this._helpWindow.setText(item.help);
-    //             return;
-    //         }
-    //     }
-    //     this._helpWindow.hide();
-    // }
-
     makeCommandList() {
         const default_ = createCommand(setting.commandText.default_,'default');
         const apply    = createCommand(setting.commandText.apply,'apply');
         const exit = createCommand(setting.commandText.exit,'exit');
-//        const padInfo =createCommand(setting.textPadInfo,"padinfo",this.padInfoText(),false);
         this._command =[
             default_,
             apply,
-//            padInfo,
             exit
         ];
-//        this._padInfo =padInfo;
         this._applyCommand = apply;
         this._exitCommand = exit;
         this._exitCommandIndex = this._list.length + this._command.indexOf(exit);
@@ -2008,16 +2509,14 @@ class Key_Command extends Key_Char{
         rect.width *=this._widthEx;
         return rect;
     }
-
-
     /**
      * @param {Window_KeyConfig_MA} keyWindow 
      */
     draw(keyWindow,index){
-        if(index ===this._index){
-            const rect = this.rect(keyWindow,index);
-            keyWindow.drawCommand(this._char,rect);
-        }
+      if(index ===this._index){
+        const rect = this.rect(keyWindow,index);
+        keyWindow.drawCommand(this._char,rect);
+      }
     }
 }
 
@@ -2921,8 +3420,6 @@ if(setting.hookPoint==='menu'){
             this.addCommand(setting.keyConfigCommandName,MA_KEYBOARD_CONFIG);
         }
     };
-
-
     const Window_Options_addGeneralOptions=Window_Options.prototype.addGeneralOptions;
     const Window_Options_addVolumeOptions=Window_Options.prototype.addVolumeOptions;
 
@@ -2971,12 +3468,9 @@ if(setting.hookPoint==='menu'){
 //            SceneManager.push(Scene_KeyConfig_MA);
             return;
         }
-        Window_Options_processOk.call(this);
-        
+        Window_Options_processOk.call(this);       
     };
 }
-
-
 
 function unknowSymbolAutoImport(){
     if(setting.unknowSymbolAutoImport){
