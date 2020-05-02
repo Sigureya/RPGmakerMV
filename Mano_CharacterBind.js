@@ -21,7 +21,7 @@
  * プラグインコマンドで有効化します。
  * Game_Interpreter.characterの挙動を書き換えて制御しています。
  * 
- * CharacterBind event イベント番号
+ * CharacterBind イベント番号
  * -1はプレイヤーです。
  * 記述例 CharacterBind 1
  * 
