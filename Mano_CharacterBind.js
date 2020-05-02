@@ -58,7 +58,7 @@ function getTargetEventId(value,type){
 const zz_Game_Interpreter_prototype_pluginCommand =Game_Interpreter.prototype.pluginCommand;
 Game_Interpreter.prototype.pluginCommand = function(command, args) {
     if(command == "CharacterBind"){
-        const targetEventId = getTargetEventId(args[0],Number(  args[1]));
+        const targetEventId = getTargetEventId(Number(  args[0]),args[1]);
         this.bindCharacter(targetEventId);
         return;
     }
