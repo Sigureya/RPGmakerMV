@@ -80,23 +80,25 @@
  * @default 0
  * 
  * @param boatFlag
- * @text 小型船入手フラグ
- * @desc 小型船の入手フラグです。
+ * @text 小型船ワープ有効化
+ * @desc 小型船のワープを行うかどうかを制御します。
+ * スイッチを指定しない場合、乗り物のワープは無効になります。。
  * @type switch
  * @default 0
  * 
  * @param shipFlag
- * @text 大型船入手フラグ
- * @desc 大型船の入手フラグです。
+ * @text 大型船ワープ有効化
+ * @desc 大型船のワープを行うかどうかを制御します。
+ * スイッチを指定しない場合、乗り物のワープは無効になります。。
  * @type switch
  * @default 0
  * 
  * @param airShipFlag
- * @text 飛行船入手フラグ
- * @desc 飛行船の入手フラグです。
+ * @text 飛行船ワープ有効化
+ * @desc 飛行船のワープを行うかどうかを制御します。
+ * スイッチを指定しない場合、乗り物のワープは無効になります。。
  * @type switch
  * @default 0
- * 
  * 
  * @help
  * １．プラグインパラメータを調整します。
@@ -148,17 +150,6 @@
  * 更新　バグ修正
  * 2019/01/27　公開
 */
-/*~struct~BoundaryValue:
- * @param mapId
- * @desc マップ番号です。
- * @type number
- * @default 0
- * 
- * @param value
- * @type number
- * @default 0
- * 
- */
 
 //$dataMapInfos.
 var Mano_Sorawotobu = (function(){
@@ -186,18 +177,21 @@ const setting =(function(){
     };
     return result;
 })();
-
+/**
+ * @param {Number} mapId 
+ */
 function mapName(mapId){
     const map = $dataMapInfos[mapId];
     if(map){
         return map.name;
     }
+    return "";
 }
 /**
  * @param {Game_Vehicle} vehicle 
  * @param {MapDefine} def
  */
-function xxxx(vehicle,def){
+function executeVehicleWARP(vehicle,def){
     if(vehicle && def){
         vehicle.setLocation(def.mapId,def.x,def.y);
     }
@@ -207,20 +201,19 @@ class SorawotobuTaskManager_T{
     constructor(){
         this._task =null;
     }
+    //マップ暗転中に乗り物を移動する
     onMapLoaded(){
         if(this._task){
             sonobaShipGetOff($gamePlayer);
-            this._task.moveVehicle();
+            this._task.executeMoveVehicle();
             this.clear();
         }
     }
     executeWARP(){
-        if(this._task){
-            this._task.player.executeWARP();
-            this.clear();
-            return true;
-        }
-        return false;
+        if(!this._task){return false;}
+        this._task.executeWARP();
+        //ここではタスクを消さない 乗り物移動があるため
+        return true;
     }
 
     /**
@@ -233,6 +226,23 @@ class SorawotobuTaskManager_T{
         this._task=null;
     }
 }
+
+const Scene_Boot_start=Scene_Boot.prototype.start;
+Scene_Boot.prototype.start =function(){
+    Scene_Boot_start.call(this);
+    const events =[
+        $dataCommonEvents[setting.executeEvent],
+        $dataCommonEvents[setting.defineEvent]
+    ];
+    for (const iterator of events) {
+        if(!iterator){
+            throw new Error("ワープ実行用のイベントで設定忘れがあります");
+        }
+        //イベントの起動条件を強制的に無効化し、勝手に動かないようにする
+        iterator.switchId =0;
+        iterator.trigger=0;
+    }
+};
 
 const SorawotobuTaskManager = new SorawotobuTaskManager_T();
 
@@ -249,12 +259,18 @@ class SorawotobuTask{
         this.description ="";
         this.name =null;
     }
+    isValid(){
+        return this.player &&  (!!$dataMapInfos[ this.player.mapId])
+    }
 
     /**
      * @param {MapDefinePlayer} def 
      */
     setPlayer(def){
         this.player=def;        
+    }
+    characterList(){
+        return [this.player,this.ship,this.boat,this.airship];
     }
     movePlayer(){
         if(this.player){
@@ -264,20 +280,25 @@ class SorawotobuTask{
         }
     }
 
-    moveVehicle(){
+    executeMoveVehicle(){
         const map = $gameMap;
         if($gameSwitches.value(setting.shipFlag)){
-            xxxx(map.ship(),this.ship);
+            executeVehicleWARP(map.ship(),this.ship);
         }
         if($gameSwitches.value(setting.boatFlag)){
-            xxxx(map.boat(),this.boat);
+            executeVehicleWARP(map.boat(),this.boat);
         }
         if($gameSwitches.value(setting.airShipFlag)){
             const a =map.airship();
-            xxxx(a,this.airship);
+            executeVehicleWARP(a,this.airship);
             a._altitude =0;
         }
         this.clear();
+    }
+    executeWARP(){
+        this.player.executeWARP();
+        //ここで乗り物を動かさないこと！画面暗転後に改めて行う
+        //このコメントを消さないように！また同じバグを埋め込む危険性！
     }
     /**
      * @param {MapDefineVehicle} def 
@@ -328,6 +349,12 @@ Scene_Load.prototype.onLoadSuccess =function(){
     Scene_Load_onLoadSuccess.call(this);
 };
 
+const DataManager_setupNewGame =DataManager.setupNewGame;
+DataManager.setupNewGame =function(){
+    SorawotobuTaskManager.clear();
+    DataManager_setupNewGame.call(this);
+};
+
 /**
  * @param {Game_Player} player 
  */
@@ -340,17 +367,6 @@ function sonobaShipGetOff(player){
         player.setThrough(false);
     }
 }
-
-/**
- * @param {SorawotobuTask} task 
- */
-function executeWARP(task){
-    if(task){
-        task.player.executeWARP();
-        sorawotobuTask = task;    
-    }
-}
-
 class MapDefine{
     /**
      * @param {Number} id 
@@ -365,6 +381,7 @@ class MapDefine{
     }
 }
 
+
 class MapDefineVehicle extends MapDefine{
     /**
      * @param {Number} mapId 
@@ -373,13 +390,17 @@ class MapDefineVehicle extends MapDefine{
      */
     constructor(mapId,x,y){
         super(mapId,x,y);
-        this.vehicle=-1;
+        this.vehicleType=-1;
     }
     /**
      * @param {Number} id 
+     * @des 0:bort,1:ship,2:airship
      */
     setVehicleId( id ){
-        this.vehicle = id;
+        this.vehicleType = id;
+    }
+    vehicle(){
+        return $gameMap.vehicle(this.vehicleType);
     }
 }
 
@@ -419,20 +440,6 @@ class MapDefinePlayer extends MapDefine{
         $gameVariables.setValue(setting.nextY,this.y);
         $gameTemp.reserveCommonEvent(setting.executeEvent);
     }
-}
-//GBAのポケモンみたいに、飛ぶ場所をマップで表示するアレ
-class Window_SorawotobuMap{
-    mapBitmapName(){
-        return "";
-    }
-    cursorCharacterName(){
-        return "";
-    }
-
-    createCursorCharacter(){
-        
-    }
-
 }
 
 class SorawotobuInterpriter extends Game_Interpreter{
@@ -580,6 +587,7 @@ class Window_Sorawotobu extends Window_Selectable{
      */
     constructor(x,y){
         super(x,y);
+        this.setSorceEventId(setting.defineEvent);
     }
     windowHeight(){
         return this.fittingHeight(setting.lines);;
@@ -622,7 +630,7 @@ class Window_Sorawotobu extends Window_Selectable{
     }
     isCurrentItemEnabled(){
         return !!this.currentItem();
-    }
+    }    
     drawItem(index){
         const item = this._list[index];
         if(item){
@@ -630,10 +638,14 @@ class Window_Sorawotobu extends Window_Selectable{
             this.drawText(item.name,rect.x,rect.y,rect.width);
         }
     }
+    cursorRight(){
+        this.cursorPagedown();
+    }
+    cursorLeft(){
+        this.cursorPageup();
+    }
+
 }
-
-
-
 
     const MySceneSymbol ='sorawotobu';
 
@@ -658,9 +670,6 @@ class Window_Sorawotobu extends Window_Selectable{
         SorawotobuTaskManager.setTask(def);
         SorawotobuTaskManager.executeWARP();
 
-        // if(def){
-        //     executeWARP(def);
-        // }
         if($gameTemp.isCommonEventReserved()){
             this.popScene();
             return;
@@ -679,7 +688,7 @@ class Window_Sorawotobu extends Window_Selectable{
         const x =this._commandWindow.x  + this._commandWindow.width + setting.windowOffsetX;
         const y = this._commandWindow.y +setting.windowOffsetY;
         const window = new (Mano_Sorawotobu.Window)(x,y);
-        window.setSorceEventId(setting.defineEvent);
+//        window.setSorceEventId(setting.defineEvent);
 
         window.setHandler("ok",this.onSorawotobuOk.bind(this));
         window.setHandler("cancel",this.onSorawotobuCancel.bind(this));
@@ -726,7 +735,7 @@ class Scene_Sorawotobu extends Scene_MenuBase{
         window.y = this.windowY();
         window.setHandler("cancel",this.onSorawotobuCancel.bind(this));
         window.setHandler("ok",this.onSorawotobuOk.bind(this));
-        window.setSorceEventId(this.defineCommonEventId());
+//        window.setSorceEventId(this.defineCommonEventId());
         window.select(0);
         window.activate();
     }
