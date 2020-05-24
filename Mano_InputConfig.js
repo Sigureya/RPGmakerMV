@@ -516,6 +516,9 @@
  * 
  * 更新履歴
  *
+ * 2020/05/25 ver 3.2
+ * YEP_OptionCoreと競合するので、対策処理を追加。
+ * 
  * 2020/04/01 ver 3.1
  * 英語対応につきヘルプを追加。
  * 
@@ -3491,8 +3494,9 @@ Scene_Boot.prototype.create =function(){
     Scene_Boot_create.call(this);
 };
 
-const exportClass ={
 
+
+const exportClass ={
     Scene_ConfigBase:Scene_InputConfigBase_MA,
     Scene_KeyConfig:Scene_KeyConfig_MA,
     Scene_GamepadConfig: Scene_GamepadConfigMA,
@@ -3519,3 +3523,13 @@ const exportClass ={
 
 return exportClass;
 })();
+
+if(!!PluginManager.parameters("Yep_OptionCore")){
+    //インポート情報を偽装し、GamepadConfig/KeybordConfigと認識させる
+    Imported.GamepadConfig = true;
+    Imported.YEP_KeyboardConfig = true;
+    window["Scene_KeyConfig"] = Mano_InputConfig.Scene_KeyConfig;
+    window["Scene_GamepadConfig"] = Mano_InputConfig.Scene_GamepadConfig;
+    Input.isControllerConnected =function(){return true;};
+}
+
