@@ -591,14 +591,13 @@
  * @param GamepadIsNotConnected
  * @desc The sentence when the gamepad is not connected.
  * @type note
- * @default "Gamepad not connected \ nPlease press button and try again"
+ * @default "The gamepad is not connected.\nPlease press button and try again."
  *
  * @param needButtonDetouch
- * A message prompting you to let go of the @text button
  * @desc key configuration will not finish unless you release the button.
  * Set a message that prompts you to let go.
  * @type note
- * @default "Release \ n button to exit config."
+ * @default "Release button to exit config."
  *
  * @param text
  * @param CommandWidth
@@ -636,10 +635,10 @@
  * @parent text
  * 
  *
- * @param textOK
-  * Description of @desc ok function
-  * Description of ok's function
-  * @default decision
+ * @param textOK Description of 
+ * @desc ok function
+ * Description of ok's function
+ * @default decision
   * @parent text
   *
   * @param textCancel
@@ -678,7 +677,7 @@
   * @desc Extended user action 6 description
   * 6 is because existing functions are counted from 0.
   * @default action 6
-  * * @param extendSymbol6
+  * @param extendSymbol6
   * @desc User extended action 6.
   * You can get input by Input.pressed ('Character set here').
   * @parent textSymbol6
@@ -726,6 +725,13 @@
    * @option pageup
    * @option pagedown
    * @default ["ok", "cancel", "menu"]
+   *
+   * @param buttons
+   * @text Initial settings for buttons and keyboard
+   * @desc A list of available gamepad buttons.
+   * It also controls the order of arrangement.。
+   * @type number[]
+   * @default ["1","0","3","2","4","5","6","7","8","9","10","11","16"]
    * @param button0
    * @desc PS2 controller: ×
    * @default {"buttonName": "B", "action": ""}
@@ -1002,6 +1008,9 @@
  * @default option
  *
  * @help
+ * Warning: Keep this plugin above YEP_OptionsCore.js.
+ * Conflicts may occur depending on the order of installation.
+ * 
  * Load the settings when the game starts as default values.
  * Detects input changes regardless of where the plugin is installed.
  * It is OK even if the button is modified by another plugin.
@@ -1581,8 +1590,8 @@ class Window_Selectable_InputConfigVer extends Window_Selectable{
 class Window_InputSymbolList extends Window_Selectable_InputConfigVer {
     initialize(x, y) {
         this.makeCommandList();
-        const width = setting.windowCustom.symbolWidth; // (Graphics.boxWidth -x).clamp(148,180);
-        const height = this.windowHeight(); //+this.itemHeight();
+        const width = setting.windowCustom.symbolWidth;
+        const height = this.windowHeight(); 
         super.initialize( x, y, width, height);
         this.deactivate();
         this.deselect();
@@ -3296,10 +3305,8 @@ class Scene_KeyConfig_MA extends Scene_InputConfigBase_MA{
     }
     onKeyLayoutOk(){
         this._keyconfigWindow.processChangeLayout();
- //       this._keyconfigWindow.setKeyLayout()
     }
     onConfigOk() {
-//        const keyNumber = this._keyconfigWindow.currentKeyNumber();
         this.selectSymbol();
     }
     onLoadDefaultOk(){
@@ -3347,51 +3354,10 @@ class Scene_KeyConfig_MA extends Scene_InputConfigBase_MA{
         this.addWindow(kcw);
         this._keyconfigWindow = kcw;
     }
-
     mainWidnow() {
         return this._keyconfigWindow;
     }
 }
-
-//TODO デバッグ用に、全情報を出す画面
-// class Window_MapperBase extends Window_Selectable{
-
-//     mapper(){
-//         return {};
-//     }
-
-//     addItem(key,value){
-//         this._list.push({key:key,value:value});
-//     }
-//     /**
-//      * @param {Number} index 
-//      * @returns {{value:String,key:String}}
-//      */
-//     item(index){
-//         return this._list[index];
-//     }
-
-//     makeItemList(){
-//         const mapper = this.mapper();
-//         this._list =[];
-//         for (const key in mapper) {
-//             if (mapper.hasOwnProperty(key)) {
-//                 const value = mapper[key];
-//                 this.addItem(key,value);
-//             }
-//         }
-//     }
-//     drawItem(index){
-//         const item = this._list[index];
-//         if(item){
-//             const rect = this.itemRectForText(index);
-//         }
-//     }
-// }
-
-// class Scene_InputConfigDebug extends Scene_MenuBase{
-
-// }
 
 if(setting.hookPoint==='menu'){
     const Window_TitleCommand_makeCommandList = Window_TitleCommand.prototype.makeCommandList;
@@ -3480,7 +3446,6 @@ function unknowSymbolAutoImport(){
         const unknowsKey = unknowSymbols(Input.keyMapper,setting.symbolList);
         const symbols1 = setting.symbolList.concat(unknowsKey);
         const unknowPad = unknowSymbols(Input.gamepadMapper,symbols1);
-    
         setting.symbolList  = symbols1.concat(unknowPad);
     }
 }
@@ -3493,8 +3458,6 @@ Scene_Boot.prototype.create =function(){
     Mano_InputConfig.defaultKeyMapper= Object.freeze(objectClone(Input.keyMapper));
     Scene_Boot_create.call(this);
 };
-
-
 
 const exportClass ={
     Scene_ConfigBase:Scene_InputConfigBase_MA,
@@ -3524,12 +3487,17 @@ const exportClass ={
 return exportClass;
 })();
 
-if(!!PluginManager.parameters("Yep_OptionCore")){
-    //インポート情報を偽装し、GamepadConfig/KeybordConfigと認識させる
-    Imported.GamepadConfig = true;
-    Imported.YEP_KeyboardConfig = true;
-    window["Scene_KeyConfig"] = Mano_InputConfig.Scene_KeyConfig;
-    window["Scene_GamepadConfig"] = Mano_InputConfig.Scene_GamepadConfig;
-    Input.isControllerConnected =function(){return true;};
-}
 
+{
+    if(!!PluginManager.parameters("Yep_OptionCore")){
+
+      //インポート情報を偽装し、GamepadConfig/KeybordConfigと認識させる
+      Imported.GamepadConfig = true;
+      Imported.YEP_KeyboardConfig = true;
+      window["Scene_KeyConfig"] = Mano_InputConfig.Scene_KeyConfig;
+      window["Scene_GamepadConfig"] =Mano_InputConfig.Scene_GamepadConfig;
+      //何かよくわからない関数が追加されているので、適当に追加する
+      Input.isControllerConnected =Input.isControllerConnected||function(){return true;};
+    }
+
+}
