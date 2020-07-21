@@ -605,7 +605,7 @@
  * @param textApply
  * @desc This command applies the settings.
  * If you select this, the configuration will end.
- * Save @default settings
+ * @default Save Settings
  * @parent text
  *
  * @param textRollback
@@ -635,41 +635,39 @@
  * @parent text
  * 
  *
- * @param textOK Description of 
- * @desc ok function
+ * @param textOK 
+ * @desc Description of ok function
  * Description of ok's function
  * @default decision
-  * @parent text
+  *@parent text
   *
   * @param textCancel
-  * Description of @desc cancel function
-  * Description of cancel function
+  * @desc  Description of cancel function
   * @default cancel
   * @parent text
   *
   * @param textShift
-  * Description of @desc shift function
-  * Description of shift function
+  * @desc  Description of shift function
   * @default dash
   * @parent text
   *
   * @param textMenu
-  * Description of @desc menu functions
+  * @desc Description of menu functions
   * @default menu
   * @parent text
   * *
   * @param textPageup
-  * Description of @desc pageup function
+  * @desc Description of  pageup function
   * @default before
   * @parent text
   *
   * @param textPagedown
-  * Description of @desc pagedown function
+  *  @desc  Description ofpagedown function
   * @default next
   * @parent text
   *
   * @param textEscape
-  * Description of @desc escape function (cancel and menu key)
+  *  @desc  Description of escape function (cancel and menu key)
   * @default Cancel / Menu
   * @parent text
   *
@@ -732,75 +730,76 @@
    * It also controls the order of arrangement.。
    * @type number[]
    * @default ["1","0","3","2","4","5","6","7","8","9","10","11","16"]
+
    * @param button0
    * @desc PS2 controller: ×
    * @default {"buttonName": "B", "action": ""}
-   * @type struct <ButtonInfo>
+   * @type struct<ButtonInfo>
    * @parent buttons
    *
    * @param button1
    * @desc PS2 controller: 〇
-   * @type struct <ButtonInfo>
+   * @type struct<ButtonInfo>
    * @default {"buttonName": "A", "action": ""}
    * @parent buttons
    *
    * @param button2
    * @desc PS2 controller: □
-   * @type struct <ButtonInfo>
+   * @type struct<ButtonInfo>
    * @default {"buttonName": "Y", "action": ""}
    * @parent buttons
    *
    * @param button3
    * @desc PS2 controller: △
-   * @type struct <ButtonInfo>
+   * @type struct<ButtonInfo>
    * @default {"buttonName": "X", "action": ""}
    * @parent buttons
    *
    * @param button4
    * @desc PS2 controller: L1
-   * @type struct <ButtonInfo>
+   * @type struct<ButtonInfo>
    * @default {"buttonName": "L1", "action": ""}
    * @parent buttons
    *
    * @param button5
    * @desc PS2 controller: R1
-   * @type struct <ButtonInfo>
+   * @type struct<ButtonInfo>
    * @default {"buttonName": "R1", "action": ""}
    * @parent buttons
    *
    * @param button6
    * @desc PS2 controller: L2
-   * @type struct <ButtonInfo>
+   * @type struct<ButtonInfo>
    * @default {"buttonName": "L2", "action": ""}
    * @parent buttons
    *
    * @param button7
    * @desc PS2 controller: R2
-   * @type struct <ButtonInfo>
+   * @type struct<ButtonInfo>
    * @default {"buttonName": "R2", "action": ""}
    * @parent buttons
    *
    * @param button8
    * @desc PS2 controller: select
-   * @type struct <ButtonInfo>
+   * @type struct<ButtonInfo>
    * @default {"buttonName": "select", "action": ""}
    * @parent buttons
    *
    * @param button9
    * @desc PS2 controller: start
-   * @type struct <ButtonInfo>
+   * @type struct<ButtonInfo>
    * @default {"buttonName": "start", "action": ""}
    * @parent buttons
    *
    * @param button10
    * @desc PS2 controller: Left stick pressed down
-   * @type struct <ButtonInfo>
+   * @type struct<ButtonInfo>
    * @default {"buttonName": "L push", "action": ""}
    * @parent buttons
    *
    * @param button11
    * @desc PS2 controller: push right stick
-   * @type struct <ButtonInfo>
+   * @type struct<ButtonInfo>
    * @default {"buttonName": "R push", "action": ""}
    * @parent buttons
    *
@@ -812,7 +811,7 @@
    *
    * @param button12
    * @desc UP key / UP_BUTTON
-   * @type struct <ButtonInfo>
+   * @type struct<ButtonInfo>
    * @default {"buttonName": "UP", "action": ""}
    * @parent moveButtons
    *
@@ -823,7 +822,7 @@
    *
    * @param button13
    * @desc Down key / DOWN_BUTTON
-   * @type struct <ButtonInfo>
+   * @type struct<ButtonInfo>
    * @default {"buttonName": "DOWN", "action": ""}
    * @parent moveButtons
 
@@ -835,7 +834,7 @@
    *
    * @param button14
    * @desc left key / LEFT_BUTTON
-   * @type struct <ButtonInfo>
+   * @type struct<ButtonInfo>
    * @default {"buttonName": "LEFT", "action": ""}
    * @parent moveButtons
    *
@@ -846,7 +845,7 @@
    *
    * @param button15
    * @desc right key / RIGHT_BUTTON
-   * @type struct <ButtonInfo>
+   * @type struct<ButtonInfo>
    * @default {"buttonName": "RIGHT", "action": ""}
  * @parent moveButtons
  *
@@ -857,7 +856,7 @@
  *
  * @param button16
  * @desc PS2 controller:
- * @type struct <ButtonInfo>
+ * @type struct<ButtonInfo>
  * @default {"buttonName": "button16", "action": ""}
  * @parent buttons
  * @param button_unknow
@@ -981,7 +980,7 @@
 * @param keyboardConfigEnabled
 * @desc This is the setting to enable Keyboard Config.
 * @type boolean
-* @default trues
+* @default true
  *
  * @param commandName
  * @desc The name of the command to open the gamepad config
