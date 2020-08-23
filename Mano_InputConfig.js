@@ -6,17 +6,17 @@
 // http://opensource.org/licenses/mit-license.php
 // ----------------------------------------------------------------------------
 // Version
-// 0.9.0 2017/10/05 初版 
+// ver 4.0 2020/08/23
 // ----------------------------------------------------------------------------
 // [Twitter]: https://twitter.com/Sigureya/
 //=============================================================================
-
-
 
 /*:ja
  * @plugindesc コントローラ(ゲームパッド)・キーボードの設定を変更できます。
  * ユーザーが入力を拡張する場合の補助も行います。
  * @author しぐれん(https://github.com/Sigureya/RPGmakerMV)
+ * 
+ * @target MZ
  * 
  * @param debugMode
  * @text デバッグモード
@@ -442,19 +442,6 @@
  * @type string
  * @default キーコンフィグ
  * 
- * @param hookPoint
- * @desc ゲームパッドコンフィグの開き方を設定します。
- * プラグイン導入順によって前後することがあります。
- * @type select
- * @option オプション画面の一番後ろ
- * @value option
- * @option 音量設定の前
- * @value beforeVolume
- * @option 音量設定の後ろ
- * @value afterVolume
- * @option タイトル/メニューから開く
- * @value menu
- * @default option
  * 
  * 
  * @help
@@ -515,7 +502,10 @@
  * これで、指定されたシーンに移動できます。
  * 
  * 更新履歴
- *
+ * 2020/08/23 ver4.0
+ * ツクールMZに対応。
+ * 基本システムはMZ向けに最適化し、MVはラッパーで調整
+ * 
  * 2020/05/25 ver 3.2
  * YEP_OptionCoreと競合するので、対策処理を追加。
  * 
@@ -569,6 +559,8 @@
  * It also helps users expand their input.
  * @author Shiguren (https://github.com/Sigureya/RPGmakerMV)
  *
+ * @target MZ
+ * 
  * @param debugMode
  * @text debug mode
  * @desc Write some debugging information to the console.
@@ -992,19 +984,6 @@
  * @type string
  * @default key config
  *
- * @param hookPoint
- * @desc Set how to open Gamepad Config.
- * It may be changed depending on the plug-in introduction order.
- * @type select
- * @option at the bottom of the options screen
- * @value option
- * @option before volume setting
- * @value beforeVolume
- * @option After volume setting
- * @value afterVolume
- * Open from @option title / menu
- * @value menu
- * @default option
  *
  * @help
  * Warning: Keep this plugin above YEP_OptionsCore.js.
@@ -1076,7 +1055,12 @@
  * If you have any troubles, please go to my Twitter (https://twitter.com/Sigureya) or github (https://github.com/Sigureya/RPGmakerMV).
  * 
  * Change log
- *
+ * 2020/08/23 ver 4.0
+ * Compatible with RPG Maker MZ.
+ * Basic system optimized for MZ, MV adjusted with wrapper
+ * 
+ * 2020/07/24 ver 3.2
+ * English text fix.
  * 2020/04/01 ver 3.1
  * Added help for English language support.
  *
@@ -1148,7 +1132,6 @@ var Mano_InputConfig=( function(){
     }
     
 const moveSymbols =['up','down','left','right'];
-
 
 function getParam(){
     return PluginManager.parameters('Mano_InputConfig');
@@ -1318,7 +1301,6 @@ const setting = (function(){
         mandatorySymbols:createMandatorySymbols(params),
         symbolAutoSelect:(params.symbolAutoSelect==='true'),
         windowSymbolListWidht:Number(params.windowSymbolListWidth),
-        hookPoint:String(params.hookPoint),
         commandName:String(params.commandName),
         keyConfigCommandName:String(params.keyconfigCommandName),
         
@@ -1576,22 +1558,63 @@ function playApplySound(){
 function playSymbolSetSound(){
     SoundManager.playOk();
 }
+const ColorSrc = window["ColorManager"] || null;
+/**
+ * @returns {Window_Base}
+ * @param {Window_Base} window_base 
+ */
+function getColorSrc(window_base){
+    return ColorSrc||window_base;
+}
 
 class Window_Selectable_InputConfigVer extends Window_Selectable{
+    /**
+     * @param {Rectangle} rect 
+     */
+    constructor(rect){
+        super(rect);
+    }
+
+    /**
+     * @param {Rectangle} rect 
+     */
+    initialize(rect){
+        if(Utils.RPGMAKER_NAME==="MZ"){
+            super.initialize(rect);
+            return
+        }
+        if(Utils.RPGMAKER_NAME==="MV"){
+            super.initialize(rect.x,rect.y,rect.width,rect.height);
+            return;
+        }
+        throw( new Error("Unknow RPG MAKER:"+Utils.RPGMAKER_NAME));
+    }
     isOkTriggered(){
         return Input.isTriggered("ok");
     }
     isCancelTriggered(){
         return Input.isTriggered('cancel');
     }
+
+    textPadding(){
+        return 6;
+    }
+    /**
+     * @returns {ColorSrc}
+     */
+    colorSrc(){
+        return this;
+    }
 }
 
 class Window_InputSymbolList extends Window_Selectable_InputConfigVer {
-    initialize(x, y) {
+
+    /**
+     * @param {Rectangle} rect 
+     */
+    initialize(rect) {
         this.makeCommandList();
-        const width = setting.windowCustom.symbolWidth;
-        const height = this.windowHeight(); 
-        super.initialize( x, y, width, height);
+        super.initialize(rect);
         this.deactivate();
         this.deselect();
     }
@@ -1605,9 +1628,6 @@ class Window_InputSymbolList extends Window_Selectable_InputConfigVer {
         const x = Graphics.boxWidth / 2 - this.width / 2;
         const y = Graphics.boxHeight / 2 - this.height / 2;
         this.move(x, y, this.width, this.height);
-    }
-    windowHeight() {
-        return this.fittingHeight(this.maxItems());
     }
     maxItems() {
         return this._list.length;
@@ -1670,7 +1690,7 @@ class Window_InputSymbolList extends Window_Selectable_InputConfigVer {
         return this._list[index].name;
     }
     drawItem(index) {
-        const rect = this.itemRectForText(index);
+        const rect = this.itemRectWithPadding(index);
         this.drawText(this.symbolName(index), rect.x, rect.y, rect.width);
     }
 }
@@ -1712,12 +1732,12 @@ function createPadinfoText(pad) {
     return setting.gamepadIsNotConnected;
 }
 class Window_GamepadConfig_MA extends Window_Selectable_InputConfigVer {
-    initialize() {
+    initialize(rect) {
         this.setGamepadMapper(Input.gamepadMapper);
         
         this.makeCommandList();
-        const r = this.windowRect();
-        super.initialize( r.x, r.y, r.width, r.height);
+//        const r = this.windowRect();
+        super.initialize( rect);
         this.defineNameWidth();
         this.defineSymbolTextWidth();
 
@@ -2002,29 +2022,24 @@ class Window_GamepadConfig_MA extends Window_Selectable_InputConfigVer {
         this.redrawItem(index);
         this.redrawApplyCommand();
     }
-    drawAllItems() {
-        const topIndex = this.topIndex();
-        const max = this.maxPageItems();
-        for (var i = 0; i < max; i++) {
-            const index = topIndex + i;
-            this.drawItem(index);
-        }
-    }
 
+    //メモ ボタン一覧を示すリストと、保存などに使うコマンドは別の配列
+    //なので、描画機能は分けてあるs
     drawCommand(index){
         const commandIndex = this.commandIndex(index);
         const command = this._command[commandIndex];
         if(command){
             this.changePaintOpacity(command.enabled);
-            const rect = this.itemRectForText(index);
+            const rect = this.itemRectWithPadding(index);
             this.drawText(command.name,rect.x,rect.y,rect.width);
             this.changePaintOpacity(true);
         }
     }
     drawItem(index) {
         if(index< this._list.length){
-            this.changeTextColor(this.normalColor());
-            const rect = this.itemRectForText(index);
+
+            this.changeTextColor(getColorSrc(this).normalColor());
+            const rect = this.itemRectWithPadding(index);
             this.drawText(this.buttonName(index), rect.x, rect.y);
             const nameWidth = this.nameWidth();
             const symbolWidth = rect.width - nameWidth;
@@ -2062,19 +2077,19 @@ class Window_GamepadConfig_MA extends Window_Selectable_InputConfigVer {
     }
     drawDefaultCommand() {
         const index = this.defaultCommandIndex();
-        const rect = this.itemRectForText(index);
+        const rect = this.itemRectWithPadding(index);
         this.drawText(setting.commandText.default_, rect.x, rect.y, rect.width);
     }
     drawExitCommand() {
         const index = this.exitCommandIndex();
-        const rect = this.itemRectForText(index);
+        const rect = this.itemRectWithPadding(index);
         this.drawText(setting.commandText.exit, rect.x, rect.y, rect.width);
     }
     drawApplyCommand() {
         const ok = this.canApplySetting();
         const index = this.applyCommandIndex();
         this.changePaintOpacity(ok);
-        const rect = this.itemRectForText(index);
+        const rect = this.itemRectWithPadding(index);
         this.drawText(setting.commandText.apply, rect.x, rect.y, rect.width);
         this.changePaintOpacity(true);
     }
@@ -2103,9 +2118,33 @@ class Scene_InputConfigBase_MA extends Scene_MenuBase{
         //混ぜてはいけない
         this._popSceneMode=false;
     }
+
+
+    symbolListHeight(){
+        return this.calcWindowHeight( setting.symbolList.length+1);
+    }
+    symbolListWidth(){
+        return setting.windowCustom.symbolWidth;
+    }
+
+    /**
+     * @param {Number} numLines
+     */
+    calcWindowHeight(numLines){
+        return Window_Selectable.prototype.fittingHeight(Math.floor( numLines))
+    }
+    symbolListWindowRect() {
+        const mainWidnow = this.mainWidnow();
+        const width = this.symbolListWidth();
+        const height = this.symbolListHeight();
+        const x =mainWidnow.x + mainWidnow.width;
+        const y=mainWidnow.y;
+        return new Rectangle(x,y,width,height);
+    }
+
     createSymbolListWindow() {
-        const pos = this.symbolListWindowPostion();
-        const asw = new Window_InputSymbolList(pos.x, pos.y);
+        const pos = this.symbolListWindowRect();
+        const asw = new Window_InputSymbolList(pos);
         asw.setHandler('ok', this.onSymbolListOk.bind(this));
         asw.setHandler('cancel', this.onSymbolListCancel.bind(this));
         asw.hide();
@@ -2157,7 +2196,7 @@ class Scene_InputConfigBase_MA extends Scene_MenuBase{
         }
     }
     /**
-     * @return {Window_Selectable}
+     * @return {Window_Selectable_InputConfigVer}
      */
     mainWidnow() {
         return null;
@@ -2176,37 +2215,32 @@ class Scene_InputConfigBase_MA extends Scene_MenuBase{
         this._symbolListWindow.hide();
         this.mainWidnow().activate();
     }
-    symbolListWindowPostion() {
-        return { x: 0, y: 0 };
-    }
     symbolCenter() {
         return false;
     }
 }
 
 class Scene_GamepadConfigMA extends Scene_InputConfigBase_MA{
-    /**
-     * @return {Rectangle}
-     */
-    SymbolListWindowRect() {
-        return new Rectangle(0, 0, 500, 500);
-    }
 
-    symbolListWindowPostion() {
-        if (setting.gamepadSymbolPosition.mode === 'right') {
-            return {
-                /**
-                 * @type {Number}
-                 */
-                x: this._gamepadWindow.x + this._gamepadWindow.width,
-                /**
-                 * @type {Number}
-                 */
-                y: this._gamepadWindow.y
-            };
-        }
-        return { x: 0, y: 0 };
-    }
+
+    // symbolListWindowRect() {
+    //     if (setting.gamepadSymbolPosition.mode === 'right') {
+    //         return {
+    //             /**
+    //              * @type {Number}
+    //              */
+    //             x: this._gamepadWindow.x + this._gamepadWindow.width,
+    //             /**
+    //              * @type {Number}
+    //              */
+    //             y: this._gamepadWindow.y
+    //         };
+    //     }
+    //     return { x: 0, y: 0 };
+    // }
+
+    
+
     symbolCenter() {
         return setting.gamepadSymbolPosition.mode === 'center';
     }
@@ -2223,9 +2257,17 @@ class Scene_GamepadConfigMA extends Scene_InputConfigBase_MA{
         super.create();
         this.createAllWindows();
     }
+    gamepadWindowRect(){
+        const width = setting.windowCustom.gamepadWidth*setting.cols;
+        const height = this.calcWindowHeight(setting.numVisibleRows/2);
+        const x = (Graphics.boxWidth/2) -(width/2);
+        const y= this._helpWindow.y + this._helpWindow.height;
+        return new Rectangle(x,y,width,height);
+    }
 
     createGamepadConfigWindow() {
-        const gcw = new Window_GamepadConfig_MA(0, 0);
+        const rect = this.gamepadWindowRect();
+        const gcw = new Window_GamepadConfig_MA(rect);
         //    gcw.select(0);
         gcw.setHandler('ok', this.onConfigOk.bind(this));
         gcw.setHandler('exit', this.onConfigCancel.bind(this));
@@ -2292,8 +2334,18 @@ class Scene_GamepadConfigMA extends Scene_InputConfigBase_MA{
         SoundManager.playCancel();
         SceneManager.pop();
     }
+    helpWindowInitParam(){
+        if(Utils.RPGMAKER_NAME ==="MV"){
+            return 3;
+        }
+        if(Utils.RPGMAKER_NAME ==="MZ"){
+            const height = this.calcWindowHeight(3);
+            const width = Graphics.boxWidth;
+            return new Rectangle( 0,0,width,height );
+        }
+    }
     createHelpWindow(){
-        this._helpWindow = new Window_Help(3);
+        this._helpWindow = new Window_Help(this.helpWindowInitParam());
         this.addWindow(this._helpWindow);
         const pad =createPadState(0);
         this._helpWindow.setText( createPadinfoText(pad));            
@@ -2301,24 +2353,18 @@ class Scene_GamepadConfigMA extends Scene_InputConfigBase_MA{
     createAllWindows() {
         this.createHelpWindow();
         this.createGamepadConfigWindow();
-        if (setting.gamepadConfigPosition) {
-            this.createSymbolListWindow(setting.gamepadConfigPosition.x, setting.gamepadConfigPosition.y);
-        }
-        else {
-            this.createSymbolListWindow(0, 0);
-            this._symbolListWindow.moveCenter();
-        }
+        this.createSymbolListWindow();
+        // if (setting.gamepadConfigPosition) {
+        //     this.createSymbolListWindow(setting.gamepadConfigPosition.x, setting.gamepadConfigPosition.y);
+        // }
+        // else {
+        //     this.createSymbolListWindow(0, 0);
+        //     this._symbolListWindow.moveCenter();
+        // }
         this._gamepadWindow.activate();
     }
 }
 
-/**
- * @return {Rectangle}
- */
-Scene_GamepadConfigMA.prototype.SymbolListWindowRect=function(){
-    const x= this._gamepadWindow.x+this._gamepadWindow.width;
-    return new Rectangle(x,this._gamepadWindow.y,0,0);
-};
 
 class Key_Base{
     /**
@@ -2892,11 +2938,13 @@ class Window_KeyConfig_MA extends Window_Selectable_InputConfigVer {
     mapper(){
         return Input.keyMapper;
     }
-    initialize() {
+    /**
+     * @param {Rectangle} rect 
+     */
+    initialize(rect) {
         this.setKeyboradMapper(this.mapper());
         this.setKeyLayout(ConfigManager.keyLayout_MA);
-        const height = this.fittingHeight(12);
-        super.initialize(0, 0, Graphics.boxWidth, height);
+        super.initialize(rect);
         this.initElementsSize();
         this.refresh();
         this.activate();
@@ -3002,6 +3050,10 @@ class Window_KeyConfig_MA extends Window_Selectable_InputConfigVer {
             return;
         }
         const item = this._list[index];
+        if(!item){
+            this.playBuzzerSound();
+            return;
+        }
         if(item.locked){
             this.playBuzzerSound();
             return;
@@ -3092,12 +3144,21 @@ class Window_KeyConfig_MA extends Window_Selectable_InputConfigVer {
         this.contents.fillRect(rect.x + 1, rect.y + 1, rect.width - 2, rect.height - 2, color);
         this.changePaintOpacity(true);
     }
+
+    enabledKeyColor(){
+        return "#ffd530" ;
+    }
+
     drawItemRect(enabled, rect) {
+        const color = enabled ? this.enabledKeyColor() :this.commandBackColor();
+        this.drawRect(rect,color);
+        return;
+    
         if (enabled) {
-            this.drawRect(rect, this.textColor(14));
+            this.drawRect(rect, getColorSrc(this).textColor(14));
         }
         else {
-            this.drawRect(rect, this.gaugeBackColor());
+            this.drawRect(rect, getColorSrc(this).gaugeBackColor());
         }
     }
     cursorUp(wrap) {
@@ -3150,9 +3211,9 @@ class Window_KeyConfig_MA extends Window_Selectable_InputConfigVer {
      * @param {Rectangle} rect 
      */
     drawKeyName(keyname,rect){
-        this.changeTextColor(this.normalColor());
+        this.changeTextColor(getColorSrc(this).normalColor());
         this.drawText(keyname, rect.x, rect.y, rect.width, 'center'); //,this.itemTextAlign());
-        this.changeTextColor(this.textColor(4));
+        this.changeTextColor(getColorSrc(this).textColor(4));
     }
     /**
      * @param {Number} index
@@ -3165,9 +3226,9 @@ class Window_KeyConfig_MA extends Window_Selectable_InputConfigVer {
         }
     }
     drawItemText(keyName, symobolText, x, y, width) {
-        this.changeTextColor(this.normalColor());
+        this.changeTextColor(getColorSrc(this).normalColor());
         this.drawText(keyName, x, y, width, 'center'); //,this.itemTextAlign());
-        this.changeTextColor(this.textColor(4));
+        this.changeTextColor(getColorSrc(this).textColor(4));
         if (symobolText) {
             this.drawText(symobolText, x, y + this.lineHeight(), width, 'center');
         }
@@ -3204,9 +3265,7 @@ class Window_KeyConfig_MA extends Window_Selectable_InputConfigVer {
         const symbol = this.symbol(index);
         return symbol;
     }
-    rectColor() {
-        return this.textColor(2);
-    }
+
     item(index){
         return this._list[index];
     }
@@ -3228,16 +3287,17 @@ class Window_KeyConfig_MA extends Window_Selectable_InputConfigVer {
     makeCommandList() {
     }
     commandBackColor() {
-        return this.gaugeBackColor();
+        return getColorSrc(this).gaugeBackColor();
     }
     commandColor() {
-        return this.normalColor();
+        return getColorSrc(this).normalColor();
     }
     /**
      * @param {String} commandName 
      * @param {Rectangle} rect 
      */
     drawCommand(commandName, rect) {
+
         this.drawRect(rect, this.commandBackColor());
         this.changeTextColor(this.commandColor());
         this.drawText(commandName, rect.x, rect.y, rect.width, 'center');
@@ -3313,7 +3373,6 @@ class Scene_KeyConfig_MA extends Scene_InputConfigBase_MA{
         this.loadDefaultConfig();
     }
     loadDefaultConfig() {
-        
         this._keyconfigWindow.setKeyboradMapper(Mano_InputConfig.defaultKeyMapper);
         this._keyconfigWindow.refresh();
     }
@@ -3341,8 +3400,17 @@ class Scene_KeyConfig_MA extends Scene_InputConfigBase_MA{
         this._keyconfigWindow.setWASD_Move();
         this._keyconfigWindow.playApplySound();
     }
+    keyconfigWindowRect(){
+        const x = 0;
+        const y=this.mainAreaTop();
+        const width = Graphics.boxWidth;
+        const lines = Utils.RPGMAKER_NAME =="MV" ? 12:10;
+        const height = this.calcWindowHeight(lines);
+        return new Rectangle(x,y,width,height);
+    }
     createKeyboradConfigWindow() {
-        const kcw = new Window_KeyConfig_MA();
+        const rect = this.keyconfigWindowRect();
+        const kcw = new Window_KeyConfig_MA(rect);
         kcw.setHandler('cancel', this.onConfigCancel.bind(this));
         kcw.setHandler('ok', this.onConfigOk.bind(this));
         kcw.setHandler(KEY_COMMAND.DEFAULT.handle, this.onLoadDefaultOk.bind(this));
@@ -3358,23 +3426,6 @@ class Scene_KeyConfig_MA extends Scene_InputConfigBase_MA{
     }
 }
 
-if(setting.hookPoint==='menu'){
-    const Window_TitleCommand_makeCommandList = Window_TitleCommand.prototype.makeCommandList;
-    Window_TitleCommand.prototype.makeCommandList = function(){
-        Window_TitleCommand_makeCommandList.call(this);
-        
-        this.addCommand(setting.commandName,MA_GAMEPAD_CONFIG,true);
-    };
-    const Scene_Title_createCommandWindow=Scene_Title.prototype.createCommandWindow
-    Scene_Title.prototype.createCommandWindow =function(){
-        Scene_Title_createCommandWindow.call(this);
-        this._commandWindow.setHandler(MA_GAMEPAD_CONFIG,  this.commandGamepadConfig.bind(this));
-    };
-    Scene_Title.prototype.commandGamepadConfig =function(){
-        this._commandWindow.close();
-        SceneManager.push(Scene_GamepadConfigMA);
-    };
-}else{
 
     Window_Options.prototype.addGamepadOptions_MA =function(){
         if(setting.gamepadConfigEnabled){
@@ -3388,28 +3439,11 @@ if(setting.hookPoint==='menu'){
             this.addCommand(setting.keyConfigCommandName,MA_KEYBOARD_CONFIG);
         }
     };
-    const Window_Options_addGeneralOptions=Window_Options.prototype.addGeneralOptions;
     const Window_Options_addVolumeOptions=Window_Options.prototype.addVolumeOptions;
-
-    const Window_Options_makeCommandList = Window_Options.prototype.makeCommandList
-    if(setting.hookPoint==='beforeVolume'){
-        Window_Options.prototype.addVolumeOptions=function(){
-            this.addGamepadOptions_MA();
-            this.addKeyboardConfig_MA();
-            Window_Options_addVolumeOptions.call(this);
-        }
-    }else if(setting.hookPoint==='afterVolume'){
-        Window_Options.prototype.addVolumeOptions=function(){
-            Window_Options_addVolumeOptions.call(this);
-            this.addGamepadOptions_MA();
-            this.addKeyboardConfig_MA();
-        }
-    }else{
-        Window_Options.prototype.makeCommandList =function(){
-            Window_Options_makeCommandList.call(this);
-            this.addGamepadOptions_MA();
-            this.addKeyboardConfig_MA();
-        };
+    Window_Options.prototype.addVolumeOptions=function(){
+        Window_Options_addVolumeOptions.call(this);
+        this.addGamepadOptions_MA();
+        this.addKeyboardConfig_MA();
     }
     const Window_Options_statusText=Window_Options.prototype.statusText;
     Window_Options.prototype.statusText =function(index){
@@ -3438,7 +3472,7 @@ if(setting.hookPoint==='menu'){
         }
         Window_Options_processOk.call(this);       
     };
-}
+
 
 function unknowSymbolAutoImport(){
     if(setting.unknowSymbolAutoImport){
@@ -3457,6 +3491,16 @@ Scene_Boot.prototype.create =function(){
     Mano_InputConfig.defaultKeyMapper= Object.freeze(objectClone(Input.keyMapper));
     Scene_Boot_create.call(this);
 };
+if(Utils.RPGMAKER_NAME =="MV"){
+    (function(){
+        //MV workaround
+        Scene_InputConfigBase_MA.prototype.mainAreaTop = function(){
+            return 0;
+        };
+
+        Window_Selectable_InputConfigVer.prototype.itemRectWithPadding = Window_Selectable_InputConfigVer.prototype.itemRectForText;
+    })();
+}
 
 const exportClass ={
     Scene_ConfigBase:Scene_InputConfigBase_MA,
@@ -3482,6 +3526,7 @@ const exportClass ={
         return unknowSymbols(Input.keyMapper,setting.symbolList);
     }
 };
+
 
 return exportClass;
 })();
