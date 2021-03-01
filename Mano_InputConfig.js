@@ -957,10 +957,10 @@
 * @default 148
 *
 * @param symbolAutoSelect
-* When switching the symbol corresponding to the @desc key,
+* @desc When switching the symbol corresponding to the @desc key,
 * Automatically move the cursor to the symbol set for that key.
 * @type boolean
-* Match on @on symbol
+* @on symbol
 * @off fit to the beginning
 * @default true
 *
