@@ -255,7 +255,12 @@
  * extendsMapper has an item called "Events".
  * If you set an event here, the event will be called when the button is pressed.
  * You can use it to create a function to open the map when you press the button.
- *
+ * 
+ * ■All functions can be used without eval ()
+ * There are no items in this plugin that use eval ().
+ * If you're writing a JavaScript expression for use with eval (),
+ * you're wrong.
+ * 
  * ■ If you want to control the transition with a script
  * Used when modifying other plugins or switching scenes directly with a script.
  * SceneManager.push (Mano_InputConfig.Scene_GamepadConfig); // Gamepad Config
@@ -306,6 +311,10 @@
  * extendsMapperには「イベント」という項目があります。
  * ここにイベントを設定すると、ボタンが押された時にイベントを呼び出します。
  * ボタンを押したら地図を開く機能を作る時などに使えます。
+ * 
+ * ■eval()無しで全機能が使えます
+ * このプラグインにはeval()を使う項目はありません。
+ * eval()で使うJavaScriptの式を書いている場合、あなたは間違っています。
  * 
  * ■スクリプトで遷移を制御したい場合
  * 他のプラグインを改造したり、スクリプトで直接シーンを切り替える時に使います。
@@ -447,11 +456,51 @@
  * @type struct<MultiLangNote>
  * @default {"jp":"","en":""}
  * 
+ */
+/*
+//TODO:いずれ追加するかもしれない機能
+//extendsSymbolとの共通化が壁 
  * @param exKeys
  * @type string
  * @desc 指定したキーに対してアクションを割り当てます。
  * Assigns an action to the specified key.
  * @default
+ * 
+ * @param exButton
+ * @text パッドボタン/padButton
+ * @desc ボタン設定。配置と名前は任天堂のスタイルを想定。
+ * Button settings. The layout and name the style of Nintendo.
+ * @type select
+ * @default NaN
+ * @option none
+ * @value NaN
+ * @option 0(B/×)
+ * @value 0
+ * @option 1(A/○)
+ * @value 1
+ * @option 2(X/□)
+ * @value 2
+ * @option 3(Y/△)
+ * @value 3
+ * @option 4(L1)
+ * @value 4
+ * @option 5(R1)
+ * @value 5
+ * @option 6(L2)
+ * @value 6
+ * @option 7(R2)
+ * @value 7
+ * @option 8(select)
+ * @value 8
+ * @option 9(start)
+ * @value 9
+ * @option 10(L3)
+ * @value 10
+ * @option 11(R3)
+ * @value 11
+ * @option 16(center)
+ * @value 16
+ * 
 */
 
 /*~struct~TouchButton:
@@ -481,8 +530,8 @@
  * 
  * @param inputType
  * @text 入力方式/inputType
- * @desc イベント専用機能。呼び出し時のボタンの入力形式。
- * Set when using an event call.
+ * @desc 呼び出し時のボタンの入力形式。
+ * Button input format when calling.
  * @type select
  * @option 押されている/pressed
  * @value 0
@@ -609,6 +658,8 @@
  * 
  * @param event
  * @text イベント/event
+ * @desc ボタンを押した際にコモンイベントを実行します。
+ * Executes a common event when the button is pressed.
  * @type struct<EventCaller>
  * @default {"id":"0","inputType":"0"}
  * 
@@ -619,6 +670,8 @@
  * 
  * @param adovanced
  * @text 上級者向け/adovanced
+ * @desc 多くの場合、これを変更する必要はありません。
+ * In most cases you do not need to change this.
  * @type struct<AdvancedSetting>
  * @default {"symbol":"","overwrite":"0","mandatory":"false"}
  * 
@@ -956,6 +1009,9 @@ class TouchButton{
      * @returns 
      */
     static create(objText){
+        if(!objText){
+            return null;
+        }
         const obj = JSON.parse(objText);
         const x  =Number(obj.x);
         const y = Number(obj.y);
@@ -1110,6 +1166,13 @@ class DebugSymbol{
 
 
 }
+//TODO:基本・拡張の双方で使うので、1クラス追加
+class SymbolFill{
+    constructor(keys,button){
+
+    }
+}
+
 class I_SymbolDefine{
 
     createDebugSymbol(){
@@ -1217,6 +1280,8 @@ class I_SymbolDefine{
         return Input.isTriggered(this.symbol());
     }
 }
+
+
 class MoveSymbol extends I_SymbolDefine{
     /**
      * @param {String} symbol 
@@ -1315,14 +1380,16 @@ function xxxxMtext(mText){
     }
     return null;
 }
-class StandardSymbol extends I_SymbolDefine{
+class BasicSymbol extends I_SymbolDefine{
     /**
      * @param {String} symbol 
      * @param {MultiLanguageText} name 
      * @param {MultiLanguageText} keyText
      * @param {MultiLanguageText} helpText
+     * @param {String} exKeys
+     * @param {Number} exButton
      */
-    constructor(symbol,name,keyText,helpText){
+    constructor(symbol,name,keyText,helpText,exKeys ,exButton){
         super();
         this._symbol = symbol;
         //名前が未設定の場合、シンボルで初期化してしまう
@@ -1330,17 +1397,20 @@ class StandardSymbol extends I_SymbolDefine{
         //テキストが空っぽならnullにして、基底クラスの処理に任せる
         this._keyText = xxxxMtext( keyText);
         this._helpText=xxxxMtext(helpText);
+        this._exKeys=exKeys;
+        this._buttonId =exButton;
     }
     static create(symbol,objText){
         if(!objText){
-            return new StandardSymbol(symbol,null,null,null);
+            return new BasicSymbol(symbol,null,null,null);
         }
         const obj = JSON.parse(objText);
         const name =MultiLanguageText.create(obj.name);
         const keyText =MultiLanguageText.create(obj.keyText);
         const helpText =MultiLanguageText.create(obj.helpText);
-        return new StandardSymbol(symbol,name,keyText,helpText);
-
+        const exKeys =String(obj.exKeys||"");
+        const exButton =Number(obj.exButton );
+        return new BasicSymbol(symbol,name,keyText,helpText,exKeys,exButton);
     }
     isMandatory(){
         return true;
@@ -1363,32 +1433,16 @@ class StandardSymbol extends I_SymbolDefine{
 }
 function createBasicSymbols(){
     const param    = getParam();
-    const ok       = StandardSymbol.create("ok",param.basicOk);
-    const cancel   = StandardSymbol.create("cancel",param.basicCancel);
-    const shift    = StandardSymbol.create("shift",param.basicShift);
-    const menu     = StandardSymbol.create("menu",param.basicMenu);
-    const pageup   = StandardSymbol.create("pageup",param.basicPageup);
-    const pagedown = StandardSymbol.create("pagedown",param.basicPagedown);
+    const ok       = BasicSymbol.create("ok",param.basicOk);
+    const cancel   = BasicSymbol.create("cancel",param.basicCancel);
+    const shift    = BasicSymbol.create("shift",param.basicShift);
+    const menu     = BasicSymbol.create("menu",param.basicMenu);
+    const pageup   = BasicSymbol.create("pageup",param.basicPageup);
+    const pagedown = BasicSymbol.create("pagedown",param.basicPagedown);
     const esacape  = EscapeSymbol.create(param.basicEscape);
     return [ok,cancel,shift,menu,pageup,pagedown,esacape];
 }
 
-// /**
-//  * @returns {I_SymbolDefine[]}
-//  */
-// function basicSymbols(){
-//     const param = getParam();
-//     const ok =createDefaultKeyMapperItem("ok",param.mapperOk,null);
-//     const cancel = createDefaultKeyMapperItem("cancel",param.mapperCancel,null);
-//     //const shift = createDefaultKeyMapperItem("shift",param.mapperShift,null);
-//     const menu = createDefaultKeyMapperItem("menu",param.mapperMenu,null);
-//     const pageup =createDefaultKeyMapperItem("pageup",param.mapperPageup,null)
-//     const pagedonw =createDefaultKeyMapperItem("pagedown",param.mapperPagedown,null);
-
-//     const escapeText = MultiLanguageText.create(param.mapperEscape);
-//     const escape = new EscapeSymbol(escapeText);
-//     return [ok,cancel,menu,pageup,pagedonw,escape];
-// }
 class EventCaller{
     /**
      * @param {Number} eventId 
@@ -1426,7 +1480,7 @@ class EventCaller{
     /**
      * @param {String} symbol 
      */
-    update(symbol){
+    updateEvent(symbol){
         if(this._eventId >0 && this.needsEventCall(symbol)){
             this.callEvent();
         }
@@ -1510,7 +1564,6 @@ class AdovancedSetting{
         this._mandatory=  mandatory;
     }
     /**
-     * 
      * @param {String} objText 
      * @returns 
      */
@@ -1567,7 +1620,7 @@ const createExtendsSymbol=function(objText){
      * @type {String}
      */
     const touchButtonText=(obj.touchButton)
-    const button = touchButtonText ? TouchButton.create(touchButtonText):null;
+    const button = TouchButton.create(touchButtonText);//:null;
     if(button && button.isValid()){
         button.setSymbolObject(def);
     }
@@ -1596,7 +1649,7 @@ class ExtendsSymbol extends I_SymbolDefine{
         this._keys = (keys ||"").toUpperCase();
         this._buttonId =buttonId;
         this._actionName = actionName;
-        this._keyText=keyText;
+        //this._keyText=keyText;
         this._helpText =helpText;
         this._advanced =adovanced;
         this._keySetting=keySetting;
@@ -1685,19 +1738,20 @@ class ExtendsSymbol extends I_SymbolDefine{
     }
 
     /**
-     * @param {(symbol:String)=>Boolean} mapper 
+     * @param {(symbol:String)=>Boolean} isBasicSymbol 
      * @returns {String}
+     * @description 優先シンボルの読み込み
      */
-     xxxSymbol(mapper){
+    readPreferredSymbol(isBasicSymbol){
         const manualSymbol=this._advanced.symbol();
         if(manualSymbol){
             return manualSymbol;
         }
         switch (this._advanced.overwriteType()) {
             case 1:
-                return this.padSymbol(mapper);
+                return this.padSymbol(isBasicSymbol);
             case 2:
-                return this.firstKeySymbol(mapper);
+                return this.firstKeySymbol(isBasicSymbol);
             case 3:
                 return this.evantCallSymbol()
         }
@@ -1708,11 +1762,12 @@ class ExtendsSymbol extends I_SymbolDefine{
      * @returns {String}
      */
     readMySymbol(isBasicSymbol){
-
-        const xxxx=this.xxxSymbol(isBasicSymbol);
+        //上書き用の優先されるシンボルを取り出す
+        const xxxx=this.readPreferredSymbol(isBasicSymbol);
         if(xxxx){
             return xxxx;
         }
+        //無かったら、この順番で適当に読み込む
         const pad = this.padSymbol(isBasicSymbol);
         if(pad){
             return pad;
@@ -1749,6 +1804,8 @@ class ExtendsSymbol extends I_SymbolDefine{
                 return;
             }
         }
+        //TODO:mapperをmainMapperクラスにする
+        //これで直接触るのを避ける
         mapper[targetKey]= this._symbol;	
     }
 
@@ -1766,7 +1823,10 @@ class ExtendsSymbol extends I_SymbolDefine{
     }
     updateEventCall(){
         if(this._event){
-            this._event.update(this.symbol());
+            const symbol = this.symbol();
+            if(symbol){
+                this._event.updateEvent(symbol);
+            }
         }
     }
     debugInfo(){
@@ -1840,16 +1900,11 @@ class UnknowSymbol extends I_SymbolDefine{
     }
 }
 
-const Game_Map_setupStartingEvent =Game_Map.prototype.setupStartingEvent;
-Game_Map.prototype.setupStartingEvent =function(){
-    symbolManager.callButtonEvent();
-    return Game_Map_setupStartingEvent.call(this);
-};
 
 class SymbolManager_T {
     /**
-     * @param {I_SymbolDefine} basicSymbols 
-     * @param {MoveSymbol} moveSymbols 
+     * @param {I_SymbolDefine[]} basicSymbols 
+     * @param {MoveSymbol[]} moveSymbols 
      */
     constructor(basicSymbols,moveSymbols){
         /**
@@ -1909,7 +1964,7 @@ class SymbolManager_T {
         const selfObject =this;
         const isBasicSymbol = function(symbol){
             return selfObject.isBasicSymbol(symbol);
-        }
+        };
         const numExSymbols=this._extendSymbols.length;
         for (const iterator of this._extendSymbols) {
             iterator.loadSymbol(isBasicSymbol);
@@ -2054,13 +2109,6 @@ class SymbolManager_T {
         return true;
     }
 
-    // isValidMapper(mapper){
-    //     /**
-    //      * @type {Set<String>}
-    //      */
-    //     const set  = new Set(Object.values(mapper));
-    //     return this.isValidMapper_v3(set);
-    // }
 }
 const symbolManager = new SymbolManager_T(
     createBasicSymbols(),
@@ -2268,10 +2316,52 @@ class I_ReadonlyMapper{
     createDic(){
 
     }
+    /**
+     * @returns {}
+     */
     cloneMapper(){
         throw new Error("未実装")
     }
 }
+
+//ゲーム実行中のマッパーに直接触れるヤツ
+//主にFillSymbol用
+//初期状態も、これに持たせてしまう
+class MainMapperBase{
+    constructor(){
+        this._defaultMapper=null;
+    }
+    target(){
+        return {};
+    }
+
+    /**
+     * 
+     * @param {Number} key 
+     * @param {String} symbolString 
+     */
+    change(key,symbolString){
+        const target=this.target();
+        target[key]=symbolString;
+    }
+    saveDefault(){
+        this._defaultMapper =new DefaultMapper(this.target());
+    }
+    loadDefault(){
+        this.reset(this._defaultMapper.cloneMapper());
+    }
+    reset(mapper){
+    }
+}
+class MainGamepadMapper extends MainMapperBase{
+    target(){
+        return Input.gamepadMapper;
+    }
+    reset(){
+        
+    }
+}
+
 class DefaultMapper extends I_ReadonlyMapper{
     constructor(obj){
         super();
@@ -5383,6 +5473,9 @@ class Scene_KeyConfig_MA extends Scene_InputConfigBase_MA{
         }
     };
 function setupPP_option(){
+    if(Utils.RPGMAKER_NAME==="MV"){
+        return;
+    }
     if(PP_Option && PP_Option.Manager){
         PP_Option.Manager.addOptionEX(MA_GAMEPAD_CONFIG, currentGamepadConfigText,function(w,s,i){
             Mano_InputConfig.gotoGamepad();
@@ -5392,7 +5485,6 @@ function setupPP_option(){
         });    
     }
 }
-//const setupPP_Option_V2=(Imported.PP_Option) ? null : 
 function setupDefaultMapper(){
     //メモ
     //この処理はConfigManager.load()よりも先に行う必要がある。
@@ -5402,16 +5494,6 @@ function setupDefaultMapper(){
     Mano_InputConfig.defaultGamepadMapper =Object.freeze( objectClone(Input.gamepadMapper));
     Mano_InputConfig.defaultKeyMapper= Object.freeze(objectClone(Input.keyMapper));
 }
-// Scene_Boot.prototype.PP_Option_InputConfig=function(){
-//     if(PP_Option && PP_Option.Manager){
-//         PP_Option.Manager.addOptionEX(MA_GAMEPAD_CONFIG, currentGamepadConfigText,function(w,s,i){
-//             Mano_InputConfig.gotoGamepad();
-//         });
-//         PP_Option.Manager.addOptionEX(MA_KEYBOARD_CONFIG, currentKeyConfigText,function(w,s,i){
-//             Mano_InputConfig.gotoKey();
-//         });    
-//     }
-// }
 const DataManager_loadDatabase=DataManager.loadDatabase;
 DataManager.loadDatabase =function(){
     DataManager_loadDatabase.call(this);
@@ -5419,6 +5501,12 @@ DataManager.loadDatabase =function(){
     setupDefaultMapper();
     setupPP_option();
 };
+const Game_Map_setupStartingEvent =Game_Map.prototype.setupStartingEvent;
+Game_Map.prototype.setupStartingEvent =function(){
+    symbolManager.callButtonEvent();
+    return Game_Map_setupStartingEvent.call(this);
+};
+
 // const Scene_Boot_onDatabaseLoaded =Scene_Boot.prototype.onDatabaseLoaded ||(function(){});
 // Scene_Boot.prototype.onDatabaseLoaded =function(){  
 //     setupDefaultMapper();
