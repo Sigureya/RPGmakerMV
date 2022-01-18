@@ -5473,7 +5473,8 @@ class Scene_KeyConfig_MA extends Scene_InputConfigBase_MA{
         }
     };
 function setupPP_option(){
-    if(Utils.RPGMAKER_NAME==="MV"){
+    //これ以外の方法だと、変数が宣言されていないエラーで死ぬ
+    if(!Imported.PP_Option){
         return;
     }
     if(PP_Option && PP_Option.Manager){
