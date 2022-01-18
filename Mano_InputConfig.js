@@ -6,7 +6,7 @@
 // http://opensource.org/licenses/mit-license.php
 // ----------------------------------------------------------------------------
 // Version
-// ver 7.0.0 2021/12/30
+// ver 7.0.1 2022/01/18
 // ----------------------------------------------------------------------------
 // [Twitter]: https://twitter.com/Sigureya/
 //=============================================================================
@@ -323,6 +323,9 @@
  * これで、指定されたシーンに移動できます。
  * 
  * 更新履歴
+ * 2022/01/18 ver7.0.1
+ * PP_Optionとの連携関連で不具合があったのを修正。
+ * 
  * 2021/12/30 ver7.0.0
  * プラグインパラメータ「入力拡張」を中心に大改造。
  * 
@@ -1246,6 +1249,9 @@ class I_SymbolDefine{
         return this.symbol();
     }
     errorText(){
+        if(!symbolManager.isInitialized()){
+            return setting.errorText.initFauled.currentName();
+        }
         if(this.isEmpty()){
             return setting.errorText.symbolEmpty.currentName();
         }
@@ -1920,6 +1926,7 @@ class SymbolManager_T {
         this._moveSymbols = moveSymbols
         this.addDictionaryItems(this._basicSymbols);
         this.addDictionaryItems(this._moveSymbols);
+        this._initialized=false;
     }
     /**
      * @param {String} symbolString 
@@ -1957,8 +1964,17 @@ class SymbolManager_T {
         }
     }
     onBoot(){
+        if(this._initialized){
+            return;
+        }
         this.loadExtendsSymbols();
         this.loadUnknowSymbols();
+        //初期化成功フラグ
+        //競合で頻繁に問題を起こすため
+        this._initialized =true;
+    }
+    isInitialized(){
+        return this._initialized;
     }
     loadExtendsSymbols(){
         const selfObject =this;
@@ -2545,9 +2561,10 @@ class Gamepad extends InputDeviceBase{
         return null;
         
     }
-    // maxItems(){
-    //     return this._list.length;
-    // }
+    //TODO:ALT側で使っているのでしばらく残す
+     maxItems(){
+         return this._list.length;
+     }
     /**
      * @param {number} index
      */
@@ -2646,6 +2663,7 @@ class ErrorObject{
 }
 
 function createErrorTexts(){
+    const initFauled =new MultiLanguageText("The initialization process was not performed correctly. \nThere is a possibility of a plugin conflict. \nMove the plugin down may help.","初期化処理が正しく行われませんでした。\nプラグインの競合の可能性があります。\nプラグインを下の方に移動すると解決する場合があります。");
     const unknowSymbol = new MultiLanguageText("This is an unknown symbol. Add an item to the input extension","不明なシンボルです 入力拡張に項目を追加してください");
     const symbolEmpty=new MultiLanguageText("The symbol is not set \n Check the contents of the inputExtension from the plugin parameters","シンボルが設定されていません\nプラグインパラメータから拡張設定の内容を確認してください");
     const nameEmpty= new MultiLanguageText("The name for display is not set\nsymbol:","表示用の名称が設定されていません\nsymbol:");
@@ -2653,6 +2671,7 @@ function createErrorTexts(){
     const symbolManual =new MultiLanguageText("","シンボルが手動で設定されていますが、mapper内から見つけることができませんでした。");
 
     return {
+        initFauled:initFauled,
         unknowSymbol:unknowSymbol,
         symbolEmpty:symbolEmpty,
         nameEmpty:nameEmpty,
