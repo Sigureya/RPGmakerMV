@@ -17,27 +17,29 @@
  * 
  * @param commonA
  * @type Struct<CommonDefine>
+ * @default {"text":"コマンド名","enabled":"true","enableSwitch":"0","event":"","symbol":"onebuttonA","interrupt":"false","mandatory":"false","keyList":"IO","keycodeList":"[]","padButton":"-1"}
  * 
  * @param commonB
- * @type Struct<CommonDefine>
+ * @type struct<CommonDefine>
+ * @default {"text":"コマンド名","enabled":"true","enableSwitch":"0","event":"","symbol":"onebuttonA","interrupt":"false","mandatory":"false","keyList":"IO","keycodeList":"[]","padButton":"-1"}
  * 
  * @param commonC
- * @type Struct<CommonDefine>
+ * @type struct<CommonDefine>
  * 
  * @param commonD
- * @type Struct<CommonDefine>
+ * @type struct<CommonDefine>
  * 
  * @param commonE
- * @type Struct<CommonDefine>
+ * @type struct<CommonDefine>
  * 
  * @param commonF
- * @type Struct<CommonDefine>
+ * @type struct<CommonDefine>
  * 
  * @param commonG
- * @type Struct<CommonDefine>
+ * @type struct<CommonDefine>
  * 
  * @param commonH
- * @type Struct<CommonDefine>
+ * @type struct<CommonDefine>
  *
  * @param debugMode
  * @desc デバッグモードです。
@@ -67,6 +69,10 @@
  * Mano_InputConfigと一緒に入れている状態で動かない場合、
  * オプション画面を開いて初期設定に戻すを選択してください。
  * 解決するかもしれません。
+ * 
+ * 
+ * ver 2.3 (2018/11/18)
+ * 旧方式を使いたいという声があったので、形を変えて復活
  * 
  * ver 2.2
  * キーコードの設定方法で、旧型式を完全に削除
@@ -122,14 +128,6 @@
  * @type boolean
  * @default false
  * 
- * @param canMove
- * @desc このコモンイベント実行中にプレイヤーが移動できるかを決めます。
- * アクションゲームの場合、trueにすると良いと思います。
- * @on 移動できる
- * @off 移動できない
- * @type boolean
- * @default false
- *
  * @param mandatory
  * @desc inputConfigの方で必須指定されたものとして扱います。
  * @type boolean
@@ -140,6 +138,12 @@
  * @desc キーボードの割り当てです。(半角・大文字) 
  * ADと入れればAかDを押したときにイベントを実行します。
  * @type string
+ * 
+ * @param keycodeList
+ * @desc キーコードを数字で直接指定します。
+ * キーコードについては各自で検索してください。
+ * @type number[]
+ * @default []
  * 
  * @param padButton
  * @desc ゲームパッドの割り当てです
@@ -180,7 +184,6 @@ var MA_InputSymbols =MA_InputSymbols||[];
 
 var Mano_OneButtonCommonEventCall = (function () {
     'use strict';
-
 
 class MA_OneButtonCommonEvent {
     /**
@@ -256,19 +259,28 @@ class MA_OneButtonCommonEvent {
     settingId(){
         return this._settingId;
     }
-
-    isRunning() {
-        return this._interpreter && this._interpreter.isRunning();
-    }
-
-    canMoveWhileRunning() {
-        return this.mySetting().canMove;
-    }
 }
 
 window[MA_OneButtonCommonEvent.name] = MA_OneButtonCommonEvent;
 
 const setting= (function(){
+
+    /**
+     * @return {Number[]}
+     * @param {String} text 
+     */
+    function parseNumbers(text){
+        if(!text){
+            return [];
+        }
+        const obj = JSON.parse(text);
+        if(!obj.map){
+            return [];
+        }
+
+        return obj.map(function(v){return Number(v);});
+    }
+
     const params =PluginManager.parameters('Mano_OneButtonCommonEventCall')
     const isDebug = Utils.isOptionValid("test") && (params.isDebug==='true');
     function fetchCommonEvent(CommonDefine){
@@ -279,9 +291,9 @@ const setting= (function(){
         const enabled=(obj.enabled==='true');
 
         if(!enabled){
-            if(isDebug){
-                console.log("無効だから無視したよ");
-            }
+            // if(isDebug){
+            //     console.log("無効だから無視したよ");
+            // }
             return null;
         }
         const eventId_ = Number(obj.event);
@@ -303,12 +315,11 @@ const setting= (function(){
             symbol:String(obj.symbol),
             text:String(obj.text),
             eventId:eventId_,
-            keycode:Number(obj.keycode),
             keyList:String(obj.keyList),
+            keycodeList:parseNumbers(obj.keycodeList),
             padButtonNumber:Number(obj.padButton),
             mandatory:(obj.mandatory==='true'),   
             interrupt:(obj.interrupt==='true'),
-            canMove:(obj.canMove==='true'),
         };
     }
     function createCommonEventList(params){
@@ -357,6 +368,10 @@ const setting= (function(){
             setKeySymbol( data.keyList.charCodeAt(i)  ,data.symbol);
         }
 
+        for (const keycode of data.keycodeList) {
+            setKeySymbol(keycode,data.symbol);
+        }
+
         if( (  data.padButtonNumber)>=0){
 //            console.log("button"+data.padButtonNumber+"="+data.symbol);
             Input.gamepadMapper[ data.padButtonNumber]=data.symbol;
@@ -388,21 +403,6 @@ Game_Map.prototype.initOneButtonEvents =function(){
     }
 };
 
-Game_Map.prototype.runningOneButtonEvent =function(){
-    if (!this._oneButtonEvents) {
-        return undefined;
-    }
-    return this._oneButtonEvents.find(event => event.isRunning());
-}
-
-Game_Map.prototype.oneButtonEventIsRunning =function(){
-    return !!this.runningOneButtonEvent();
-}
-
-Game_Map.prototype.nonMovableOneButtonEventIsRunnning =function(){
-    const runningEvent = this.runningOneButtonEvent();
-    return !!runningEvent && !runningEvent.canMoveWhileRunning();
-}
 
 const  Game_Map_updateEvents=Game_Map.prototype.updateEvents;
 Game_Map.prototype.updateEvents =function(){
@@ -413,22 +413,6 @@ Game_Map.prototype.updateEvents =function(){
     }
     Game_Map_updateEvents.call(this);
 };
-
-const Game_Player_executeEncounter=Game_Player.prototype.executeEncounter;
-Game_Player.prototype.executeEncounter =function(){
-    if ($gameMap.oneButtonEventIsRunning()) {
-        return false;
-    }
-    return Game_Player_executeEncounter.call(this);
-}
-
-const Game_Player_canMove=Game_Player.prototype.canMove;
-Game_Player.prototype.canMove =function(){
-    if ($gameMap.nonMovableOneButtonEventIsRunnning()) {
-        return false;
-    }
-    return Game_Player_canMove.call(this);
-}
 
 const DataManager_extractSaveContents=DataManager.extractSaveContents;
 DataManager.extractSaveContents=function(contents){
